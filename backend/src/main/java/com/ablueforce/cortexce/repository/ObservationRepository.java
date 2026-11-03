@@ -240,18 +240,34 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     );
 
     /**
-     * tsvector search returning {@code [id, ts_rank]} rows. The lexical predicate
-     * ({@code @@ plainto_tsquery}) is the text relevance floor: rows with no matching term are
-     * never candidates, and {@code ts_rank > 0} is asserted explicitly so the floor is visible in
-     * the query rather than implied.
+     * Lexical search returning {@code [id, matched_token_count]} rows.
+     *
+     * <p>Both halves use {@code cortex_tokens()} (V24): ASCII identifiers stay whole and CJK
+     * runs become overlapping character bigrams, which is what makes a Chinese query able to
+     * match at all — the previous {@code to_tsvector('english')} column produced no lexeme for
+     * an unspaced Chinese paragraph, so the lexical path was empty for every Chinese query.
+     *
+     * <p>The score is the number of distinct query tokens the row contains. This is a
+     * coverage metric, not {@code ts_rank}: ranking by {@code ts_rank} over the same tokens
+     * measured hit@5 0.550 against 0.867 for coverage on the 60-query corpus, because
+     * {@code ts_rank} rewards repetition and document length instead of query coverage.
+     *
+     * <p>Each token is looked up through the GIN index on {@code search_tokens}, so the
+     * aggregate is index-driven rather than a sequential {@code LIKE} scan (a
+     * {@code LIKE ANY(<bigrams>)} filter over gin_trgm_ops matched every row and took 7.6 s
+     * on 100k rows; this form takes 0.3 s).
      */
     @Query(value = """
-        SELECT o.id, ts_rank(o.search_vector, plainto_tsquery('english', :query)) AS score
-        FROM mem_observations o
+        WITH qb AS (
+            SELECT DISTINCT unnest(string_to_array(cortex_tokens(:query), ' ')) AS tok
+        )
+        SELECT o.id, count(*)::double precision AS score
+        FROM qb
+        JOIN mem_observations o
+          ON o.search_tokens @@ to_tsquery('simple', quote_literal(qb.tok))
         WHERE """ + PROJECT_SCOPE_FILTER + """
-        AND o.search_vector @@ plainto_tsquery('english', :query)
-        AND ts_rank(o.search_vector, plainto_tsquery('english', :query)) > 0
-        ORDER BY score DESC
+        GROUP BY o.id
+        ORDER BY score DESC, o.id
         LIMIT :limit
         """, nativeQuery = true)
     List<Object[]> fullTextSearchScored(
@@ -500,18 +516,41 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("limit") int limit);
 
     /**
-     * Hybrid search returning {@code [id, semantic_score, text_score]} rows.
-     * <p>
-     * The semantic half applies the cosine-similarity floor ({@code :minSimilarity}) inside the
-     * query, so an unrelated query never contributes candidates. The text half keeps the lexical
-     * floor ({@code @@ plainto_tsquery}) and is scored with {@code ts_rank}. Rows are deduplicated
-     * with the semantic score preferred, and ordering is semantic-first then text-first so the two
-     * strategies stay explainable: cosine for vector hits, ts_rank for text-only hits.
+     * Hybrid search returning {@code [id, fused_score, text_score]} rows.
+     *
+     * <p>Each half produces a ranked list: the semantic half by cosine (floored at
+     * {@code :minSimilarity}), the lexical half by V24 query-token coverage. The lists are
+     * fused with weighted reciprocal-rank fusion,
+     * {@code 1/(60+vector_rank) + lexicalWeight/(60+lexical_rank)}.
+     *
+     * <p>Rank fusion instead of score fusion is measured, not stylistic: cosine lives around
+     * 0.6-0.8 while coverage of a long prompt is often 0.05-0.2, so an additive score lets
+     * cosine decide every position. On the 60-query corpus additive fusion froze hit@5 at the
+     * vector number (0.817) while rank fusion at lexicalWeight 2.0 reached 0.883 with MRR
+     * 0.809 against vector's 0.817 / 0.696. See
+     * {@code docs/archive/2026-11-04_retrieval-quality-real.md}.
+     *
+     * <p>Both halves are cut at {@code :limit}, so a row only enters the fusion through the
+     * best {@code :limit} of at least one strategy.
      */
     @Query(value = """
-        WITH semantic_results AS (
-            SELECT o.id AS id, 1.0 AS score_type,
-                   (1.0 - (o.embedding_1024 <=> cast(:queryVector as vector))) AS similarity
+        WITH qb AS (
+            SELECT DISTINCT unnest(string_to_array(cortex_tokens(:query), ' ')) AS tok
+        ),
+        qtotal AS (SELECT greatest(count(*), 1) AS n FROM qb),
+        text_cov AS (
+            SELECT o.id, count(*) AS matched
+            FROM qb
+            JOIN mem_observations o
+              ON o.search_tokens @@ to_tsquery('simple', quote_literal(qb.tok))
+            WHERE """ + PROJECT_SCOPE_FILTER + """
+            AND o.created_at_epoch > :minEpoch
+            GROUP BY o.id
+        ),
+        semantic_ranked AS (
+            SELECT o.id,
+                   row_number() OVER (
+                       ORDER BY o.embedding_1024 <=> cast(:queryVector as vector)) AS rank
             FROM mem_observations o
             WHERE """ + PROJECT_SCOPE_FILTER + """
             AND o.embedding_1024 IS NOT NULL
@@ -520,25 +559,27 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
             ORDER BY o.embedding_1024 <=> cast(:queryVector as vector)
             LIMIT :limit
         ),
-        fulltext_results AS (
-            SELECT o.id AS id, 0.8 AS score_type,
-                   ts_rank(o.search_vector, plainto_tsquery('english', :query)) AS similarity
-            FROM mem_observations o
-            WHERE """ + PROJECT_SCOPE_FILTER + """
-            AND o.search_vector @@ plainto_tsquery('english', :query)
-            AND ts_rank(o.search_vector, plainto_tsquery('english', :query)) > 0
+        lexical_ranked AS (
+            SELECT id, row_number() OVER (ORDER BY matched DESC, id) AS rank
+            FROM text_cov
             LIMIT :limit
+        ),
+        fused AS (
+            SELECT id, SUM(score) AS score
+            FROM (
+                SELECT id, 1.0 / (60 + rank) AS score FROM semantic_ranked
+                UNION ALL
+                SELECT id, cast(:lexicalWeight as double precision) / (60 + rank) AS score
+                FROM lexical_ranked
+            ) parts
+            GROUP BY id
         )
-        SELECT id,
-               MAX(CASE WHEN score_type = 1.0 THEN similarity ELSE 0 END) AS semantic_score,
-               MAX(CASE WHEN score_type = 0.8 THEN similarity ELSE 0 END) AS text_score
-        FROM (
-            SELECT * FROM semantic_results
-            UNION ALL
-            SELECT * FROM fulltext_results
-        ) combined
-        GROUP BY id
-        ORDER BY semantic_score DESC, text_score DESC
+        SELECT f.id,
+               f.score AS fused_score,
+               coalesce(t.matched, 0)::double precision / (SELECT n FROM qtotal) AS text_score
+        FROM fused f
+        LEFT JOIN text_cov t ON t.id = f.id
+        ORDER BY f.score DESC, f.id
         LIMIT :limit
         """, nativeQuery = true)
     List<Object[]> hybridSearchScored(
@@ -547,6 +588,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("queryVector") String queryVector,
         @Param("minEpoch") long minEpoch,
         @Param("minSimilarity") double minSimilarity,
+        @Param("lexicalWeight") double lexicalWeight,
         @Param("limit") int limit
     );
 

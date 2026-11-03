@@ -23,12 +23,13 @@ import java.util.UUID;
  * Strategy selection tree:
  * 1. No query → PostgreSQL filter search (type/source/concept/dateRange). This path is plain
  *    predicate SQL (`:p IS NULL OR col = :p` plus `concepts @> to_jsonb(:concept)`) and
- *    does not touch search_vector at all; the full-text index is reached only from path 3.
+ *    does not touch the lexical index at all; the token index is reached only from path 3.
  *    Reported as strategy "filter", or "recent" when no filter is set.
- * 2. Has query + embeddings available → hybrid search: a pgvector half and a tsvector half
- *    unioned and ranked together. Reported as strategy "hybrid", not a pure vector search.
+ * 2. Has query + embeddings available → hybrid search: a pgvector half plus a lexical
+ *    token-coverage half fused with weighted reciprocal-rank fusion. Reported as strategy
+ *    "hybrid", not a pure vector search.
  * 3. The vector failed validation, or pgvector raised a non-retryable error → fallback to
- *    tsvector full-text search. Retryable errors (socket timeout/connect/timeout, or losing
+ *    lexical token-coverage search. Retryable errors (socket timeout/connect/timeout, or losing
  *    the JDBC connection) are rethrown instead, so a database outage surfaces as an error
  *    rather than silently degrading to text search.
  * <p>
@@ -45,12 +46,22 @@ public class SearchService {
     static final int DEFAULT_LIMIT = 20;
 
     /**
-     * Cosine-similarity floor for the semantic half. Text-only rows are floored by the lexical
-     * predicate instead ({@code @@ plainto_tsquery}), which is equivalent to {@code ts_rank > 0}.
+     * Cosine-similarity floor for the semantic half. The lexical half has its own floor: a row
+     * must contain at least one of the query's tokens to appear at all ({@code @@}-driven join),
+     * so a query with no token overlap contributes no text candidates.
      * 0.5 is the initial operating value; it is a configuration knob, not a test-only constant.
      */
     @Value("${cortexce.search.min-similarity:0.5}")
     private double minSimilarity = 0.5;
+
+    /**
+     * Weight of the lexical half in the hybrid rank fusion. The hybrid orders rows by
+     * {@code 1/(60+vector_rank) + lexicalWeight/(60+lexical_rank)}; 2.0 is the measured winner
+     * on the 60-query real-history corpus (hit@1 0.750, hit@5 0.883, MRR 0.809). See
+     * {@code docs/archive/2026-11-04_retrieval-quality-real.md}.
+     */
+    @Value("${cortexce.search.lexical-weight:2.0}")
+    private double lexicalWeight = 2.0;
 
     private final ObservationRepository observationRepository;
 
@@ -90,7 +101,7 @@ public class SearchService {
                 try {
                     log.debug("Using hybrid search (pgvector + tsvector) for project={}", project);
                     List<Object[]> rows = observationRepository.hybridSearchScored(
-                        project, query, vectorStr, minEpoch, minSimilarity, limit * 2
+                        project, query, vectorStr, minEpoch, minSimilarity, lexicalWeight, limit * 2
                     );
                     List<ObservationEntity> results = loadScored(rows, true);
                     List<ObservationEntity> filtered = applyPostFilters(results, request, limit);

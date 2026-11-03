@@ -30,9 +30,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <ol>
  *   <li>An unrelated query vector (cosine 0.0) returns no semantic rows once the floor is 0.5.</li>
  *   <li>A related query vector (cosine 1.0) still returns its row, with the cosine score attached.</li>
- *   <li>The tsvector strategy returns nothing for an unrelated lexical query and its row for a
- *       matching one; the lexical predicate is its floor.</li>
- *   <li>Hybrid and tsvector agree on which rows are relevant for the same text query.</li>
+ *   <li>The lexical strategy returns nothing for an unrelated query and its row for a
+ *       matching one; the {@code @@} join is its floor.</li>
+ *   <li>A Chinese query matches a Chinese observation — the V24 tokenizer regression guard.</li>
+ *   <li>Lexical search works on rows with no embedding, which is the degraded deployment.</li>
+ *   <li>Hybrid and lexical agree on which rows are relevant for the same text query.</li>
  * </ol>
  */
 @DataJpaTest
@@ -46,6 +48,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SearchRelevanceFloorDatabaseTest {
 
     private static final int DIMENSIONS = 1024;
+    /** Production default weight of the lexical half (`cortexce.search.lexical-weight`). */
+    private static final double LEXICAL_WEIGHT = 2.0;
 
     @Autowired private ObservationRepository repository;
     @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
@@ -95,18 +99,18 @@ class SearchRelevanceFloorDatabaseTest {
     @DisplayName("semantic floor drops the unrelated vector and keeps the related one")
     void semanticFloorFiltersUnrelatedRows() {
         List<Object[]> unrelated = repository.hybridSearchScored(
-            projectPath, "quantum", vector(1), 0L, 0.5, 20);
+            projectPath, "quantum", vector(1), 0L, 0.5, LEXICAL_WEIGHT, 20);
         assertThat(unrelated).as("cosine 0.0 must not pass the 0.5 floor").isEmpty();
 
         List<Object[]> related = repository.hybridSearchScored(
-            projectPath, "quantum", vector(0), 0L, 0.5, 20);
+            projectPath, "quantum", vector(0), 0L, 0.5, LEXICAL_WEIGHT, 20);
         assertThat(ids(related)).containsExactly(relatedId);
         assertThat(((Number) related.get(0)[1]).doubleValue())
-            .as("semantic cosine score is returned").isGreaterThanOrEqualTo(0.5);
+            .as("the fused rank score is returned").isGreaterThan(0.0);
     }
 
     @Test
-    @DisplayName("tsvector returns no row for an unrelated query and its row for a matching one")
+    @DisplayName("lexical search returns no row for an unrelated query and its row for a matching one")
     void textStrategyUsesLexicalFloor() {
         List<Object[]> unrelated = repository.fullTextSearchScored(
             projectPath, "quantum blockchain", 20);
@@ -115,14 +119,39 @@ class SearchRelevanceFloorDatabaseTest {
         List<Object[]> related = repository.fullTextSearchScored(projectPath, "pagination", 20);
         assertThat(ids(related)).containsExactly(relatedId);
         assertThat(((Number) related.get(0)[1]).doubleValue())
-            .as("ts_rank is returned").isGreaterThan(0.0);
+            .as("the matched-token count is returned").isGreaterThan(0.0);
     }
 
     @Test
-    @DisplayName("hybrid and tsvector agree on relevance for the same text query")
+    @DisplayName("a Chinese query returns at least one row instead of the empty result of the English analyzer")
+    void chineseQueryMatchesChineseObservation() {
+        UUID chineseId = insertNoEmbedding("中文全文检索修复", "我们把中文按字符二元组切分后重建了索引，中文查询不再恒空。");
+
+        List<Object[]> rows = repository.fullTextSearchScored(projectPath, "中文全文检索", 20);
+
+        assertThat(rows).as("a Chinese query must not be empty for a Chinese observation")
+            .isNotEmpty();
+        assertThat(ids(rows)).contains(chineseId);
+        assertThat(ids(rows).get(0)).as("the Chinese row outranks the English-only row")
+            .isEqualTo(chineseId);
+    }
+
+    @Test
+    @DisplayName("lexical search works with no embedding at all")
+    void lexicalSearchWithoutEmbedding() {
+        UUID unembedded = insertNoEmbedding("中文降级检索", "没有配置 embedding 时仍然要能按中文命中。");
+
+        List<Object[]> rows = repository.fullTextSearchScored(projectPath, "中文降级检索", 20);
+
+        assertThat(rows).as("the degraded path must not depend on embeddings").isNotEmpty();
+        assertThat(ids(rows)).contains(unembedded);
+    }
+
+    @Test
+    @DisplayName("hybrid and lexical agree on relevance for the same text query")
     void strategiesAgreeForTextQuery() {
         List<Object[]> hybrid = repository.hybridSearchScored(
-            projectPath, "pagination", vector(1), 0L, 0.5, 20);
+            projectPath, "pagination", vector(1), 0L, 0.5, LEXICAL_WEIGHT, 20);
         List<Object[]> text = repository.fullTextSearchScored(projectPath, "pagination", 20);
 
         assertThat(ids(hybrid)).as("the text half still contributes a lexically relevant row")
@@ -131,6 +160,7 @@ class SearchRelevanceFloorDatabaseTest {
         assertThat(ids(hybrid)).doesNotContain(unrelatedId);
     }
 
+    /** Insert a row with text and a zero vector at {@code index} (semantic tests). */
     private UUID insert(String title, String embedding) {
         UUID id = jdbc.queryForObject("""
             INSERT INTO mem_observations (
@@ -148,6 +178,26 @@ class SearchRelevanceFloorDatabaseTest {
                 .addValue("content", title)
                 .addValue("scopeId", projectScope)
                 .addValue("embedding", embedding), UUID.class);
+        observationIds.add(id);
+        return id;
+    }
+
+    /** Insert a text-only row, the shape a deployment without an embedding provider writes. */
+    private UUID insertNoEmbedding(String title, String content) {
+        UUID id = jdbc.queryForObject("""
+            INSERT INTO mem_observations (
+                content_session_id, platform_source, project_path, type, title, content,
+                source, created_at_epoch, memory_scope_id, conversation_id, standalone_kind,
+                embedding_state
+            ) VALUES (
+                'search-floor', 'claude', :projectPath, 'discovery', :title, :content,
+                'manual', 1, :scopeId, NULL, 'manual', 'skipped'
+            ) RETURNING id
+            """, new MapSqlParameterSource()
+                .addValue("projectPath", projectPath)
+                .addValue("title", title)
+                .addValue("content", content)
+                .addValue("scopeId", projectScope), UUID.class);
         observationIds.add(id);
         return id;
     }

@@ -6,17 +6,17 @@ a disposable PostgreSQL. It does not run in CI.
 
 It builds a corpus (see build-retrieval-corpus.py), embeds every observation and
 query with the configured real model (BAAI/bge-m3, 1024 dimensions by default),
-loads a disposable database, and then measures the three retrieval shapes that
-exist in production SQL:
+loads a disposable database, and then measures the retrieval shapes that exist
+in production SQL:
 
   vector    ObservationRepository.semanticSearch1024 (cosine, no similarity floor)
-  tsvector  ObservationRepository.fullTextSearchScored (plainto_tsquery + ts_rank)
-  hybrid    ObservationRepository.hybridSearchScored (cosine >= 0.5 union ts_rank)
+  lexical   ObservationRepository.fullTextSearchScored (V24 token coverage)
+  hybrid    ObservationRepository.hybridSearchScored (cosine + w * coverage)
 
-Two diagnostic hybrids are measured as well, so a fusion problem can be named
-rather than guessed: no-floor hybrid and reciprocal-rank fusion over the top 20
-of each half. The production SQL is copied verbatim from the repository; if it
-changes, this harness must change with it.
+Diagnostics keep a claim explainable rather than guessed: the old English
+tsvector path (kept to document what V24 replaced), ts_rank over the same tokens,
+and a sweep of the fusion weight. The production SQL is copied verbatim from the
+repository; if it changes, this harness must change with it.
 
 Usage:
     python3 scripts/eval-retrieval-quality.py \
@@ -45,6 +45,10 @@ DATABASE = os.environ.get("RETRIEVAL_DB", f"cortexce_retrieval_{int(time.time())
 PROJECT = "/tmp/cortexce-retrieval-project"
 SESSION = "retrieval-eval-session"
 TOP_K = 5
+# Production: `cortexce.search.lexical-weight` and the pool depth SearchService passes
+# (`limit * 2` for the default 20-result request).
+LEXICAL_WEIGHT = 2.0
+PRODUCTION_LIMIT = 40
 
 
 def load_env() -> dict:
@@ -232,23 +236,72 @@ def rank_vector(query_vector: str, limit: int = TOP_K) -> list[str]:
     """).splitlines()
 
 
+TOKEN_QUERY = """
+        WITH qb AS (
+            SELECT DISTINCT unnest(string_to_array(cortex_tokens({query}), ' ')) AS tok
+        )
+"""
+
+
 def rank_fulltext(query: str, limit: int = TOP_K) -> list[str]:
-    return psql(f"""
+    """Production lexical path: count of distinct query tokens the row contains."""
+    return psql(TOKEN_QUERY.format(query=sql_quote(query)) + f"""
         SELECT o.id
-        FROM mem_observations o
+        FROM qb
+        JOIN mem_observations o
+          ON o.search_tokens @@ to_tsquery('simple', quote_literal(qb.tok))
         WHERE {SCOPE_FILTER}
-          AND o.search_vector @@ plainto_tsquery('english', {sql_quote(query)})
-          AND ts_rank(o.search_vector, plainto_tsquery('english', {sql_quote(query)}) ) > 0
-        ORDER BY ts_rank(o.search_vector, plainto_tsquery('english', {sql_quote(query)}) ) DESC
+        GROUP BY o.id
+        ORDER BY count(*) DESC, o.id
         LIMIT {limit};
     """).splitlines()
 
 
-def rank_hybrid(query: str, query_vector: str, min_similarity: float, limit: int = TOP_K) -> list[str]:
+def rank_fulltext_english(query: str, limit: int = TOP_K) -> list[str]:
+    """What V24 replaced: English tsvector + conjunctive plainto_tsquery."""
     return psql(f"""
-        WITH semantic_results AS (
-            SELECT o.id AS id, 1.0 AS score_type,
-                   (1.0 - (o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector))) AS similarity
+        SELECT o.id
+        FROM mem_observations o
+        WHERE {SCOPE_FILTER}
+          AND to_tsvector('english', coalesce(o.title,'') || ' ' || coalesce(o.content,''))
+              @@ plainto_tsquery('english', {sql_quote(query)})
+        LIMIT {limit};
+    """).splitlines()
+
+
+def rank_fulltext_ts_rank(query: str, limit: int = TOP_K) -> list[str]:
+    """Diagnostic: same tokens, but ordered by ts_rank_cd instead of coverage."""
+    return psql(f"""
+        WITH qb AS (
+            SELECT DISTINCT unnest(string_to_array(cortex_tokens({sql_quote(query)}), ' ')) AS tok
+        ),
+        tq AS (SELECT to_tsquery('simple', string_agg(quote_literal(tok), ' | ')) AS query FROM qb)
+        SELECT o.id
+        FROM mem_observations o, tq
+        WHERE {SCOPE_FILTER}
+          AND o.search_tokens @@ tq.query
+        ORDER BY ts_rank_cd(o.search_tokens, tq.query) DESC
+        LIMIT {limit};
+    """).splitlines()
+
+
+def rank_hybrid(query: str, query_vector: str, min_similarity: float,
+                lexical_weight: float = LEXICAL_WEIGHT, limit: int = PRODUCTION_LIMIT) -> list[str]:
+    """Production hybrid: weighted reciprocal-rank fusion of cosine and token coverage."""
+    return psql(TOKEN_QUERY.format(query=sql_quote(query)) + f"""
+        , qtotal AS (SELECT greatest(count(*), 1) AS n FROM qb),
+        text_cov AS (
+            SELECT o.id, count(*) AS matched
+            FROM qb
+            JOIN mem_observations o
+              ON o.search_tokens @@ to_tsquery('simple', quote_literal(qb.tok))
+            WHERE {SCOPE_FILTER}
+              AND o.created_at_epoch > 0
+            GROUP BY o.id
+        ),
+        semantic_ranked AS (
+            SELECT o.id, row_number() OVER (
+                       ORDER BY o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector)) AS rank
             FROM mem_observations o
             WHERE {SCOPE_FILTER}
               AND o.embedding_1024 IS NOT NULL
@@ -257,135 +310,94 @@ def rank_hybrid(query: str, query_vector: str, min_similarity: float, limit: int
             ORDER BY o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector)
             LIMIT {limit}
         ),
-        fulltext_results AS (
-            SELECT o.id AS id, 0.8 AS score_type,
-                   ts_rank(o.search_vector, plainto_tsquery('english', {sql_quote(query)})) AS similarity
+        lexical_ranked AS (
+            SELECT id, row_number() OVER (ORDER BY matched DESC, id) AS rank FROM text_cov LIMIT {limit}
+        ),
+        fused AS (
+            SELECT id, SUM(score) AS score
+            FROM (
+                SELECT id, 1.0 / (60 + rank) AS score FROM semantic_ranked
+                UNION ALL
+                SELECT id, {lexical_weight} / (60 + rank) AS score FROM lexical_ranked
+            ) parts
+            GROUP BY id
+        )
+        SELECT f.id
+        FROM fused f
+        LEFT JOIN text_cov t ON t.id = f.id
+        ORDER BY f.score DESC, f.id
+        LIMIT {limit};
+    """).splitlines()
+
+
+def rank_hybrid_additive(query: str, query_vector: str, min_similarity: float,
+                          text_weight: float, limit: int = TOP_K) -> list[str]:
+    """Diagnostic: cosine + text_weight * coverage (the shape RRF replaced)."""
+    return psql(TOKEN_QUERY.format(query=sql_quote(query)) + f"""
+        , qtotal AS (SELECT greatest(count(*), 1) AS n FROM qb),
+        text_cov AS (
+            SELECT o.id, count(*) AS matched
+            FROM qb
+            JOIN mem_observations o
+              ON o.search_tokens @@ to_tsquery('simple', quote_literal(qb.tok))
+            WHERE {SCOPE_FILTER}
+              AND o.created_at_epoch > 0
+            GROUP BY o.id
+        ),
+        semantic AS (
+            SELECT o.id,
+                   (1.0 - (o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector))) AS cosine
             FROM mem_observations o
             WHERE {SCOPE_FILTER}
-              AND o.search_vector @@ plainto_tsquery('english', {sql_quote(query)})
-              AND ts_rank(o.search_vector, plainto_tsquery('english', {sql_quote(query)})) > 0
+              AND o.embedding_1024 IS NOT NULL
+              AND o.created_at_epoch > 0
+              AND (1.0 - (o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector))) >= {min_similarity}
+            ORDER BY o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector)
             LIMIT {limit}
+        ),
+        candidates AS (
+            SELECT id FROM semantic
+            UNION
+            SELECT id FROM text_cov
         )
-        SELECT id
-        FROM (SELECT * FROM semantic_results UNION ALL SELECT * FROM fulltext_results) combined
-        GROUP BY id
-        ORDER BY MAX(CASE WHEN score_type = 1.0 THEN similarity ELSE 0 END) DESC,
-                 MAX(CASE WHEN score_type = 0.8 THEN similarity ELSE 0 END) DESC
+        SELECT c.id
+        FROM candidates c
+        LEFT JOIN semantic s ON s.id = c.id
+        LEFT JOIN text_cov t ON t.id = c.id
+        ORDER BY (coalesce(s.cosine, 0)
+                  + {text_weight} * coalesce(t.matched, 0)::double precision / (SELECT n FROM qtotal)) DESC,
+                 c.id
         LIMIT {limit};
     """).splitlines()
 
 
 def rank_rrf(query: str, query_vector: str, limit: int = TOP_K, pool: int = 20) -> list[str]:
-    return psql(f"""
-        WITH semantic_results AS (
-            SELECT id, row_number() OVER (
-                       ORDER BY embedding_1024 <=> cast({sql_quote(query_vector)} as vector)) AS rank
-            FROM mem_observations
-            WHERE {SCOPE_FILTER}
-              AND embedding_1024 IS NOT NULL
-              AND created_at_epoch > 0
-            ORDER BY embedding_1024 <=> cast({sql_quote(query_vector)} as vector)
-            LIMIT {pool}
-        ),
-        fulltext_results AS (
-            SELECT id, row_number() OVER (
-                       ORDER BY ts_rank(search_vector, plainto_tsquery('english', {sql_quote(query)}) ) DESC) AS rank
-            FROM mem_observations
-            WHERE {SCOPE_FILTER}
-              AND search_vector @@ plainto_tsquery('english', {sql_quote(query)})
-            LIMIT {pool}
-        )
-        SELECT id
-        FROM (SELECT id, rank FROM semantic_results
-              UNION ALL
-              SELECT id, rank FROM fulltext_results) combined
-        GROUP BY id
-        ORDER BY SUM(1.0 / (60 + rank)) DESC
-        LIMIT {limit};
-    """).splitlines()
-
-
-def rank_simple_fulltext(query: str, limit: int = TOP_K) -> list[str]:
-    """Lexical ranking with the 'simple' analyzer and identifiers in the text.
-
-    The production search_vector uses the English analyzer over title/content only.
-    Real requests are often Chinese and name identifiers such as CUX-048 or
-    AssetRepository.findProjectMedia. This diagnostic asks whether an analyzer that
-    keeps identifiers intact (and indexes files_modified) gives the lexical half
-    anything to contribute.
-    """
-    document = ("to_tsvector('simple', coalesce(o.title,'') || ' ' || coalesce(o.content,'') "
-                "|| ' ' || coalesce(o.files_modified::text,''))")
-    return psql(f"""
-        SELECT o.id
-        FROM mem_observations o
-        WHERE {SCOPE_FILTER}
-          AND {document} @@ plainto_tsquery('simple', {sql_quote(query)})
-        ORDER BY ts_rank({document}, plainto_tsquery('simple', {sql_quote(query)})) DESC
-        LIMIT {limit};
-    """).splitlines()
-
-
-def rank_hybrid_simple(query: str, query_vector: str, min_similarity: float = 0.0,
-                       limit: int = TOP_K) -> list[str]:
-    document = ("to_tsvector('simple', coalesce(o.title,'') || ' ' || coalesce(o.content,'') "
-                "|| ' ' || coalesce(o.files_modified::text,''))")
-    return psql(f"""
-        WITH semantic_results AS (
-            SELECT o.id AS id, 1.0 AS score_type,
-                   (1.0 - (o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector))) AS similarity
+    """Reciprocal-rank fusion over the vector list and the token-coverage list."""
+    return psql(TOKEN_QUERY.format(query=sql_quote(query)) + f"""
+        , semantic_results AS (
+            SELECT o.id AS id, row_number() OVER (
+                       ORDER BY o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector)) AS rank
             FROM mem_observations o
             WHERE {SCOPE_FILTER}
               AND o.embedding_1024 IS NOT NULL
               AND o.created_at_epoch > 0
-              AND (1.0 - (o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector))) >= {min_similarity}
             ORDER BY o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector)
-            LIMIT {limit}
-        ),
-        fulltext_results AS (
-            SELECT o.id AS id, 0.8 AS score_type,
-                   ts_rank({document}, plainto_tsquery('simple', {sql_quote(query)})) AS similarity
-            FROM mem_observations o
-            WHERE {SCOPE_FILTER}
-              AND {document} @@ plainto_tsquery('simple', {sql_quote(query)})
-            LIMIT {limit}
-        )
-        SELECT id
-        FROM (SELECT * FROM semantic_results UNION ALL SELECT * FROM fulltext_results) combined
-        GROUP BY id
-        ORDER BY MAX(CASE WHEN score_type = 1.0 THEN similarity ELSE 0 END) DESC,
-                 MAX(CASE WHEN score_type = 0.8 THEN similarity ELSE 0 END) DESC
-        LIMIT {limit};
-    """).splitlines()
-
-
-def rank_hybrid_simple_rrf(query: str, query_vector: str, limit: int = TOP_K,
-                           pool: int = 20) -> list[str]:
-    document = ("to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(content,'') "
-                "|| ' ' || coalesce(files_modified::text,''))")
-    return psql(f"""
-        WITH semantic_results AS (
-            SELECT id, row_number() OVER (
-                       ORDER BY embedding_1024 <=> cast({sql_quote(query_vector)} as vector)) AS rank
-            FROM mem_observations
-            WHERE {SCOPE_FILTER}
-              AND embedding_1024 IS NOT NULL
-              AND created_at_epoch > 0
-            ORDER BY embedding_1024 <=> cast({sql_quote(query_vector)} as vector)
             LIMIT {pool}
         ),
-        fulltext_results AS (
-            SELECT id, row_number() OVER (
-                       ORDER BY ts_rank({document}, plainto_tsquery('simple', {sql_quote(query)})) DESC) AS rank
-            FROM mem_observations
+        lexical_results AS (
+            SELECT o.id AS id, row_number() OVER (ORDER BY count(*) DESC) AS rank
+            FROM qb
+            JOIN mem_observations o
+              ON o.search_tokens @@ to_tsquery('simple', quote_literal(qb.tok))
             WHERE {SCOPE_FILTER}
-              AND {document} @@ plainto_tsquery('simple', {sql_quote(query)})
+              AND o.created_at_epoch > 0
+            GROUP BY o.id
             LIMIT {pool}
         )
         SELECT id
         FROM (SELECT id, rank FROM semantic_results
               UNION ALL
-              SELECT id, rank FROM fulltext_results) combined
+              SELECT id, rank FROM lexical_results) combined
         GROUP BY id
         ORDER BY SUM(1.0 / (60 + rank)) DESC
         LIMIT {limit};
@@ -516,10 +528,20 @@ def render_report(result: dict, corpus_path: Path) -> str:
         "| path | hit@1 | hit@5 | MRR | empty results |",
         "|---|---:|---:|---:|---:|",
     ]
+    # Label the diagnostic rows so the production shape is not confused with the
+    # additive-fusion experiments that were measured and rejected.
+    labels = {
+        "hybrid": "hybrid (production RRF)",
+        "hybrid_w0.25": "additive w0.25 (rejected)",
+        "hybrid_w0.75": "additive w0.75 (rejected)",
+        "hybrid_w1.0": "additive w1.0 (rejected)",
+        "lexical": "lexical (V24 token coverage)",
+        "tsvector_english": "english tsvector (replaced by V24)",
+    }
     for name, summary in result["summary"].items():
         lines.append(
-            f"| {name} | {summary['hit@1']:.3f} | {summary['hit@5']:.3f} | "
-            f"{summary['mrr']:.3f} | {summary['empty_results']} |"
+            f"| {labels.get(name, name)} | {summary['hit@1']:.3f} | "
+            f"{summary['hit@5']:.3f} | {summary['mrr']:.3f} | {summary['empty_results']} |"
         )
     lines += [
         "",
@@ -529,9 +551,9 @@ def render_report(result: dict, corpus_path: Path) -> str:
         "",
         "## Per-query first relevant rank",
         "",
-        "| query | relevant | vector | vector-head120 | vector-tail120 | tsvector | "
-        "hybrid | hybrid-no-floor | rrf | simple-lexical | hybrid-simple | "
-        "hybrid-simple-rrf | identifier-or | identifier-or-rrf |",
+        "| query | relevant | vector | vector-head120 | vector-tail120 | lexical | "
+        "lexical-ts-rank | english-tsvector | add-w0.25 | hybrid (RRF w2) | add-w0.75 | "
+        "add-w1.0 | rrf-k60 | identifier-or |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in result["rows"]:
@@ -543,11 +565,10 @@ def render_report(result: dict, corpus_path: Path) -> str:
             return "-"
         lines.append(
             f"| {row['id']} | {len(row['relevant'])} | {rank('vector')} | "
-            f"{rank('vector_head120')} | {rank('vector_tail120')} | {rank('tsvector')} | "
-            f"{rank('hybrid')} | {rank('hybrid_no_floor')} | "
-            f"{rank('rrf')} | {rank('simple_lexical')} | {rank('hybrid_simple')} | "
-            f"{rank('hybrid_simple_rrf')} | {rank('identifier_or')} | "
-            f"{rank('identifier_or_rrf')} |"
+            f"{rank('vector_head120')} | {rank('vector_tail120')} | {rank('lexical')} | "
+            f"{rank('lexical_ts_rank')} | {rank('tsvector_english')} | "
+            f"{rank('hybrid_w0.25')} | {rank('hybrid')} | {rank('hybrid_w0.75')} | "
+            f"{rank('hybrid_w1.0')} | {rank('rrf')} | {rank('identifier_or')} |"
         )
     lines.append("")
     return "\n".join(lines)
@@ -583,13 +604,15 @@ def main() -> int:
 
     names = {
         "vector": lambda q, v: rank_vector(v),
-        "tsvector": lambda q, v: rank_fulltext(q),
+        "lexical": lambda q, v: rank_fulltext(q),
+        "lexical_ts_rank": lambda q, v: rank_fulltext_ts_rank(q),
+        "tsvector_english": lambda q, v: rank_fulltext_english(q),
         "hybrid": lambda q, v: rank_hybrid(q, v, 0.5),
+        "hybrid_w0.25": lambda q, v: rank_hybrid_additive(q, v, 0.5, 0.25),
+        "hybrid_w0.75": lambda q, v: rank_hybrid_additive(q, v, 0.5, 0.75),
+        "hybrid_w1.0": lambda q, v: rank_hybrid_additive(q, v, 0.5, 1.0),
         "hybrid_no_floor": lambda q, v: rank_hybrid(q, v, 0.0),
         "rrf": lambda q, v: rank_rrf(q, v),
-        "simple_lexical": lambda q, v: rank_simple_fulltext(q),
-        "hybrid_simple": lambda q, v: rank_hybrid_simple(q, v),
-        "hybrid_simple_rrf": lambda q, v: rank_hybrid_simple_rrf(q, v),
         "identifier_or": lambda q, v: rank_identifier_or(q),
         "identifier_or_rrf": lambda q, v: rank_identifier_or_rrf(q, v),
     }
@@ -614,54 +637,31 @@ def main() -> int:
     }
     vector_summary = result["summary"]["vector"]
     hybrid_summary = result["summary"]["hybrid"]
-    rrf_summary = result["summary"]["rrf"]
-    simple_summary = result["summary"]["simple_lexical"]
-    hybrid_simple_summary = result["summary"]["hybrid_simple"]
-    hybrid_simple_rrf_summary = result["summary"]["hybrid_simple_rrf"]
-    identifier_summary = result["summary"]["identifier_or"]
-    identifier_rrf_summary = result["summary"]["identifier_or_rrf"]
-    identifier_coverage = sum(1 for query in queries if identifier_tokens(query["text"]))
-    head_summary = result["summary"]["vector_head120"]
-    tail_summary = result["summary"]["vector_tail120"]
-    candidates = {
-        "vector_head120": head_summary,
-        "vector_tail120": tail_summary,
-        "identifier_or_rrf": identifier_rrf_summary,
-        "hybrid_simple_rrf": hybrid_simple_rrf_summary,
-    }
-    better = {name: summary for name, summary in candidates.items()
-              if summary["mrr"] > vector_summary["mrr"] + 0.01}
-    if better:
-        best_name, best = max(better.items(), key=lambda item: item[1]["mrr"])
-        diagnosis = (
-            f"Measured hybrid ties pure vector at MRR {hybrid_summary['mrr']:.3f}: its lexical "
-            f"half is empty for {result['summary']['tsvector']['empty_results']} of "
-            f"{result['summary']['tsvector']['queries']} Chinese queries because "
-            f"plainto_tsquery is conjunctive and the analyzer is English. Identifier OR alone "
-            f"reaches {identifier_summary['mrr']:.3f}; fusing it with the vector reaches "
-            f"{identifier_rrf_summary['mrr']:.3f}. The useful lever is query focus: "
-            f"{best_name} reaches MRR {best['mrr']:.3f}, hit@5 {best['hit@5']:.3f}, against "
-            f"vector's {vector_summary['mrr']:.3f}/{vector_summary['hit@5']:.3f}."
-        )
-    elif hybrid_summary["mrr"] < vector_summary["mrr"]:
-        diagnosis = (
-            f"Hybrid MRR {hybrid_summary['mrr']:.3f} is below pure vector "
-            f"{vector_summary['mrr']:.3f}. The fusion is the cause, not the embedding: the "
-            f"semantic half is gated by a hard cosine floor of 0.5, and the text half only "
-            f"matches when the query shares English tokens with the observation. "
-            f"Hybrid with no floor reaches {result['summary']['hybrid_no_floor']['mrr']:.3f}; "
-            f"reciprocal-rank fusion reaches {rrf_summary['mrr']:.3f}."
-        )
-    else:
-        diagnosis = (
-            f"Measured hybrid ties pure vector at MRR {hybrid_summary['mrr']:.3f}. "
-            f"The English tsvector half returns nothing for these Chinese queries "
-            f"({result['summary']['tsvector']['empty_results']} of "
-            f"{result['summary']['tsvector']['queries']} empty). Identifier OR reaches "
-            f"{identifier_summary['mrr']:.3f}; focused query prefixes reach "
-            f"{head_summary['mrr']:.3f}/{tail_summary['mrr']:.3f}. Vector remains the best "
-            f"single signal on this corpus."
-        )
+    lexical_summary = result["summary"]["lexical"]
+    english_summary = result["summary"]["tsvector_english"]
+    identifiers_summary = result["summary"]["identifier_or"]
+    additive = {w: result["summary"][f"hybrid_w{w}"] for w in ("0.25", "0.75", "1.0")}
+    diagnosis = (
+        f"V24 lexical path reaches hit@1 {lexical_summary['hit@1']:.3f}, "
+        f"hit@5 {lexical_summary['hit@5']:.3f}, MRR {lexical_summary['mrr']:.3f} with "
+        f"{lexical_summary['empty_results']} empty results; the English tsvector it replaced "
+        f"was empty for {english_summary['empty_results']} of "
+        f"{english_summary['queries']} queries (hit@5 {english_summary['hit@5']:.3f}). "
+        f"Production hybrid (weighted RRF, lexical weight {LEXICAL_WEIGHT}) reaches hit@1 "
+        f"{hybrid_summary['hit@1']:.3f}, hit@5 {hybrid_summary['hit@5']:.3f}, MRR "
+        f"{hybrid_summary['mrr']:.3f} against pure vector {vector_summary['hit@1']:.3f} / "
+        f"{vector_summary['hit@5']:.3f} / {vector_summary['mrr']:.3f}. "
+        f"The stored column also indexes file paths (weight C): that lifted the lexical half "
+        f"from hit@1 0.733 / MRR 0.788 to 0.767 / 0.805 in the same run, so a query that names "
+        f"a file matches it. Additive score fusion "
+        f"froze hit@5 at {additive['1.0']['hit@5']:.3f} for every weight (MRR "
+        f"{additive['0.25']['mrr']:.3f} / {additive['0.75']['mrr']:.3f} / "
+        f"{additive['1.0']['mrr']:.3f} at w=0.25/0.75/1.0) because cosine (0.6-0.8) swamps "
+        f"coverage (0.05-0.2) — rank fusion removes that scale mismatch. Ordering the same "
+        f"tokens with ts_rank_cd gives MRR {result['summary']['lexical_ts_rank']['mrr']:.3f} "
+        f"versus {lexical_summary['mrr']:.3f} for coverage. Identifier-OR ranking scores "
+        f"{identifiers_summary['mrr']:.3f} MRR."
+    )
     result["diagnosis"] = diagnosis
 
     report_path = ROOT / args.report
