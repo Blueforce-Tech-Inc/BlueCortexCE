@@ -95,6 +95,36 @@ class GoldenSetRealDataTest {
         assertThat(real.samples).allSatisfy(sample -> assertThat(sample.expectedType).isNotNull());
     }
 
+    @Test
+    @DisplayName("no label contradicts the mechanical signals the prompt is given")
+    void labelsAgreeWithMechanicalSignals() throws Exception {
+        GoldenSet real = load("/eval/golden-tool-use-real.json");
+        for (GoldenSet.Sample sample : real.samples) {
+            com.ablueforce.cortexce.service.TraceSignals.Signals signals =
+                    com.ablueforce.cortexce.service.TraceSignals
+                            .of(sample.toolInput, sample.toolOutput);
+            String type = sample.expectedType;
+            assertThat(type).as("type for %s", sample.id).isNotNull();
+            if ("bugfix".equals(type)) {
+                assertThat(signals.docsOnly()).as("bugfix on a docs-only trace: %s", sample.id)
+                        .isFalse();
+            }
+            if ("feature".equals(type)) {
+                assertThat(signals.docsOnly()).as("feature on a docs-only trace: %s", sample.id)
+                        .isFalse();
+            }
+            if ("refactor".equals(type)) {
+                assertThat(signals.addsPublicApi())
+                        .as("refactor that adds a public API: %s", sample.id).isFalse();
+            }
+            if ("change".equals(type)) {
+                assertThat(signals.sourceFiles() > 0 && signals.docFiles() == 0
+                        && signals.configFiles() == 0 && signals.testFiles() == 0)
+                        .as("change on a source-only trace: %s", sample.id).isFalse();
+            }
+        }
+    }
+
     private static GoldenSet load(String resource) throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         try (InputStream in = GoldenSetRealDataTest.class.getResourceAsStream(resource)) {

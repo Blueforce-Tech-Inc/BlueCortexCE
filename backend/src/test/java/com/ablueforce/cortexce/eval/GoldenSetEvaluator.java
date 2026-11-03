@@ -358,12 +358,18 @@ public final class GoldenSetEvaluator {
     }
 
     private static String fillTemplate(String template, GoldenSet.Sample sample) {
+        String toolInput = truncate(sample.toolInput, 4000);
+        String toolOutput = truncate(sample.toolOutput, 4000);
         return template
                 .replace("{{toolName}}", sample.toolName == null ? "" : sample.toolName)
                 .replace("{{occurredAt}}", sample.occurredAt == null ? "" : sample.occurredAt)
                 .replace("{{cwd}}", sample.cwd == null ? "" : sample.cwd)
-                .replace("{{toolInput}}", truncate(sample.toolInput, 4000))
-                .replace("{{toolOutput}}", truncate(sample.toolOutput, 4000));
+                .replace("{{toolInput}}", toolInput)
+                .replace("{{toolOutput}}", toolOutput)
+                // Same mechanical block the production path injects, so the offline replay
+                // measures the prompt the service actually sends.
+                .replace("{{signals}}",
+                        com.ablueforce.cortexce.service.TraceSignals.hintBlock(toolInput, toolOutput));
     }
 
     private static String truncate(String value, int max) {
@@ -454,7 +460,9 @@ public final class GoldenSetEvaluator {
         row(sb, "title verb contract hit rate (verb + subject + identifiers, diagnostic)",
                 pct(agg.titleVerbContractHitRate));
         row(sb, "title identifier hit rate", pct(agg.titleIdentifierHitRate));
-        row(sb, "type accuracy", pct(agg.typeAccuracy));
+        row(sb, "type accuracy (raw)", pct(agg.typeAccuracy));
+        row(sb, "type accuracy (auditable labels only)", pct(agg.typeAccuracyAuditable)
+                + " (" + agg.typeUnverifiable + " unverifiable label(s) excluded)");
         row(sb, "facts keyword precision (legacy) / recall",
                 pct(agg.factsPrecision) + " / " + pct(agg.factsRecall));
         row(sb, "facts informative precision", pct(agg.factsInformativeRate));
@@ -591,6 +599,16 @@ public final class GoldenSetEvaluator {
             sb.append(agg.unreachableSubjectSamples.size())
                     .append(" sample(s) declare subject tokens the recorded trace never contains:\n\n");
             for (String entry : agg.unreachableSubjectSamples) {
+                sb.append("- ").append(entry).append('\n');
+            }
+            sb.append('\n');
+        }
+
+        if (!agg.typeUnverifiableSamples.isEmpty()) {
+            sb.append("## Unverifiable type labels (excluded from the auditable type accuracy)\n\n");
+            sb.append(agg.typeUnverifiableSamples.size())
+                    .append(" sample(s) expect a type the recorded trace cannot evidence:\n\n");
+            for (String entry : agg.typeUnverifiableSamples) {
                 sb.append("- ").append(entry).append('\n');
             }
             sb.append('\n');
@@ -870,6 +888,9 @@ public final class GoldenSetEvaluator {
         metrics.put("titleTraceContractHitRate", agg.titleTraceContractHitRate);
         metrics.put("titleVerbContractHitRate", agg.titleVerbContractHitRate);
         metrics.put("typeAccuracy", agg.typeAccuracy);
+        metrics.put("typeAccuracyAuditable", agg.typeAccuracyAuditable);
+        metrics.put("typeUnverifiable", agg.typeUnverifiable);
+        metrics.put("typeUnverifiableSamples", agg.typeUnverifiableSamples);
         metrics.put("factsPrecision", agg.factsPrecision);
         metrics.put("factsInformativeRate", agg.factsInformativeRate);
         metrics.put("factsRecall", agg.factsRecall);
@@ -901,13 +922,14 @@ public final class GoldenSetEvaluator {
     private static void printSummary(GoldenSetScorer.Aggregate agg, int calls, long durationMs, Path path) {
         System.out.printf(Locale.ROOT,
                 "%ncontract=%s skip=%s (TP/FP/FN/TN=%d/%d/%d/%d) formatErrors=%d "
-                        + "titleExact=%s titleNorm=%s titleAction=%s titleContract=%s type=%s "
+                        + "titleExact=%s titleNorm=%s titleAction=%s titleContract=%s type=%s typeAud=%s "
                         + "factsP/R=%s/%s actionable=%s support=%s "
                         + "conceptsP/R=%s/%s calls=%d duration=%dms consistency=%s%nreport=%s%n",
                 pct(agg.contractPassRate), pct(agg.skipAccuracy),
                 agg.skipTp, agg.skipFp, agg.skipFn, agg.skipTn, agg.formatErrors,
                 pct(agg.titleExactHitRate), pct(agg.titleNormalizedHitRate),
                 pct(agg.titleActionHitRate), pct(agg.titleContractHitRate), pct(agg.typeAccuracy),
+                pct(agg.typeAccuracyAuditable),
                 pct(agg.factsPrecision), pct(agg.factsRecall), pct(agg.factsInformativeRate),
                 pct(agg.factsSupportRate),
                 pct(agg.conceptsPrecision), pct(agg.conceptsRecall), calls, durationMs,

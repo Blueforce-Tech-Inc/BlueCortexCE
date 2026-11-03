@@ -331,7 +331,18 @@ public final class GoldenSetScorer {
         public double titleContractHitRate;
         public double titleTraceContractHitRate;
         public double titleVerbContractHitRate;
+        /** Raw type accuracy: every parsed sample, including labels the trace cannot evidence. */
         public double typeAccuracy;
+        /**
+         * Round 11: the same numerator with unverifiable labels removed from the denominator. A
+         * real sample's type is taken from the commit subject, which the trace never contains, so
+         * a "bugfix" whose diff shows neither a defect nor a security path is unanswerable. Both
+         * numbers are reported; the raw one is what older fixtures reproduce.
+         */
+        public double typeAccuracyAuditable;
+        /** Labels excluded from the auditable type accuracy because the trace cannot evidence them. */
+        public int typeUnverifiable;
+        public List<String> typeUnverifiableSamples = new ArrayList<>();
         /** Legacy keyword precision, retained for before/after comparison. */
         public double factsPrecision;
         /** Contract precision used by gate A5. */
@@ -402,6 +413,10 @@ public final class GoldenSetScorer {
         int titleActionUnclassifiable = 0;
         int typedSamples = 0;
         int typeHits = 0;
+        int auditableTypedSamples = 0;
+        int auditableTypeHits = 0;
+        int typeUnverifiable = 0;
+        List<String> typeUnverifiableSamples = new ArrayList<>();
         double factsP = 0;
         double factsInformative = 0;
         double factsR = 0;
@@ -537,6 +552,14 @@ public final class GoldenSetScorer {
                 type.typeMatch += score.typeMatch ? 1 : 0;
                 typeHits += score.typeMatch ? 1 : 0;
                 typedSamples++;
+                if (typeAuditable(sample)) {
+                    auditableTypeHits += score.typeMatch ? 1 : 0;
+                    auditableTypedSamples++;
+                } else {
+                    typeUnverifiable++;
+                    typeUnverifiableSamples.add(sample.id + ": expected " + sample.expectedType
+                            + " but the trace shows no defect or security evidence");
+                }
 
                 score.factsRecall = recall(sample.factsKeywords, obs.facts);
                 score.factsPrecision = precision(sample.factsKeywords, obs.facts);
@@ -615,6 +638,9 @@ public final class GoldenSetScorer {
         agg.titleTraceContractHitRate = ratio(titleTraceContractHits, titleSamples);
         agg.titleVerbContractHitRate = ratio(titleVerbContractHits, titleSamples);
         agg.typeAccuracy = ratio(typeHits, typedSamples);
+        agg.typeAccuracyAuditable = ratio(auditableTypeHits, auditableTypedSamples);
+        agg.typeUnverifiable = typeUnverifiable;
+        agg.typeUnverifiableSamples = typeUnverifiableSamples;
         agg.factsPrecision = fieldSamples == 0 ? 0 : factsP / fieldSamples;
         agg.factsInformativeRate = fieldSamples == 0 ? 0 : factsInformative / fieldSamples;
         agg.factsRecall = fieldSamples == 0 ? 0 : factsR / fieldSamples;
@@ -939,6 +965,22 @@ public final class GoldenSetScorer {
             }
         }
         return visible;
+    }
+
+    /**
+     * Round 11: a label is only scorable when the recorded trace carries the evidence the label
+     * relies on. Real samples are built from the diff alone while their type comes from the commit
+     * subject, so "bugfix" without a defect or security observation cannot be inferred from what
+     * the model is allowed to see. Such samples leave the auditable denominator only; the raw
+     * accuracy above still counts them so the difference stays visible.
+     */
+    static boolean typeAuditable(GoldenSet.Sample sample) {
+        if (sample.expectedType == null || !"bugfix".equalsIgnoreCase(sample.expectedType)) {
+            return true;
+        }
+        com.ablueforce.cortexce.service.TraceSignals.Signals signals =
+                com.ablueforce.cortexce.service.TraceSignals.of(sample.toolInput, sample.toolOutput);
+        return signals.defectEvidence() || signals.securityRelated();
     }
 
     static String traceEvidence(GoldenSet.Sample sample) {

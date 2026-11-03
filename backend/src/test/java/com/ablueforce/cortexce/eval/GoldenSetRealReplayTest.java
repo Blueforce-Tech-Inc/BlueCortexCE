@@ -22,14 +22,41 @@ class GoldenSetRealReplayTest {
     @DisplayName("replaying the MiniMax real-history fixture reproduces its committed metrics")
     void minimaxRealReplayReproducesMetrics() throws Exception {
         GoldenSet real = GoldenSetEvaluator.loadGoldenSet("real");
-        assertReplay(real, "minimax-real-r10-prompt");
+        assertReplay(real, "minimax-real-r11-signals");
     }
 
     @Test
     @DisplayName("replaying the LongCat real-history fixture reproduces its committed metrics")
     void longcatRealReplayReproducesMetrics() throws Exception {
         GoldenSet real = GoldenSetEvaluator.loadGoldenSet("real");
-        assertReplay(real, "longcat-real-r10-prompt");
+        assertReplay(real, "longcat-real-r11-signals");
+    }
+
+    /**
+     * Round 11 offline gate. Action and auditable type clear the pre-committed 80% target.
+     * Identifier and subject do not reach the planned 90%: the real set names the largest changed
+     * file, while a model often titles a different file of the same commit, so the two rates are
+     * ratcheted at the measured floor instead of a threshold that would turn every build red.
+     * The gap stays explicit here and in the round-11 report.
+     */
+    @Test
+    @DisplayName("the real-history fixtures clear their ratcheted quality floors")
+    void realFixturesClearRatchetedFloors() throws Exception {
+        GoldenSet real = GoldenSetEvaluator.loadGoldenSet("real");
+        assertFloors(real, "minimax-real-r11-signals", 0.5625, 0.5625);
+        assertFloors(real, "longcat-real-r11-signals", 0.7441, 0.7441);
+    }
+
+    private static void assertFloors(GoldenSet real, String name,
+                                     double identifierFloor, double subjectFloor) throws Exception {
+        GoldenSetScorer.Aggregate agg = score(real, name);
+        assertThat(agg.titleActionHitRate).as(name + " action class").isGreaterThanOrEqualTo(0.80);
+        assertThat(agg.typeAccuracyAuditable).as(name + " auditable type")
+                .isGreaterThanOrEqualTo(0.80);
+        assertThat(agg.titleIdentifierHitRate).as(name + " identifier")
+                .isGreaterThanOrEqualTo(identifierFloor);
+        assertThat(agg.titleTraceSubjectHitRate).as(name + " trace-visible subject")
+                .isGreaterThanOrEqualTo(subjectFloor);
     }
 
     private static void assertReplay(GoldenSet real, String name) throws Exception {
@@ -50,6 +77,10 @@ class GoldenSetRealReplayTest {
                     .isCloseTo(doubleValue(expected, "titleTraceSubjectHitRate"), within(1e-9));
             assertThat(agg.typeAccuracy)
                     .isCloseTo(doubleValue(expected, "typeAccuracy"), within(1e-9));
+            assertThat(agg.typeAccuracyAuditable)
+                    .isCloseTo(doubleValue(expected, "typeAccuracyAuditable"), within(1e-9));
+            assertThat(agg.typeUnverifiable)
+                    .isEqualTo(intValue(expected, "typeUnverifiable"));
             assertThat(agg.p95Tokens).isEqualTo(((Number) expected.get("p95Tokens")).longValue());
         }
     }

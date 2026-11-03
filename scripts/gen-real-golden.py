@@ -65,6 +65,11 @@ Type mapping (first match wins)
 * fix/bug/regression/correct            -> bugfix
 * add/feat/introduce/implement          -> feature
 * otherwise                             -> change
+
+The rules are the default. ``TYPE_OVERRIDES`` records the round-11 audit, where a
+human read the diff and the subject together: a word such as "security" inside a
+prompt rule, or a trailing noun "refactor", is not the author's type. Regeneration
+applies those audited labels instead of silently reintroducing the noisy ones.
 """
 from __future__ import annotations
 
@@ -94,6 +99,32 @@ ACTION_PRIORITY = ("remove", "document", "secure", "create", "modify", "diagnose
 QUOTA = {"create": 10, "modify": 12, "remove": 10,
          "document": 12, "secure": 10, "diagnose": 10}
 MIN_TOTAL = 60
+
+# Round-11 label audit. The rules above are the default, and the audit found no label
+# that contradicts the mechanical signals; these entries record the six subjects where
+# reading the diff beat matching a word, plus two repairs whose defect is only visible
+# in the code (so the rule would file them as "change").
+TYPE_OVERRIDES = {
+    "77ba40df77": ("feature", "subject opens with \"Add\" and the diff adds a new class "
+                              "plus wiring: a new capability, not a restructure"),
+    "cf667b4d8b": ("bugfix", "subject carries the fix: prefix and drops a mapped column "
+                             "that V17 never created: a defect fix, not a rename"),
+    "9a0e90bed5": ("refactor", "subject carries the refactor: prefix"),
+    "d33efbd8ae": ("feature", "subject carries the feat: prefix"),
+    "cd6b972cfd": ("feature", "subject carries the feat: prefix"),
+    "f7b865efe5": ("change", "subject carries the build: prefix"),
+    "3a2d426fdf": ("change", "the subject measures the eval harness and edits a script; "
+                             "it refactors nothing"),
+    "9e6612fdf9": ("feature", "the word 'security' names a prompt domain, not a "
+                              "vulnerability; the commit extends the title rules"),
+    "f3d12860ff": ("change", "making the log API optional is a behaviour change, not a repair"),
+    "46e467bff6": ("feature", "adds a migration and a preflight script; the trailing word "
+                              "'refactor' is a noun, not the author's type prefix"),
+    "7093cb5c56": ("bugfix", "the diff makes a concurrent repair claim its row before "
+                             "writing: a race fix"),
+    "63b5502fb9": ("bugfix", "single atomic migration with fail-closed conflicts repairs "
+                             "a data-integrity defect"),
+}
 
 
 def git(*args: str) -> str:
@@ -231,15 +262,46 @@ def type_for(commit: dict, files: list[dict], actions: list[str]) -> str:
     tests = [f for f in files if is_test(f["path"])]
     if "document" in actions and all(is_doc(f["path"]) for f in files):
         return "change"
-    if "secure" in actions:
-        return "bugfix"
+    # A conventional prefix states the author's own classification, so it wins over the
+    # file-kind heuristics. Without this, any commit that touched a scope/permission path
+    # was labelled bugfix, including `feat(migration): add a fail-closed classifier` and
+    # `refactor(scope): route reads through predicates`.
+    scoped = re.match(r"(fix|bug|feat|feature|refactor|test|tests|docs|chore|build|ci"
+                      r"|perf|style)(\([^)]*\))?!?:", text)
+    if scoped:
+        return {"fix": "bugfix", "bug": "bugfix", "feat": "feature",
+                "feature": "feature", "refactor": "refactor", "test": "feature",
+                "tests": "feature", "docs": "change", "chore": "change",
+                "build": "change", "ci": "change", "perf": "change",
+                "style": "change"}[scoped.group(1)]
     if tests and not production:
         return "feature"
-    if re.search(r"refactor|cleanup|rename|extract|simplif", text):
-        return "refactor"
-    if re.search(r"fix|bug|regression|correct", text):
+    if "secure" in actions:
         return "bugfix"
-    if re.search(r"add|feat|introduce|implement|support", text):
+    # The verb that opens the subject decides. Scanning the whole subject made nouns win:
+    # "add ... for observation extraction" matched `extract` and became refactor, and
+    # "fix(backend): ... rename a query" matched `rename` and became refactor.
+    head = re.match(r"(fix|bug|feat|refactor|cleanup|rename|extract|simplif|add|introduce"
+                    r"|implement|support|correct)\b", text)
+    if head:
+        word = head.group(1)
+        if word in ("fix", "bug", "correct"):
+            return "bugfix"
+        if word in ("feat", "add", "introduce", "implement", "support"):
+            return "feature"
+        return "refactor"
+    # Conventional-commit scope form: "fix(backend): ...", "feat(eval): ...".
+    scoped = re.match(r"(fix|bug|feat|refactor|test|docs|chore)(\([^)]*\))?:", text)
+    if scoped:
+        kind = {"fix": "bugfix", "bug": "bugfix", "feat": "feature",
+                "refactor": "refactor", "test": "feature", "docs": "change",
+                "chore": "change"}[scoped.group(1)]
+        return kind
+    if re.search(r"\b(refactor|cleanup|rename|simplif)\b", text):
+        return "refactor"
+    if re.search(r"\b(fix|bug|regression|correct)\b", text):
+        return "bugfix"
+    if re.search(r"\b(add|feat|introduce|implement|support)\b", text):
         return "feature"
     return "change"
 
@@ -247,7 +309,7 @@ def type_for(commit: dict, files: list[dict], actions: list[str]) -> str:
 def category_for(files: list[dict], actions: list[str], expected_type: str) -> str:
     if "document" in actions and all(is_doc(f["path"]) for f in files):
         return "docs-update"
-    if "secure" in actions:
+    if "secure" in actions and expected_type == "bugfix":
         return "security-fix"
     if expected_type == "refactor":
         return "refactor"
@@ -303,6 +365,13 @@ def build_sample(commit: dict, files: list[dict], actions: list[str],
     primary = ranked[0]
     ident = identifier(primary["path"])
     expected_type = "change" if mode == "diagnose" else type_for(commit, files, actions)
+    audit_note = ""
+    override = TYPE_OVERRIDES.get(commit["sha"][:10])
+    if override and mode != "diagnose":
+        # Human-reviewed labels. The rules above are the default; these entries record
+        # where reading the diff beat matching a word in the subject.
+        expected_type, reason = override
+        audit_note = " | round-11 label audit: " + reason
     action_set = ["diagnose"] if mode == "diagnose" else actions
     primary_action = action_set[0]
 
@@ -339,7 +408,7 @@ def build_sample(commit: dict, files: list[dict], actions: list[str],
         "conceptsKeywords": concepts_for(action_set, expected_type),
         "titleAction": primary_action,
         "titleActions": action_set,
-        "notes": f"generated from {commit['sha']} ({commit['subject']})",
+        "notes": f"generated from {commit['sha']} ({commit['subject']})" + audit_note,
     }
 
 
@@ -419,7 +488,7 @@ def main() -> int:
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({"version": "real-git-2026-11-03-r10", "samples": samples},
+    out.write_text(json.dumps({"version": "real-git-2026-11-03-r11", "samples": samples},
                               indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"wrote {len(samples)} real-history samples to {out}")
     print("action coverage: " + ", ".join(f"{a}={filled[a]}" for a in QUOTA))

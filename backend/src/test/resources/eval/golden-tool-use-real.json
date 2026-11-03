@@ -1,5 +1,5 @@
 {
-  "version": "real-git-2026-11-03-r10",
+  "version": "real-git-2026-11-03-r11",
   "samples": [
     {
       "id": "real-f6a1b89e41",
@@ -135,7 +135,7 @@
     },
     {
       "id": "real-77ba40df77",
-      "category": "refactor",
+      "category": "feature",
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
@@ -143,7 +143,7 @@
       "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java\nread_files=backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java, backend/src/test/java/com/ablueforce/cortexce/service/ExtractionConsistencyTest.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java, backend/src/main/resources/application.yml\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.service;\"",
       "toolOutput": "Edit backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java: removed 0 line(s), added 82 line(s); '(none)' -> 'package com.ablueforce.cortexce.service;' Edit backend/src/test/java/com/ablueforce/cortexce/service/ExtractionConsistencyTest.java: removed 0 line(s), added 74 line(s); '(none)' -> 'package com.ablueforce.cortexce.service;' Edit backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java: removed 11 line(s), added 51 line(s); '// Call LLM' -> 'import java.util.ArrayList;' Edit backend/src/main/resources/application.yml: removed 0 line(s), added 3 line(s); '(none)' -> '# Attempts per tool trace. 1 = one call (vote off); 3 = majority vote at 3x latency and' Edited file_path=backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java. Totals: 4 file(s), 210 insertion(s), 11 deletion(s).",
       "expectObservation": true,
-      "expectedType": "refactor",
+      "expectedType": "feature",
       "titleKeywords": [
         "add",
         "extractionconsistency"
@@ -164,7 +164,7 @@
         "create",
         "modify"
       ],
-      "notes": "generated from 77ba40df773490276c448382e4b0ef493725ffe3 (Add an opt-in majority vote for observation extraction)"
+      "notes": "generated from 77ba40df773490276c448382e4b0ef493725ffe3 (Add an opt-in majority vote for observation extraction) | round-11 label audit: refactor -> feature (subject opens with \"Add\" and the diff adds a new class plus wiring: a new capability, not a restructure)"
     },
     {
       "id": "real-f0d346eab1",
@@ -209,7 +209,7 @@
       "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java\nread_files=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, scripts/eval-model-quality.sh\nold_string=\"this(sample, raw, skipped, observation, callFailed, failure, elapsedMs, null, 0, false);\"\nnew_string=\"public final int promptTokens;\"",
       "toolOutput": "Edit backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java: removed 1 line(s), added 149 line(s); 'this(sample, raw, skipped, observation, callFailed, failure, elapsedMs, null, 0, false);' -> 'public final int promptTokens;' Edit backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java: removed 13 line(s), added 71 line(s); 'int runs = sample.keySample ? keyRepeat : 1;' -> 'boolean repeatAll = \"1\".equals(envOr(\"EVAL_REPEAT_ALL\", \"0\"));' Edit scripts/eval-model-quality.sh: removed 0 line(s), added 2 line(s); '(none)' -> '# EVAL_REPEAT_ALL=1 repeats every sample EVAL_KEY_REPEAT times to measure run-to-run' Edited file_path=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java. Totals: 3 file(s), 222 insertion(s), 14 deletion(s).",
       "expectObservation": true,
-      "expectedType": "refactor",
+      "expectedType": "change",
       "titleKeywords": [
         "change",
         "goldensetscorer"
@@ -229,7 +229,7 @@
       "titleActions": [
         "modify"
       ],
-      "notes": "generated from 3a2d426fdf0226237abec81c41c0e8c1281d579a (Measure run-to-run variance and per-call token cost in the extraction eval)"
+      "notes": "generated from 3a2d426fdf0226237abec81c41c0e8c1281d579a (Measure run-to-run variance and per-call token cost in the extraction eval) | round-11 label audit: refactor -> change (the subject measures the eval harness and edits a script; it refactors nothing)"
     },
     {
       "id": "real-864dadf51b",
@@ -440,7 +440,7 @@
       "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nread_files=backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetActionRules.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java\nold_string=\"- Fixed: a defect already produced wrong or failing behaviour.\"\nnew_string=\"- Fixed: a defect already produced wrong or failing behaviour, in non-security code.\"",
       "toolOutput": "Edit backend/src/main/resources/prompts/continuation.txt: removed 12 line(s), added 18 line(s); '- Fixed: a defect already produced wrong or failing behaviour.' -> '- Fixed: a defect already produced wrong or failing behaviour, in non-security code.' Edit backend/src/main/resources/prompts/init.txt: removed 12 line(s), added 18 line(s); '- Fixed: a defect already produced wrong or failing behaviour.' -> '- Fixed: a defect already produced wrong or failing behaviour, in non-security code.' Edit backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetActionRules.java: removed 1 line(s), added 1 line(s); 'Map.entry(\"enable\", \"modify\"),' -> 'Map.entry(\"enable\", \"modify\"), Map.entry(\"extend\", \"modify\"),' Edit backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java: removed 0 line(s), added 1 line(s); '(none)' -> 'Map.entry(\"extend\", Set.of(\"extend\", \"extended\", \"extends\", \"extending\")),' Edited file_path=backend/src/main/resources/prompts/continuation.txt. Totals: 4 file(s), 38 insertion(s), 25 deletion(s). Security hardening: matched 'security'.",
       "expectObservation": true,
-      "expectedType": "bugfix",
+      "expectedType": "feature",
       "titleKeywords": [
         "document",
         "continuation.txt"
@@ -462,7 +462,7 @@
         "secure",
         "modify"
       ],
-      "notes": "generated from 9e6612fdf9193506697cda57614d9b51aa64932d (Make the security domain and insertion scopes decide the title verb)"
+      "notes": "generated from 9e6612fdf9193506697cda57614d9b51aa64932d (Make the security domain and insertion scopes decide the title verb) | round-11 label audit: bugfix -> feature (the word 'security' names a prompt domain, not a vulnerability; the commit extends the title rules)"
     },
     {
       "id": "real-f43cfd6f44",
@@ -697,7 +697,7 @@
         "create",
         "modify"
       ],
-      "notes": "generated from 7093cb5c56831a9b5fe983d55af180731b1ddb1a (Make embedding repair claim the row before it writes)"
+      "notes": "generated from 7093cb5c56831a9b5fe983d55af180731b1ddb1a (Make embedding repair claim the row before it writes) | round-11 label audit: kept bugfix, overriding the rule's 'change' (the diff makes a concurrent repair claim its row before writing: a race fix)"
     },
     {
       "id": "real-f3d12860ff",
@@ -709,7 +709,7 @@
       "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java\nread_files=backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java, backend/src/main/java/com/ablueforce/cortexce/controller/LogsController.java\nold_string=\"Field field = LogsController.class.getDeclaredField(\"logDir\");\"\nnew_string=\"setField(\"logDir\", logDir.toString());\"",
       "toolOutput": "Edit backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java: removed 3 line(s), added 48 line(s); 'Field field = LogsController.class.getDeclaredField(\"logDir\");' -> 'setField(\"logDir\", logDir.toString());' Edit backend/src/main/java/com/ablueforce/cortexce/controller/LogsController.java: removed 2 line(s), added 43 line(s); '@RequestParam(defaultValue = \"1000\") int lines) {' -> '/**' Edited file_path=backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java. Totals: 2 file(s), 91 insertion(s), 5 deletion(s). Security hardening: matched 'credential'.",
       "expectObservation": true,
-      "expectedType": "bugfix",
+      "expectedType": "change",
       "titleKeywords": [
         "harden",
         "logscontrollertest"
@@ -730,7 +730,7 @@
         "secure",
         "modify"
       ],
-      "notes": "generated from f3d12860ffc770ae7b1e11b158124dff44ea8088 (Make the log API optional without changing its default)"
+      "notes": "generated from f3d12860ffc770ae7b1e11b158124dff44ea8088 (Make the log API optional without changing its default) | round-11 label audit: bugfix -> change (making the log API optional is a behaviour change, not a repair)"
     },
     {
       "id": "real-3409dda60c",
@@ -776,7 +776,7 @@
       "toolInput": "file_path=backend/src/main/resources/static/index.html\nread_files=backend/src/main/resources/static/index.html, backend/src/main/resources/static/viewer-bundle.js, webui\nold_string=\"--color-bg-header: #f6f8fa;\"\nnew_string=\"--color-bg-header: #f8f6f2;\"",
       "toolOutput": "Edit backend/src/main/resources/static/index.html: removed 950 line(s), added 689 line(s); '--color-bg-header: #f6f8fa;' -> '--color-bg-header: #f8f6f2;' Edit backend/src/main/resources/static/viewer-bundle.js: removed 22 line(s), added 36 line(s); '\"use strict\";(()=>{var Xm=Object.create;var ju=Object.defineProperty;var $m=Object.getOwnPropertyDescriptor;var Km=Object.getOwnPropertyNames;var Ym=Object.getP' -> '\"use strict\";(()=>{var vE=Object.create;var Xm=Object.defineProperty;var hE=Object.getOwnPropertyDescriptor;var yE=Object.getOwnPropertyNames;var EE=Object.getP' Edit webui: removed 1 line(s), added 1 line(s); 'Subproject commit 72e7804b13f89b03177f746867e0dd341fb12c8a' -> 'Subproject commit 8d0d2e71bad164b3eeba93a6bc1c9766876c31f9' Edited file_path=backend/src/main/resources/static/index.html. Totals: 3 file(s), 726 insertion(s), 973 deletion(s). Security hardening: matched 'Auth'.",
       "expectObservation": true,
-      "expectedType": "bugfix",
+      "expectedType": "change",
       "titleKeywords": [
         "harden",
         "index.html"
@@ -798,7 +798,7 @@
         "create",
         "modify"
       ],
-      "notes": "generated from f7b865efe5541a9dd50ca388e779d260e1a7ffdb (build: pair WebUI gitlink and static viewer with the v2 identity wire)"
+      "notes": "generated from f7b865efe5541a9dd50ca388e779d260e1a7ffdb (build: pair WebUI gitlink and static viewer with the v2 identity wire) | round-11 label audit: bugfix -> change (subject carries the build: prefix)"
     },
     {
       "id": "real-a8cc1754bc",
@@ -870,7 +870,7 @@
     },
     {
       "id": "real-cf667b4d8b",
-      "category": "refactor",
+      "category": "bug-fix",
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
@@ -878,7 +878,7 @@
       "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/entity/ObservationFeedbackEntity.java\nread_files=backend/src/main/java/com/ablueforce/cortexce/entity/ObservationFeedbackEntity.java, backend/src/main/java/com/ablueforce/cortexce/repository/ObservationFeedbackRepository.java\nold_string=\"/**\"\nnew_string=\"*\"",
       "toolOutput": "Edit backend/src/main/java/com/ablueforce/cortexce/entity/ObservationFeedbackEntity.java: removed 10 line(s), added 9 line(s); '/**' -> '*' Edit backend/src/main/java/com/ablueforce/cortexce/repository/ObservationFeedbackRepository.java: removed 2 line(s), added 7 line(s); '* Find all feedback for a specific observation, ordered by creation time.' -> '* Find all feedback for a specific observation, most recent first.' Edited file_path=backend/src/main/java/com/ablueforce/cortexce/entity/ObservationFeedbackEntity.java. Totals: 2 file(s), 16 insertion(s), 12 deletion(s).",
       "expectObservation": true,
-      "expectedType": "refactor",
+      "expectedType": "bugfix",
       "titleKeywords": [
         "remove",
         "observationfeedbackentity"
@@ -899,7 +899,7 @@
         "remove",
         "modify"
       ],
-      "notes": "generated from cf667b4d8b755ed72cfe5f66e230434859a570ab (fix(backend): drop a mapped column V17 never created, and rename a query that lies)"
+      "notes": "generated from cf667b4d8b755ed72cfe5f66e230434859a570ab (fix(backend): drop a mapped column V17 never created, and rename a query that lies) | round-11 label audit: refactor -> bugfix (subject carries the fix: prefix and drops a mapped column that V17 never created: a defect fix, not a rename)"
     },
     {
       "id": "real-a0e77ca4ee",
@@ -1621,7 +1621,7 @@
     },
     {
       "id": "real-9a0e90bed5",
-      "category": "security-fix",
+      "category": "refactor",
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
@@ -1629,7 +1629,7 @@
       "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java\nread_files=backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java, backend/src/main/java/com/ablueforce/cortexce/entity/MemoryScopeEntity.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java, backend/src/test/java/com/ablueforce/cortexce/event/PendingMessageEventListenerTest.java\nold_string=\"WHERE (:project IS NULL OR o.projectPath = :project)\"\nnew_string=\"WHERE (:project IS NULL OR o.memoryScopeId IN (\"",
       "toolOutput": "Edit backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java: removed 35 line(s), added 69 line(s); 'WHERE (:project IS NULL OR o.projectPath = :project)' -> 'WHERE (:project IS NULL OR o.memoryScopeId IN (' Edit backend/src/main/java/com/ablueforce/cortexce/entity/MemoryScopeEntity.java: removed 0 line(s), added 65 line(s); '(none)' -> 'package com.ablueforce.cortexce.entity;' Edit backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java: removed 2 line(s), added 10 line(s); '// Check for duplicate within 30-second window' -> 'private final MemoryScopeService memoryScopeService;' Edit backend/src/test/java/com/ablueforce/cortexce/event/PendingMessageEventListenerTest.java: removed 1 line(s), added 1 line(s); 'null, null, null, null, null, null, null, null, null, null' -> 'null, null, null, null, null, null, null, null, null, null, null' Edited file_path=backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java. Totals: 4 file(s), 145 insertion(s), 38 deletion(s). Security hardening: matched 'Auth'.",
       "expectObservation": true,
-      "expectedType": "bugfix",
+      "expectedType": "refactor",
       "titleKeywords": [
         "harden",
         "observationrepository"
@@ -1651,7 +1651,7 @@
         "create",
         "modify"
       ],
-      "notes": "generated from 9a0e90bed5a093bfd676d2ddebdfac641ff1c646 (refactor(scope): route observation reads through memory scope predicates)"
+      "notes": "generated from 9a0e90bed5a093bfd676d2ddebdfac641ff1c646 (refactor(scope): route observation reads through memory scope predicates) | round-11 label audit: bugfix -> refactor (subject carries the refactor: prefix)"
     },
     {
       "id": "real-63b5502fb9",
@@ -1685,11 +1685,11 @@
         "create",
         "modify"
       ],
-      "notes": "generated from 63b5502fb99ed70f201be208a1f00f1d3d4342fc (db: make V20 a single atomic migration with fail-closed conflicts)"
+      "notes": "generated from 63b5502fb99ed70f201be208a1f00f1d3d4342fc (db: make V20 a single atomic migration with fail-closed conflicts) | round-11 label audit: kept bugfix, overriding the rule's 'change' (single atomic migration with fail-closed conflicts repairs a data-integrity defect)"
     },
     {
       "id": "real-d33efbd8ae",
-      "category": "security-fix",
+      "category": "feature",
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
@@ -1697,7 +1697,7 @@
       "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/migration/ConversationScopeBackfillRunner.java\nread_files=backend/src/main/java/com/ablueforce/cortexce/migration/ConversationScopeBackfillRunner.java, backend/src/test/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifierTest.java, backend/src/main/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifier.java, backend/src/main/java/com/ablueforce/cortexce/migration/BackfillCliMain.java\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.migration;\"",
       "toolOutput": "Edit backend/src/main/java/com/ablueforce/cortexce/migration/ConversationScopeBackfillRunner.java: removed 0 line(s), added 845 line(s); '(none)' -> 'package com.ablueforce.cortexce.migration;' Edit backend/src/test/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifierTest.java: removed 0 line(s), added 275 line(s); '(none)' -> 'package com.ablueforce.cortexce.migration;' Edit backend/src/main/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifier.java: removed 0 line(s), added 269 line(s); '(none)' -> 'package com.ablueforce.cortexce.migration;' Edit backend/src/main/java/com/ablueforce/cortexce/migration/BackfillCliMain.java: removed 0 line(s), added 121 line(s); '(none)' -> 'package com.ablueforce.cortexce.migration;' Edited file_path=backend/src/main/java/com/ablueforce/cortexce/migration/ConversationScopeBackfillRunner.java. Totals: 4 file(s), 1510 insertion(s), 0 deletion(s). Security hardening: matched 'Auth'.",
       "expectObservation": true,
-      "expectedType": "bugfix",
+      "expectedType": "feature",
       "titleKeywords": [
         "harden",
         "conversationscopebackfillrunner"
@@ -1718,11 +1718,11 @@
         "secure",
         "create"
       ],
-      "notes": "generated from d33efbd8ae1dccbd3b53902414c08b7d55711bea (feat(migration): add fail-closed classifier and checkpointed backfill runner)"
+      "notes": "generated from d33efbd8ae1dccbd3b53902414c08b7d55711bea (feat(migration): add fail-closed classifier and checkpointed backfill runner) | round-11 label audit: bugfix -> feature (subject carries the feat: prefix)"
     },
     {
       "id": "real-cd6b972cfd",
-      "category": "security-fix",
+      "category": "feature",
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
@@ -1730,7 +1730,7 @@
       "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java\nread_files=backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.service;\"",
       "toolOutput": "Edit backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java: removed 0 line(s), added 326 line(s); '(none)' -> 'package com.ablueforce.cortexce.service;' Edited file_path=backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java. Totals: 1 file(s), 326 insertion(s), 0 deletion(s). Security hardening: matched 'auth'.",
       "expectObservation": true,
-      "expectedType": "bugfix",
+      "expectedType": "feature",
       "titleKeywords": [
         "harden",
         "summaryjobservice"
@@ -1751,7 +1751,7 @@
         "secure",
         "create"
       ],
-      "notes": "generated from cd6b972cfdec3224cf91247b2d0fd6d8e8920a90 (feat(summary): add durable, resumable SessionEnd summary job)"
+      "notes": "generated from cd6b972cfdec3224cf91247b2d0fd6d8e8920a90 (feat(summary): add durable, resumable SessionEnd summary job) | round-11 label audit: bugfix -> feature (subject carries the feat: prefix)"
     },
     {
       "id": "real-46e467bff6",
@@ -1763,7 +1763,7 @@
       "toolInput": "file_path=scripts/db/conversation-scope-preflight.sql\nread_files=scripts/db/conversation-scope-preflight.sql, backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql, scripts/db/conversation-scope-fixture.sql\nold_string=\"\"\nnew_string=\"-- conversation-scope-preflight.sql\"",
       "toolOutput": "Edit scripts/db/conversation-scope-preflight.sql: removed 0 line(s), added 426 line(s); '(none)' -> '-- conversation-scope-preflight.sql' Edit backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql: removed 0 line(s), added 311 line(s); '(none)' -> '-- V20: Conversation / Memory Scope identity — additive expansion only.' Edit scripts/db/conversation-scope-fixture.sql: removed 0 line(s), added 249 line(s); '(none)' -> '-- conversation-scope-fixture.sql' Edited file_path=scripts/db/conversation-scope-preflight.sql. Totals: 3 file(s), 986 insertion(s), 0 deletion(s). Security hardening: matched 'Auth'.",
       "expectObservation": true,
-      "expectedType": "bugfix",
+      "expectedType": "feature",
       "titleKeywords": [
         "harden",
         "conversation-scope-preflight.sql"
@@ -1784,7 +1784,7 @@
         "secure",
         "create"
       ],
-      "notes": "generated from 46e467bff6e7bcc217625271c7552cbdb862cce7 (db: add V20 additive expansion and read-only preflight for scope refactor)"
+      "notes": "generated from 46e467bff6e7bcc217625271c7552cbdb862cce7 (db: add V20 additive expansion and read-only preflight for scope refactor) | round-11 label audit: bugfix -> feature (adds a migration and a preflight script; the trailing word 'refactor' is a noun, not the author's type prefix)"
     },
     {
       "id": "real-325c817bbf",
