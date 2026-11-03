@@ -184,8 +184,15 @@ public final class GoldenSetEvaluator {
                     if (raw == null) {
                         CallResult failure = results.stream()
                                 .filter(result -> result.error() != null).findFirst().orElse(null);
-                        throw new IllegalStateException(failure == null
-                                ? "all attempts returned no content" : failure.error());
+                        String diagnostic = results.stream().map(CallResult::raw)
+                                .filter(text -> text != null && !text.isBlank())
+                                .findFirst().orElse(null);
+                        String finish = results.stream().map(CallResult::finishReason)
+                                .filter(reason -> reason != null && !reason.isBlank())
+                                .findFirst().orElse(null);
+                        throw new NoContentException(
+                                failure == null ? "all attempts returned no content" : failure.error(),
+                                diagnostic, finish);
                     }
                     int promptTokens = results.stream().mapToInt(CallResult::promptTokens).sum();
                     int completionTokens = results.stream().mapToInt(CallResult::completionTokens).sum();
@@ -193,16 +200,27 @@ public final class GoldenSetEvaluator {
                             promptTokens, completionTokens));
                     recorded.add(entry(sample, raw, null, "200", elapsedMs, runIndex,
                             promptTokens, completionTokens));
+                    if (!results.isEmpty()) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> record = (Map<String, Object>) recorded.get(recorded.size() - 1);
+                        record.put("blocks", results.get(0).blocks());
+                    }
                     System.out.printf(Locale.ROOT, "  [%d/%d] %-30s run %d %5d ms (x%d, %d tokens)%n",
                             i + 1, planned, sample.id, runIndex, elapsedMs, consistency,
                             promptTokens + completionTokens);
                 } catch (Exception e) {
                     long elapsedMs = (System.nanoTime() - started) / 1_000_000;
-                    String error = e.getClass().getSimpleName() + ": " + e.getMessage();
+                    NoContentException noContent =
+                            e instanceof NoContentException detail ? detail : null;
+                    String finish = noContent == null || noContent.finishReason == null
+                            ? "" : " (finish=" + noContent.finishReason + ")";
+                    String error = e.getClass().getSimpleName() + ": " + e.getMessage() + finish;
                     String status = statusOf(error);
                     outcomes.add(new GoldenSetScorer.Outcome(sample, null, false, null, true,
                             error, elapsedMs, status, runIndex, false));
-                    recorded.add(entry(sample, null, error, status, elapsedMs, runIndex, 0, 0));
+                    recorded.add(entry(sample, sanitize(noContent == null
+                                    ? null : noContent.diagnosticRaw),
+                            error, status, elapsedMs, runIndex, 0, 0));
                     System.out.printf(Locale.ROOT, "  [%d/%d] %-30s run %d CALL FAILED (%s): %s%n",
                             i + 1, planned, sample.id, runIndex, status, e.getMessage());
                 }
@@ -443,6 +461,9 @@ public final class GoldenSetEvaluator {
         row(sb, "format errors", String.valueOf(agg.formatErrors));
         row(sb, "validation rejections", String.valueOf(agg.validationRejections));
         row(sb, "call failures", String.valueOf(agg.callFailures));
+        row(sb, "call success rate", pct(calls == 0 ? 0.0
+                : (double) (calls - agg.callFailures) / calls)
+                + " (" + agg.callFailures + "/" + calls + " failed)");
         row(sb, "title exact-hit rate (legacy)", pct(agg.titleExactHitRate));
         row(sb, "title normalized hit rate (legacy)", pct(agg.titleNormalizedHitRate));
         row(sb, "title action-class hit rate (A6)", pct(agg.titleActionHitRate)
@@ -510,6 +531,10 @@ public final class GoldenSetEvaluator {
                     agg.p95Tokens + " tokens (baseline " + tokenBaseline + ")",
                     agg.p95Tokens <= tokenBaseline * PERFORMANCE_TOLERANCE);
         }
+        double callSuccessRate = calls == 0 ? 0.0 : (double) (calls - agg.callFailures) / calls;
+        gate(sb, "A13", "provider call success rate", ">= 99%",
+                pct(callSuccessRate) + " (" + agg.callFailures + "/" + calls + " failed)",
+                callSuccessRate >= 0.99);
         sb.append('\n');
 
         if (!agg.statusCounts.isEmpty()) {
@@ -765,7 +790,25 @@ public final class GoldenSetEvaluator {
 
     /** Result of one provider call, including failure, usage and latency. */
     private record CallResult(String raw, String error, int promptTokens,
-                              int completionTokens, long elapsedMs) {
+                              int completionTokens, long elapsedMs, String finishReason,
+                              String blocks) {
+    }
+
+    /**
+     * A response that arrived but carried no usable answer. The raw text is kept so the
+     * report can say what the provider actually sent (a reasoning block, a truncated
+     * document, an empty body) instead of collapsing every case into "no content".
+     */
+    private static final class NoContentException extends RuntimeException {
+
+        private final String diagnosticRaw;
+        private final String finishReason;
+
+        private NoContentException(String message, String diagnosticRaw, String finishReason) {
+            super(message);
+            this.diagnosticRaw = diagnosticRaw;
+            this.finishReason = finishReason;
+        }
     }
 
     /**
@@ -819,12 +862,47 @@ public final class GoldenSetEvaluator {
     }
 
     private static CallResult resultOf(ChatResponse response, long elapsedMs, int promptTokens) {
-        String raw = response.getResult().getOutput().getText();
+        String raw = com.ablueforce.cortexce.service.ChatResponseText.extract(response);
+        String finishReason = null;
+        if (response != null && response.getResults() != null && !response.getResults().isEmpty()) {
+            var first = response.getResults().get(0);
+            if (first != null && first.getMetadata() != null) {
+                finishReason = first.getMetadata().getFinishReason();
+            }
+        }
         int completionTokens = 0;
         if (response.getMetadata() != null && response.getMetadata().getUsage() != null) {
             completionTokens = response.getMetadata().getUsage().getCompletionTokens();
         }
-        return new CallResult(raw, null, promptTokens, completionTokens, elapsedMs);
+        return new CallResult(raw, null, promptTokens, completionTokens, elapsedMs, finishReason,
+                blockKinds(response));
+    }
+
+    /**
+     * Names the content blocks in order, e.g. {@code reasoning+text}. Reading only the
+     * first generation worked before only because every response started with text; this
+     * makes that assumption visible in the committed fixture.
+     */
+    private static String blockKinds(ChatResponse response) {
+        if (response == null || response.getResults() == null) {
+            return "empty";
+        }
+        StringBuilder kinds = new StringBuilder();
+        for (var generation : response.getResults()) {
+            if (generation == null || generation.getOutput() == null) {
+                continue;
+            }
+            var metadata = generation.getOutput().getMetadata();
+            String text = generation.getOutput().getText();
+            String kind = metadata != null
+                    && (metadata.containsKey("signature") || metadata.containsKey("data"))
+                    ? "reasoning" : (text == null || text.isBlank() ? "empty" : "text");
+            if (kinds.length() > 0) {
+                kinds.append('+');
+            }
+            kinds.append(kind);
+        }
+        return kinds.length() == 0 ? "empty" : kinds.toString();
     }
 
     /** Majority winner over the concurrent attempts; order is attempt order for tie-breaks. */
@@ -866,6 +944,7 @@ public final class GoldenSetEvaluator {
         metrics.put("formatErrors", agg.formatErrors);
         metrics.put("validationRejections", agg.validationRejections);
         metrics.put("callFailures", agg.callFailures);
+        metrics.put("callSuccessRate", calls == 0 ? 0.0 : (double) (calls - agg.callFailures) / calls);
         metrics.put("skipAccuracy", agg.skipAccuracy);
         metrics.put("skipTp", agg.skipTp);
         metrics.put("skipFp", agg.skipFp);
@@ -909,6 +988,21 @@ public final class GoldenSetEvaluator {
         metrics.put("variance", agg.variance);
         metrics.put("statusCounts", agg.statusCounts);
         return metrics;
+    }
+
+    /**
+     * Keeps the provider answer for diagnosis while removing credentials and capping the
+     * size, so a failed fixture can be committed without leaking a key or bloating the repo.
+     */
+    static String sanitize(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String redacted = raw.replaceAll(
+                "(?i)(sk-[A-Za-z0-9_-]{8,}|bearer\\s+[A-Za-z0-9._-]+"
+                        + "|(?:api[_-]?key|access[_-]?token)\\s*[=:]\\s*[^\\s\"',}]+)",
+                "<redacted>");
+        return redacted.length() <= 2000 ? redacted : redacted.substring(0, 2000) + "... [truncated]";
     }
 
     private static String excerpt(String raw) {

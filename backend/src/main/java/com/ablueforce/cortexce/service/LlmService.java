@@ -82,9 +82,7 @@ public class LlmService {
             throw new IllegalStateException("LLM returned a null response");
         }
 
-        return response.getResult() != null && response.getResult().getOutput() != null
-            ? response.getResult().getOutput().getText()
-            : "";
+        return ChatResponseText.extract(response);
     }
 
     /**
@@ -172,9 +170,7 @@ public class LlmService {
                 return failure(FailureKind.INVALID_RESPONSE, "null ChatResponse");
             }
 
-            String content = response.getResult() != null && response.getResult().getOutput() != null
-                ? response.getResult().getOutput().getText()
-                : "";
+            String content = ChatResponseText.extract(response);
 
             if (content == null || content.isBlank()) {
                 log.error("LLM response contains no usable content (blank answer)");
