@@ -87,6 +87,7 @@ public final class GoldenSetEvaluator {
         int maxCalls = Integer.parseInt(envOr("EVAL_MAX_CALLS", "0")); // 0 = unlimited
         int limit = Integer.parseInt(envOr("EVAL_LIMIT", String.valueOf(Integer.MAX_VALUE)));
         int keyRepeat = Math.max(1, Integer.parseInt(envOr("EVAL_KEY_REPEAT", "3")));
+        boolean repeatAll = "1".equals(envOr("EVAL_REPEAT_ALL", "0"));
         double temperature = Double.parseDouble(envOr("EVAL_TEMPERATURE", "0.0"));
         boolean validate = "1".equals(envOr("EVAL_VALIDATE", "1"));
 
@@ -98,7 +99,7 @@ public final class GoldenSetEvaluator {
         List<GoldenSet.Sample> selected = golden.samples.subList(0, Math.min(golden.samples.size(), limit));
         List<GoldenSet.Sample> plan = new ArrayList<>();
         for (GoldenSet.Sample sample : selected) {
-            int runs = sample.keySample ? keyRepeat : 1;
+            int runs = (sample.keySample || repeatAll) ? keyRepeat : 1;
             for (int run = 0; run < runs; run++) {
                 plan.add(sample);
             }
@@ -118,9 +119,10 @@ public final class GoldenSetEvaluator {
             model = buildModel(provider, apiKey, baseUrl, modelName, temperature);
             System.out.printf(Locale.ROOT,
                     "Evaluating %d scenario run(s) (%d samples, key repeat %d) with %s (%s) at %s "
-                            + "(cap=%s, validate=%s, temperature=%.1f)%n",
+                            + "(cap=%s, validate=%s, temperature=%.1f, repeatAll=%s)%n",
                     planned, selected.size(), keyRepeat, modelName, provider, baseUrl,
-                    maxCalls == 0 ? "none" : String.valueOf(maxCalls), validate, temperature);
+                    maxCalls == 0 ? "none" : String.valueOf(maxCalls), validate, temperature,
+                    repeatAll);
         } else {
             System.out.printf(Locale.ROOT,
                     "Replaying fixture %s for %s (%s), validate=%s%n",
@@ -145,7 +147,10 @@ public final class GoldenSetEvaluator {
                 String status = entry.get("status") == null ? null : String.valueOf(entry.get("status"));
                 long elapsed = ((Number) entry.getOrDefault("elapsedMs", 0)).longValue();
                 int runIndex = ((Number) entry.getOrDefault("runIndex", 0)).intValue();
-                outcomes.add(toOutcome(sample, raw, error, status, elapsed, runIndex, validate));
+                int promptTokens = ((Number) entry.getOrDefault("promptTokens", 0)).intValue();
+                int completionTokens = ((Number) entry.getOrDefault("completionTokens", 0)).intValue();
+                outcomes.add(toOutcome(sample, raw, error, status, elapsed, runIndex, validate,
+                        promptTokens, completionTokens));
             }
         } else {
             for (int i = 0; i < planned; i++) {
@@ -159,8 +164,16 @@ public final class GoldenSetEvaluator {
                             List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt))));
                     String raw = response.getResult().getOutput().getText();
                     long elapsedMs = (System.nanoTime() - started) / 1_000_000;
-                    outcomes.add(toOutcome(sample, raw, null, "200", elapsedMs, runIndex, validate));
-                    recorded.add(entry(sample, raw, null, "200", elapsedMs, runIndex));
+                    int promptTokens = 0;
+                    int completionTokens = 0;
+                    if (response.getMetadata() != null && response.getMetadata().getUsage() != null) {
+                        promptTokens = response.getMetadata().getUsage().getPromptTokens();
+                        completionTokens = response.getMetadata().getUsage().getCompletionTokens();
+                    }
+                    outcomes.add(toOutcome(sample, raw, null, "200", elapsedMs, runIndex, validate,
+                            promptTokens, completionTokens));
+                    recorded.add(entry(sample, raw, null, "200", elapsedMs, runIndex,
+                            promptTokens, completionTokens));
                     System.out.printf(Locale.ROOT, "  [%d/%d] %-30s run %d %5d ms%n",
                             i + 1, planned, sample.id, runIndex, elapsedMs);
                 } catch (Exception e) {
@@ -169,7 +182,7 @@ public final class GoldenSetEvaluator {
                     String status = statusOf(error);
                     outcomes.add(new GoldenSetScorer.Outcome(sample, null, false, null, true,
                             error, elapsedMs, status, runIndex, false));
-                    recorded.add(entry(sample, null, error, status, elapsedMs, runIndex));
+                    recorded.add(entry(sample, null, error, status, elapsedMs, runIndex, 0, 0));
                     System.out.printf(Locale.ROOT, "  [%d/%d] %-30s run %d CALL FAILED (%s): %s%n",
                             i + 1, planned, sample.id, runIndex, status, e.getMessage());
                 }
@@ -227,21 +240,30 @@ public final class GoldenSetEvaluator {
     static GoldenSetScorer.Outcome toOutcome(GoldenSet.Sample sample, String raw, String error,
                                                      String status, long elapsedMs, int runIndex,
                                                      boolean validate) {
+        return toOutcome(sample, raw, error, status, elapsedMs, runIndex, validate, 0, 0);
+    }
+
+    static GoldenSetScorer.Outcome toOutcome(GoldenSet.Sample sample, String raw, String error,
+                                                     String status, long elapsedMs, int runIndex,
+                                                     boolean validate, int promptTokens,
+                                                     int completionTokens) {
         if (error != null || raw == null) {
             return new GoldenSetScorer.Outcome(sample, raw, false, null, true,
-                    error == null ? "no raw answer" : error, elapsedMs, status, runIndex, false);
+                    error == null ? "no raw answer" : error, elapsedMs, status, runIndex, false,
+                    promptTokens, completionTokens);
         }
         String skip = XmlParser.extractTag(raw, "skip");
         if (skip != null) {
             return new GoldenSetScorer.Outcome(sample, raw, true, null, false, null,
-                    elapsedMs, status, runIndex, false);
+                    elapsedMs, status, runIndex, false, promptTokens, completionTokens);
         }
         XmlParser.ParsedObservation observation;
         try {
             observation = XmlParser.parseObservation(raw);
         } catch (Exception e) {
             return new GoldenSetScorer.Outcome(sample, raw, false, null, false,
-                    e.getClass().getSimpleName() + ": " + e.getMessage(), elapsedMs, status, runIndex, false);
+                    e.getClass().getSimpleName() + ": " + e.getMessage(), elapsedMs, status,
+                    runIndex, false, promptTokens, completionTokens);
         }
         if (validate) {
             ExtractionValidationService guard =
@@ -250,21 +272,25 @@ public final class GoldenSetEvaluator {
                     sample.toolName, sample.toolInput, sample.toolOutput, null);
             if (!result.accepted()) {
                 return new GoldenSetScorer.Outcome(sample, raw, false, null, false,
-                        result.reason(), elapsedMs, status, runIndex, true);
+                        result.reason(), elapsedMs, status, runIndex, true,
+                        promptTokens, completionTokens);
             }
             observation.facts = result.facts();
         }
         return new GoldenSetScorer.Outcome(sample, raw, false, observation, false, null,
-                elapsedMs, status, runIndex, false);
+                elapsedMs, status, runIndex, false, promptTokens, completionTokens);
     }
 
     private static Map<String, Object> entry(GoldenSet.Sample sample, String raw, String error,
-                                              String status, long elapsedMs, int runIndex) {
+                                              String status, long elapsedMs, int runIndex,
+                                              int promptTokens, int completionTokens) {
         Map<String, Object> entry = new LinkedHashMap<>();
         entry.put("id", sample.id);
         entry.put("runIndex", runIndex);
         entry.put("status", status);
         entry.put("elapsedMs", elapsedMs);
+        entry.put("promptTokens", promptTokens);
+        entry.put("completionTokens", completionTokens);
         entry.put("raw", raw);
         if (error != null) {
             entry.put("error", error);
@@ -401,6 +427,8 @@ public final class GoldenSetEvaluator {
                 + " (" + agg.repeatedSamples + " repeated samples)");
         row(sb, "latency p50 / p95 / max (ms)",
                 agg.p50Ms + " / " + agg.p95Ms + " / " + agg.maxMs);
+        row(sb, "tokens p50 / p95 / max / mean per call",
+                agg.p50Tokens + " / " + agg.p95Tokens + " / " + agg.maxTokens + " / " + agg.meanTokens);
         sb.append('\n');
 
         sb.append("## Acceptance gate (pre-committed in docs/drafts/extraction-quality-improvement-plan.md)\n\n");
@@ -484,6 +512,30 @@ public final class GoldenSetEvaluator {
                 .append(" | ").append(type.titleNormalizedHit).append("/").append(type.samples)
                 .append(" |\n"));
         sb.append('\n');
+
+        if (!agg.variance.isEmpty()) {
+            sb.append("## Run-to-run variance (repeated samples)\n\n");
+            sb.append("| metric | min | max | mean | std dev |\n|---|---|---|---|---|\n");
+            for (GoldenSetScorer.MetricVariance variance : agg.variance) {
+                sb.append("| ").append(variance.metric)
+                        .append(" | ").append(pct(variance.min))
+                        .append(" | ").append(pct(variance.max))
+                        .append(" | ").append(pct(variance.mean))
+                        .append(" | ").append(pct(variance.stdDev))
+                        .append(" |\n");
+            }
+            sb.append("\n## Inconsistent samples (type or action changed between runs)\n\n");
+            if (agg.inconsistentSamples.isEmpty()) {
+                sb.append("None: every repeated sample kept the same type and action class.\n\n");
+            } else {
+                sb.append(agg.inconsistentSamples.size()).append(" of ")
+                        .append(agg.repeatedSamples).append(" repeated samples disagreed:\n\n");
+                for (String sample : agg.inconsistentSamples) {
+                    sb.append("- ").append(sample).append('\n');
+                }
+                sb.append('\n');
+            }
+        }
 
         sb.append("## Per sample\n\n");
         sb.append("| id | category | expected | actual | contract | title norm | title contract | title exact | type | facts P/R | facts actionable | concepts P/R | ms |\n");
@@ -607,6 +659,12 @@ public final class GoldenSetEvaluator {
         metrics.put("p50Ms", agg.p50Ms);
         metrics.put("p95Ms", agg.p95Ms);
         metrics.put("maxMs", agg.maxMs);
+        metrics.put("meanTokens", agg.meanTokens);
+        metrics.put("p50Tokens", agg.p50Tokens);
+        metrics.put("p95Tokens", agg.p95Tokens);
+        metrics.put("maxTokens", agg.maxTokens);
+        metrics.put("inconsistentSamples", agg.inconsistentSamples);
+        metrics.put("variance", agg.variance);
         metrics.put("statusCounts", agg.statusCounts);
         return metrics;
     }

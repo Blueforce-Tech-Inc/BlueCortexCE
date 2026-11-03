@@ -17,6 +17,8 @@
 #
 # EVAL_MAX_CALLS defaults to 0 (unlimited). Failed calls are never retried.
 # Key samples are repeated EVAL_KEY_REPEAT times (default 3).
+# EVAL_REPEAT_ALL=1 repeats every sample EVAL_KEY_REPEAT times to measure run-to-run
+# variance and list samples whose type/action changed between runs.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

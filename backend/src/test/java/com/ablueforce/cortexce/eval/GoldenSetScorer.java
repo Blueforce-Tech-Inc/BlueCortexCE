@@ -175,17 +175,27 @@ public final class GoldenSetScorer {
         public final String status;
         public final int runIndex;
         public final boolean validationRejected;
+        public final int promptTokens;
+        public final int completionTokens;
 
         public Outcome(GoldenSet.Sample sample, String raw, boolean skipped,
                        XmlParser.ParsedObservation observation, boolean callFailed,
                        String failure, long elapsedMs) {
-            this(sample, raw, skipped, observation, callFailed, failure, elapsedMs, null, 0, false);
+            this(sample, raw, skipped, observation, callFailed, failure, elapsedMs, null, 0, false, 0, 0);
         }
 
         public Outcome(GoldenSet.Sample sample, String raw, boolean skipped,
                        XmlParser.ParsedObservation observation, boolean callFailed,
                        String failure, long elapsedMs, String status, int runIndex,
                        boolean validationRejected) {
+            this(sample, raw, skipped, observation, callFailed, failure, elapsedMs, status, runIndex,
+                    validationRejected, 0, 0);
+        }
+
+        public Outcome(GoldenSet.Sample sample, String raw, boolean skipped,
+                       XmlParser.ParsedObservation observation, boolean callFailed,
+                       String failure, long elapsedMs, String status, int runIndex,
+                       boolean validationRejected, int promptTokens, int completionTokens) {
             this.sample = sample;
             this.raw = raw;
             this.skipped = skipped;
@@ -196,6 +206,12 @@ public final class GoldenSetScorer {
             this.status = status;
             this.runIndex = runIndex;
             this.validationRejected = validationRejected;
+            this.promptTokens = promptTokens;
+            this.completionTokens = completionTokens;
+        }
+
+        public int totalTokens() {
+            return promptTokens + completionTokens;
         }
     }
 
@@ -242,6 +258,8 @@ public final class GoldenSetScorer {
         public double conceptsRecall;
         public long elapsedMs;
         public String status;
+        public int promptTokens;
+        public int completionTokens;
         public List<String> problems = new ArrayList<>();
     }
 
@@ -251,10 +269,24 @@ public final class GoldenSetScorer {
         public double skipAccuracy;
         public double titleNormalizedHitRate;
         public double titleContractHitRate;
+        public double titleTraceContractHitRate;
+        public double titleActionHitRate;
+        public double titleTraceSubjectHitRate;
+        public double titleIdentifierHitRate;
+        public double typeAccuracy;
         public double factsPrecision;
         public double factsInformativeRate;
         public double factsRecall;
         public int formatErrors;
+    }
+
+    /** Run-to-run spread for one metric across the repeated passes. */
+    public static final class MetricVariance {
+        public String metric;
+        public double min;
+        public double max;
+        public double mean;
+        public double stdDev;
     }
 
     public static final class TypeSummary {
@@ -305,6 +337,13 @@ public final class GoldenSetScorer {
         public long p50Ms;
         public long p95Ms;
         public long maxMs;
+        public int meanTokens;
+        public long p50Tokens;
+        public long p95Tokens;
+        public long maxTokens;
+        public List<MetricVariance> variance = new ArrayList<>();
+        /** Samples whose repeated answers disagreed on type or action class. */
+        public List<String> inconsistentSamples = new ArrayList<>();
         public Map<String, TypeSummary> perType = new LinkedHashMap<>();
         public Map<String, Integer> statusCounts = new LinkedHashMap<>();
         public List<RunSummary> runs = new ArrayList<>();
@@ -327,6 +366,8 @@ public final class GoldenSetScorer {
         }
         Aggregate agg = scoreRun(firstRuns, 0);
         agg.runs.addAll(runSummaries(bySample));
+        agg.variance.addAll(metricVariance(agg.runs));
+        agg.inconsistentSamples.addAll(inconsistentSamples(bySample));
         agg.repeatConsistency = repeatConsistency(bySample);
         agg.repeatedSamples = (int) bySample.values().stream().filter(list -> list.size() > 1).count();
         return agg;
@@ -361,6 +402,7 @@ public final class GoldenSetScorer {
         double conceptsR = 0;
         int fieldSamples = 0;
         List<Long> latencies = new ArrayList<>();
+        List<Integer> tokenTotals = new ArrayList<>();
 
         for (Outcome outcome : outcomes) {
             GoldenSet.Sample sample = outcome.sample;
@@ -379,7 +421,10 @@ public final class GoldenSetScorer {
             score.validationRejected = outcome.validationRejected;
             score.elapsedMs = outcome.elapsedMs;
             score.status = outcome.status;
+            score.promptTokens = outcome.promptTokens;
+            score.completionTokens = outcome.completionTokens;
             latencies.add(outcome.elapsedMs);
+            tokenTotals.add(outcome.totalTokens());
             if (outcome.status != null) {
                 agg.statusCounts.merge(outcome.status, 1, Integer::sum);
             }
@@ -566,6 +611,11 @@ public final class GoldenSetScorer {
         agg.p50Ms = percentile(latencies, 0.50);
         agg.p95Ms = percentile(latencies, 0.95);
         agg.maxMs = latencies.stream().mapToLong(Long::longValue).max().orElse(0);
+        agg.meanTokens = tokenTotals.isEmpty() ? 0
+                : (int) Math.round(tokenTotals.stream().mapToInt(Integer::intValue).average().orElse(0));
+        agg.p50Tokens = percentileInt(tokenTotals, 0.50);
+        agg.p95Tokens = percentileInt(tokenTotals, 0.95);
+        agg.maxTokens = tokenTotals.stream().mapToLong(Integer::longValue).max().orElse(0);
         return agg;
     }
 
@@ -585,6 +635,11 @@ public final class GoldenSetScorer {
             summary.skipAccuracy = run.skipAccuracy;
             summary.titleNormalizedHitRate = run.titleNormalizedHitRate;
             summary.titleContractHitRate = run.titleContractHitRate;
+            summary.titleTraceContractHitRate = run.titleTraceContractHitRate;
+            summary.titleActionHitRate = run.titleActionHitRate;
+            summary.titleTraceSubjectHitRate = run.titleTraceSubjectHitRate;
+            summary.titleIdentifierHitRate = run.titleIdentifierHitRate;
+            summary.typeAccuracy = run.typeAccuracy;
             summary.factsPrecision = run.factsPrecision;
             summary.factsInformativeRate = run.factsInformativeRate;
             summary.factsRecall = run.factsRecall;
@@ -592,6 +647,89 @@ public final class GoldenSetScorer {
             summaries.add(summary);
         }
         return summaries;
+    }
+
+    /** Run-to-run spread for the headline metrics. Empty with fewer than two passes. */
+    private static List<MetricVariance> metricVariance(List<RunSummary> runs) {
+        if (runs.size() < 2) {
+            return List.of();
+        }
+        List<MetricVariance> variance = new ArrayList<>();
+        addVariance(variance, "type accuracy",
+                runs.stream().mapToDouble(run -> run.typeAccuracy).toArray());
+        addVariance(variance, "title action class",
+                runs.stream().mapToDouble(run -> run.titleActionHitRate).toArray());
+        addVariance(variance, "title trace-visible subject",
+                runs.stream().mapToDouble(run -> run.titleTraceSubjectHitRate).toArray());
+        addVariance(variance, "title identifiers",
+                runs.stream().mapToDouble(run -> run.titleIdentifierHitRate).toArray());
+        addVariance(variance, "title trace contract",
+                runs.stream().mapToDouble(run -> run.titleTraceContractHitRate).toArray());
+        addVariance(variance, "facts informative",
+                runs.stream().mapToDouble(run -> run.factsInformativeRate).toArray());
+        addVariance(variance, "skip accuracy",
+                runs.stream().mapToDouble(run -> run.skipAccuracy).toArray());
+        return variance;
+    }
+
+    private static void addVariance(List<MetricVariance> variance, String metric, double[] values) {
+        double mean = 0;
+        for (double value : values) {
+            mean += value;
+        }
+        mean /= values.length;
+        double squares = 0;
+        double min = values[0];
+        double max = values[0];
+        for (double value : values) {
+            squares += (value - mean) * (value - mean);
+            min = Math.min(min, value);
+            max = Math.max(max, value);
+        }
+        MetricVariance entry = new MetricVariance();
+        entry.metric = metric;
+        entry.mean = mean;
+        entry.min = min;
+        entry.max = max;
+        entry.stdDev = Math.sqrt(squares / values.length);
+        variance.add(entry);
+    }
+
+    /** Samples whose repeated answers disagreed on type or on the trace-derived action class. */
+    private static List<String> inconsistentSamples(Map<String, List<Outcome>> bySample) {
+        List<String> inconsistent = new ArrayList<>();
+        for (Map.Entry<String, List<Outcome>> entry : bySample.entrySet()) {
+            List<Outcome> outcomes = entry.getValue();
+            if (outcomes.size() < 2) {
+                continue;
+            }
+            Set<String> types = new LinkedHashSet<>();
+            Set<String> actions = new LinkedHashSet<>();
+            for (Outcome outcome : outcomes) {
+                if (outcome.skipped) {
+                    types.add("skip");
+                    actions.add("skip");
+                } else if (outcome.observation == null) {
+                    types.add("unparsed");
+                    actions.add("unparsed");
+                } else {
+                    types.add(outcome.observation.type == null ? "(none)" : outcome.observation.type);
+                    actions.add(String.valueOf(
+                            GoldenSetActionRules.actionForTitle(outcome.observation.title)));
+                }
+            }
+            List<String> parts = new ArrayList<>();
+            if (types.size() > 1) {
+                parts.add("type {" + String.join(", ", types) + "}");
+            }
+            if (actions.size() > 1) {
+                parts.add("action {" + String.join(", ", actions) + "}");
+            }
+            if (!parts.isEmpty()) {
+                inconsistent.add(entry.getKey() + ": " + String.join("; ", parts));
+            }
+        }
+        return inconsistent;
     }
 
     /** Share of repeated samples whose runs all agreed on skip-vs-observation. */
@@ -934,6 +1072,16 @@ public final class GoldenSetScorer {
         }
         List<Long> sorted = new ArrayList<>(values);
         sorted.sort(Long::compareTo);
+        int index = (int) Math.ceil(percentile * sorted.size()) - 1;
+        return sorted.get(Math.max(0, Math.min(index, sorted.size() - 1)));
+    }
+
+    private static long percentileInt(List<Integer> values, double percentile) {
+        if (values.isEmpty()) {
+            return 0;
+        }
+        List<Integer> sorted = new ArrayList<>(values);
+        sorted.sort(Integer::compareTo);
         int index = (int) Math.ceil(percentile * sorted.size()) - 1;
         return sorted.get(Math.max(0, Math.min(index, sorted.size() - 1)));
     }
