@@ -1,0 +1,1097 @@
+{
+  "version": "real-git-2026-11-03",
+  "samples": [
+    {
+      "id": "real-3a2d426fdf",
+      "category": "refactor",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java\nold_string=\"this(sample, raw, skipped, observation, callFailed, failure, elapsedMs, null, 0, false);\"\nnew_string=\"public final int promptTokens;\"",
+      "toolOutput": "Edit applied. Commit message: Measure run-to-run variance and per-call token cost in the extraction eval. Totals: 3 file(s), 222 insertion(s), 14 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, scripts/eval-model-quality.sh. Other touched: backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, scripts/eval-model-quality.sh. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "refactor",
+      "titleKeywords": [
+        "change",
+        "goldensetscorer",
+        "goldensetevaluator"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "GoldenSetScorer"
+      ],
+      "titleIdentifiers": [
+        "GoldenSetScorer",
+        "GoldenSetEvaluator"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "modify",
+      "notes": "generated from 3a2d426fdf0226237abec81c41c0e8c1281d579a (Measure run-to-run variance and per-call token cost in the extraction eval)"
+    },
+    {
+      "id": "real-864dadf51b",
+      "category": "feature",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java\nold_string=\"String evidence = (sample.toolName == null ? \"\" : sample.toolName) + \"\\n\"\"\nnew_string=\"/**\"",
+      "toolOutput": "Edit applied. Commit message: Require reproduction titles to name both identifiers and score trace-visible subjects. Totals: 5 file(s), 134 insertion(s), 18 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorerTest.java. Other touched: backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorerTest.java. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "feature",
+      "titleKeywords": [
+        "change",
+        "goldensetscorer",
+        "goldensetevaluator"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "GoldenSetScorer"
+      ],
+      "titleIdentifiers": [
+        "GoldenSetScorer",
+        "GoldenSetEvaluator"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "modify",
+      "notes": "generated from 864dadf51b4fde7a51470574b2ab1100c31c86e1 (Require reproduction titles to name both identifiers and score trace-visible subjects)"
+    },
+    {
+      "id": "real-b064308244",
+      "category": "feature",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"hooks with the offline model stand-in. The test runs in the L4 layer under the rehearsal\"\nnew_string=\"hooks with the offline model stand-in. The test runs under the rehearsal database gate and is\"",
+      "toolOutput": "Edit applied. Commit message: Record the round 8 verification result and MCP layer attribution. Totals: 1 file(s), 8 insertion(s), 2 deletion(s). Changed paths: docs/drafts/extraction-quality-improvement-plan.md. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "change",
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleIdentifiers": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "modify",
+      "notes": "generated from b064308244422d93c24fc7771197a29309ce902c (Record the round 8 verification result and MCP layer attribution)"
+    },
+    {
+      "id": "real-30a956e462",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"### 7.14 Round 8 — insertion-scope contract, remove coverage, and a reverted security verb\"",
+      "toolOutput": "Edit applied. Commit message: Record round 8: insertion scope, reverted security verb, summary, search, MCP. Totals: 1 file(s), 139 insertion(s), 0 deletion(s). Changed paths: docs/drafts/extraction-quality-improvement-plan.md. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleIdentifiers": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "notes": "generated from 30a956e462a3ba04b5d50210deb8ec3e3509ded3 (Record round 8: insertion scope, reverted security verb, summary, search, MCP)"
+    },
+    {
+      "id": "real-ba86bf2588",
+      "category": "test-add",
+      "keySample": false,
+      "toolName": "Write",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java\ncontent=<39 chars shown>",
+      "toolOutput": "Edit applied. Commit message: Exercise the MCP server through a real client handshake. Totals: 1 file(s), 187 insertion(s), 0 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "feature",
+      "titleKeywords": [
+        "add",
+        "mcpendtoendtest"
+      ],
+      "titleVerb": "add",
+      "titleSubject": [
+        "McpEndToEndTest"
+      ],
+      "titleIdentifiers": [
+        "McpEndToEndTest"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "create",
+      "notes": "generated from ba86bf25887dd15cf8d8a76a0e47b35e1bcd2517 (Exercise the MCP server through a real client handshake)"
+    },
+    {
+      "id": "real-a9c8452967",
+      "category": "feature",
+      "keySample": false,
+      "toolName": "Write",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityEvaluator.java\ncontent=<37 chars shown>",
+      "toolOutput": "Edit applied. Commit message: Quantify the semantic relevance floor with a recorded curve. Totals: 6 file(s), 1210 insertion(s), 0 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityEvaluator.java, backend/src/test/resources/eval/fixtures/search-similarity-bge-m3.json, backend/src/test/resources/eval/search-similarity-corpus.json. Other touched: backend/src/test/resources/eval/fixtures/search-similarity-bge-m3.json, backend/src/test/resources/eval/search-similarity-corpus.json. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "feature",
+      "titleKeywords": [
+        "add",
+        "searchsimilarityevaluator",
+        "search-similarity-bge-m3.json"
+      ],
+      "titleVerb": "add",
+      "titleSubject": [
+        "SearchSimilarityEvaluator"
+      ],
+      "titleIdentifiers": [
+        "SearchSimilarityEvaluator",
+        "search-similarity-bge-m3.json"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "create",
+      "notes": "generated from a9c8452967f3444805080a2fc0ae1c44ccccf735 (Quantify the semantic relevance floor with a recorded curve)"
+    },
+    {
+      "id": "real-db8ac0287e",
+      "category": "security-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nold_string=\"- Fixed: a defect already produced wrong or failing behaviour, in non-security code.\"\nnew_string=\"- Fixed: a defect already produced wrong or failing behaviour.\"",
+      "toolOutput": "Edit applied. Commit message: Revert the domain-first security verb after type accuracy dropped. Totals: 2 file(s), 10 insertion(s), 14 deletion(s). Changed paths: backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt. Other touched: backend/src/main/resources/prompts/init.txt. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "harden",
+        "continuation.txt",
+        "init.txt"
+      ],
+      "titleVerb": "harden",
+      "titleSubject": [
+        "continuation.txt"
+      ],
+      "titleIdentifiers": [
+        "continuation.txt",
+        "init.txt"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "secure",
+      "notes": "generated from db8ac0287e5b275842dcecd995d5eeb1c3d6bdd4 (Revert the domain-first security verb after type accuracy dropped)"
+    },
+    {
+      "id": "real-7f5ff5974d",
+      "category": "test-add",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/test/resources/eval/golden-tool-use.json\nold_string=\"\"\nnew_string=\"},\"",
+      "toolOutput": "Edit applied. Commit message: Add five removal samples so the remove action branch is exercised. Totals: 1 file(s), 180 insertion(s), 0 deletion(s). Changed paths: backend/src/test/resources/eval/golden-tool-use.json. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "feature",
+      "titleKeywords": [
+        "change",
+        "golden-tool-use.json"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "golden-tool-use.json"
+      ],
+      "titleIdentifiers": [
+        "golden-tool-use.json"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "modify",
+      "notes": "generated from 7f5ff5974d51c6cf3bff5f789db83b94a1805ce2 (Add five removal samples so the remove action branch is exercised)"
+    },
+    {
+      "id": "real-9e6612fdf9",
+      "category": "security-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nold_string=\"- Fixed: a defect already produced wrong or failing behaviour.\"\nnew_string=\"- Fixed: a defect already produced wrong or failing behaviour, in non-security code.\"",
+      "toolOutput": "Edit applied. Commit message: Make the security domain and insertion scopes decide the title verb. Totals: 4 file(s), 38 insertion(s), 25 deletion(s). Changed paths: backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetActionRules.java. Other touched: backend/src/main/resources/prompts/init.txt, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetActionRules.java. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "harden",
+        "continuation.txt",
+        "init.txt"
+      ],
+      "titleVerb": "harden",
+      "titleSubject": [
+        "continuation.txt"
+      ],
+      "titleIdentifiers": [
+        "continuation.txt",
+        "init.txt"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "secure",
+      "notes": "generated from 9e6612fdf9193506697cda57614d9b51aa64932d (Make the security domain and insertion scopes decide the title verb)"
+    },
+    {
+      "id": "real-f43cfd6f44",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"## 7.13 Round 7 — A6 action classes derived from the trace\"",
+      "toolOutput": "Edit applied. Commit message: Record round seven: the action-class decision, its results and the boundary evidence. Totals: 1 file(s), 115 insertion(s), 0 deletion(s). Changed paths: docs/drafts/extraction-quality-improvement-plan.md. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleIdentifiers": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "notes": "generated from f43cfd6f44becaf57f462b93f7f3ca52d6490963 (Record round seven: the action-class decision, its results and the boundary evidence)"
+    },
+    {
+      "id": "real-e352ba3da3",
+      "category": "feature",
+      "keySample": false,
+      "toolName": "Write",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/test/resources/eval/fixtures/longcat-after-v7.json\ncontent=<1 chars shown>",
+      "toolOutput": "Edit applied. Commit message: Archive the round-seven runs under the trace-derived action metric. Totals: 6 file(s), 2475 insertion(s), 0 deletion(s). Changed paths: backend/src/test/resources/eval/fixtures/longcat-after-v7.json, backend/src/test/resources/eval/fixtures/minimax-after-v7.json, docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v7.md. Other touched: backend/src/test/resources/eval/fixtures/minimax-after-v7.json, docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v7.md. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "feature",
+      "titleKeywords": [
+        "add",
+        "longcat-after-v7.json",
+        "minimax-after-v7.json"
+      ],
+      "titleVerb": "add",
+      "titleSubject": [
+        "longcat-after-v7.json"
+      ],
+      "titleIdentifiers": [
+        "longcat-after-v7.json",
+        "minimax-after-v7.json"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "create",
+      "notes": "generated from e352ba3da38770c5fc1de6ff24329875ad6eeb24 (Archive the round-seven runs under the trace-derived action metric)"
+    },
+    {
+      "id": "real-112de33e23",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nold_string=\"\"\nnew_string=\"- A replacement keeps BOTH names: the literal or key that was replaced and the file that now\"",
+      "toolOutput": "Edit applied. Commit message: Require both names when a literal is replaced and keep script/test identifiers. Totals: 2 file(s), 6 insertion(s), 0 deletion(s). Changed paths: backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt. Other touched: backend/src/main/resources/prompts/init.txt. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "continuation.txt",
+        "init.txt"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "continuation.txt"
+      ],
+      "titleIdentifiers": [
+        "continuation.txt",
+        "init.txt"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "notes": "generated from 112de33e233a7f65578766d3609df50a2123bc31 (Require both names when a literal is replaced and keep script/test identifiers)"
+    },
+    {
+      "id": "real-bc3512ae8d",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"## 7.12 Round 6 — category few-shots and the measured title ceiling\"",
+      "toolOutput": "Edit applied. Commit message: Record round six: few-shots moved A6 to 72/61 and the ceiling is label ambiguity. Totals: 1 file(s), 81 insertion(s), 0 deletion(s). Changed paths: docs/drafts/extraction-quality-improvement-plan.md. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleIdentifiers": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "notes": "generated from bc3512ae8d8021b0fba89d8eb2fe27eb34d65c25 (Record round six: few-shots moved A6 to 72/61 and the ceiling is label ambiguity)"
+    },
+    {
+      "id": "real-28edef5a35",
+      "category": "feature",
+      "keySample": false,
+      "toolName": "Write",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/test/resources/eval/fixtures/longcat-after-v6.json\ncontent=<1 chars shown>",
+      "toolOutput": "Edit applied. Commit message: Archive the round-six full runs for both providers. Totals: 6 file(s), 2422 insertion(s), 0 deletion(s). Changed paths: backend/src/test/resources/eval/fixtures/longcat-after-v6.json, backend/src/test/resources/eval/fixtures/minimax-after-v6.json, docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v6.md. Other touched: backend/src/test/resources/eval/fixtures/minimax-after-v6.json, docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v6.md. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "feature",
+      "titleKeywords": [
+        "add",
+        "longcat-after-v6.json",
+        "minimax-after-v6.json"
+      ],
+      "titleVerb": "add",
+      "titleSubject": [
+        "longcat-after-v6.json"
+      ],
+      "titleIdentifiers": [
+        "longcat-after-v6.json",
+        "minimax-after-v6.json"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "create",
+      "notes": "generated from 28edef5a35446eeb6b1b4deab53c3f19181f5327 (Archive the round-six full runs for both providers)"
+    },
+    {
+      "id": "real-e02e436bdd",
+      "category": "feature",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nold_string=\"- Good: `Fixed UserCache.computeIfAbsent null placeholder race`\"\nnew_string=\"- Category examples (copy this shape):\"",
+      "toolOutput": "Edit applied. Commit message: Show ten category-shaped title examples instead of restating the contract. Totals: 2 file(s), 22 insertion(s), 18 deletion(s). Changed paths: backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt. Other touched: backend/src/main/resources/prompts/init.txt. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "change",
+        "continuation.txt",
+        "init.txt"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "continuation.txt"
+      ],
+      "titleIdentifiers": [
+        "continuation.txt",
+        "init.txt"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "modify",
+      "notes": "generated from e02e436bddaee1eb2db93befdfb5348870d0a350 (Show ten category-shaped title examples instead of restating the contract)"
+    },
+    {
+      "id": "real-d44a83721d",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"## 7.11 Round 5 — metric correctness and the remaining title ceiling\"",
+      "toolOutput": "Edit applied. Commit message: Record round five decisions and the remaining A6 ceiling. Totals: 1 file(s), 99 insertion(s), 0 deletion(s). Changed paths: docs/drafts/extraction-quality-improvement-plan.md. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleIdentifiers": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "notes": "generated from d44a83721da81c1affd97f72d664596a07f950c1 (Record round five decisions and the remaining A6 ceiling)"
+    },
+    {
+      "id": "real-6d6df2c321",
+      "category": "security-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nold_string=\"failed), not as a skip.\"\nnew_string=\"- only locates where an identifier is used or defined (grep/glob search), even when matches are\"",
+      "toolOutput": "Edit applied. Commit message: Make the concept slots category-explicit and the title verb precise. Totals: 2 file(s), 138 insertion(s), 25 deletion(s). Changed paths: backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt. Other touched: backend/src/main/resources/prompts/init.txt. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "harden",
+        "continuation.txt",
+        "init.txt"
+      ],
+      "titleVerb": "harden",
+      "titleSubject": [
+        "continuation.txt"
+      ],
+      "titleIdentifiers": [
+        "continuation.txt",
+        "init.txt"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "secure",
+      "notes": "generated from 6d6df2c321ba8b2bd7e31d20d98cd3c0c37b2a1d (Make the concept slots category-explicit and the title verb precise)"
+    },
+    {
+      "id": "real-0fd4ffcc31",
+      "category": "test-add",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java\nold_string=\"Map.entry(\"docs\", \"doc\"), Map.entry(\"documentation\", \"doc\"));\"\nnew_string=\"Map.entry(\"docs\", \"doc\"), Map.entry(\"documentation\", \"doc\"),\"",
+      "toolOutput": "Edit applied. Commit message: Fix the skip gate counters and fold plurals in keyword scoring. Totals: 3 file(s), 39 insertion(s), 9 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetReplayTest.java. Other touched: backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetReplayTest.java. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "feature",
+      "titleKeywords": [
+        "change",
+        "goldensetscorer",
+        "goldensetevaluator"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "GoldenSetScorer"
+      ],
+      "titleIdentifiers": [
+        "GoldenSetScorer",
+        "GoldenSetEvaluator"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "modify",
+      "notes": "generated from 0fd4ffcc314ab586a22c81a8a091af8e83e1ef7e (Fix the skip gate counters and fold plurals in keyword scoring)"
+    },
+    {
+      "id": "real-d3431639a9",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md\nold_string=\"\"\nnew_string=\"# Model output quality evaluation\"",
+      "toolOutput": "Edit applied. Commit message: Record round four: what moved, what failed and why. Totals: 5 file(s), 1811 insertion(s), 0 deletion(s). Changed paths: docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md, docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md, docs/archive/2026-11-03_summary-chain-eval-minimax.md. Other touched: docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md, docs/archive/2026-11-03_summary-chain-eval-minimax.md. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md",
+        "2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md"
+      ],
+      "titleIdentifiers": [
+        "2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md",
+        "2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "notes": "generated from d3431639a9e08572cc95eddb0dd2ba276b38d2d8 (Record round four: what moved, what failed and why)"
+    },
+    {
+      "id": "real-7093cb5c56",
+      "category": "security-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/repository/EmbeddingBackfillConcurrencyDatabaseTest.java\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.repository;\"",
+      "toolOutput": "Edit applied. Commit message: Make embedding repair claim the row before it writes. Totals: 5 file(s), 603 insertion(s), 16 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/repository/EmbeddingBackfillConcurrencyDatabaseTest.java, backend/src/test/java/com/ablueforce/cortexce/service/EmbeddingBackfillServiceTest.java, backend/src/main/java/com/ablueforce/cortexce/service/EmbeddingBackfillService.java. Other touched: backend/src/test/java/com/ablueforce/cortexce/service/EmbeddingBackfillServiceTest.java, backend/src/main/java/com/ablueforce/cortexce/service/EmbeddingBackfillService.java. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "harden",
+        "embeddingbackfillconcurrencydatabasetest",
+        "embeddingbackfillservicetest"
+      ],
+      "titleVerb": "harden",
+      "titleSubject": [
+        "EmbeddingBackfillConcurrencyDatabaseTest"
+      ],
+      "titleIdentifiers": [
+        "EmbeddingBackfillConcurrencyDatabaseTest",
+        "EmbeddingBackfillServiceTest"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "secure",
+      "notes": "generated from 7093cb5c56831a9b5fe983d55af180731b1ddb1a (Make embedding repair claim the row before it writes)"
+    },
+    {
+      "id": "real-2025b33a95",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"### 7.9 Audit gap closure (2026-11-03)\"",
+      "toolOutput": "Edit applied. Commit message: Record the audit gap closure and the alternatives that were rejected. Totals: 1 file(s), 48 insertion(s), 0 deletion(s). Changed paths: docs/drafts/extraction-quality-improvement-plan.md. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleIdentifiers": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "notes": "generated from 2025b33a95bfab0e691547267fb6e9a36286a5a1 (Record the audit gap closure and the alternatives that were rejected)"
+    },
+    {
+      "id": "real-f3d12860ff",
+      "category": "security-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java\nold_string=\"Field field = LogsController.class.getDeclaredField(\"logDir\");\"\nnew_string=\"setField(\"logDir\", logDir.toString());\"",
+      "toolOutput": "Edit applied. Commit message: Make the log API optional without changing its default. Totals: 2 file(s), 91 insertion(s), 5 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java, backend/src/main/java/com/ablueforce/cortexce/controller/LogsController.java. Other touched: backend/src/main/java/com/ablueforce/cortexce/controller/LogsController.java. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "harden",
+        "logscontrollertest",
+        "logscontroller"
+      ],
+      "titleVerb": "harden",
+      "titleSubject": [
+        "LogsControllerTest"
+      ],
+      "titleIdentifiers": [
+        "LogsControllerTest",
+        "LogsController"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "secure",
+      "notes": "generated from f3d12860ffc770ae7b1e11b158124dff44ea8088 (Make the log API optional without changing its default)"
+    },
+    {
+      "id": "real-6fd827abdc",
+      "category": "feature",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/service/ExtractionValidationServiceTest.java\nold_string=\"\"PaymentServiceTest#missingOrderThrows passes\",\"\nnew_string=\"\"PaymentNotFoundException is thrown for a missing orderId\",\"",
+      "toolOutput": "Edit applied. Commit message: Drop process-noise facts that carry no observed value. Totals: 6 file(s), 121 insertion(s), 17 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/service/ExtractionValidationServiceTest.java, backend/src/main/java/com/ablueforce/cortexce/service/ExtractionValidationService.java, docs/drafts/extraction-quality-improvement-plan.md. Other touched: backend/src/main/java/com/ablueforce/cortexce/service/ExtractionValidationService.java, docs/drafts/extraction-quality-improvement-plan.md. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "change",
+        "extractionvalidationservicetest",
+        "extractionvalidationservice"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "ExtractionValidationServiceTest"
+      ],
+      "titleIdentifiers": [
+        "ExtractionValidationServiceTest",
+        "ExtractionValidationService"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "modify",
+      "notes": "generated from 6fd827abdc3f28b73accfc517c9cf54811c4a1c3 (Drop process-noise facts that carry no observed value)"
+    },
+    {
+      "id": "real-eee7785ec8",
+      "category": "feature",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=docs/archive/2026-11-02_model-output-quality-eval-minimax.md\nold_string=\"\"\nnew_string=\"# Model output quality evaluation\"",
+      "toolOutput": "Edit applied. Commit message: test: support Anthropic provider in quality evaluation. Totals: 5 file(s), 183 insertion(s), 15 deletion(s). Changed paths: docs/archive/2026-11-02_model-output-quality-eval-minimax.md, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, scripts/eval-model-quality.sh. Other touched: backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, scripts/eval-model-quality.sh. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "feature",
+      "titleKeywords": [
+        "change",
+        "2026-11-02_model-output-quality-eval-minimax.md",
+        "goldensetevaluator"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "2026-11-02_model-output-quality-eval-minimax.md"
+      ],
+      "titleIdentifiers": [
+        "2026-11-02_model-output-quality-eval-minimax.md",
+        "GoldenSetEvaluator"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "modify",
+      "notes": "generated from eee7785ec8d4e2c9d88b7df9fff39f64e0b32fe0 (test: support Anthropic provider in quality evaluation)"
+    },
+    {
+      "id": "real-3409dda60c",
+      "category": "security-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=docs/drafts/conversation-memory-scope-refactor-plan.md\nold_string=\"| 实施 commit 范围 | 待实施 |\"\nnew_string=\"| 实施 commit 范围 | `325c817..f7b865e`（9 个提交，见文末清单） |\"",
+      "toolOutput": "Edit applied. Commit message: docs: record execution evidence for the conversation/scope refactor. Totals: 1 file(s), 69 insertion(s), 11 deletion(s). Changed paths: docs/drafts/conversation-memory-scope-refactor-plan.md. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "harden",
+        "conversation-memory-scope-refactor-plan.md"
+      ],
+      "titleVerb": "harden",
+      "titleSubject": [
+        "conversation-memory-scope-refactor-plan.md"
+      ],
+      "titleIdentifiers": [
+        "conversation-memory-scope-refactor-plan.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "secure",
+      "notes": "generated from 3409dda60c344472c82fa1f514bbccfdfc80af4d (docs: record execution evidence for the conversation/scope refactor)"
+    },
+    {
+      "id": "real-f7b865efe5",
+      "category": "security-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/main/resources/static/index.html\nold_string=\"--color-bg-header: #f6f8fa;\"\nnew_string=\"--color-bg-header: #f8f6f2;\"",
+      "toolOutput": "Edit applied. Commit message: build: pair WebUI gitlink and static viewer with the v2 identity wire. Totals: 3 file(s), 726 insertion(s), 973 deletion(s). Changed paths: backend/src/main/resources/static/index.html, backend/src/main/resources/static/viewer-bundle.js, webui. Other touched: backend/src/main/resources/static/viewer-bundle.js, webui. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "harden",
+        "index.html",
+        "viewer-bundle.js"
+      ],
+      "titleVerb": "harden",
+      "titleSubject": [
+        "index.html"
+      ],
+      "titleIdentifiers": [
+        "index.html",
+        "viewer-bundle.js"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "secure",
+      "notes": "generated from f7b865efe5541a9dd50ca388e779d260e1a7ffdb (build: pair WebUI gitlink and static viewer with the v2 identity wire)"
+    },
+    {
+      "id": "real-a8cc1754bc",
+      "category": "security-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/repository/PendingMessageRepository.java\nold_string=\"// Dedup: check if a message with same session + tool already exists (not failed)\"\nnew_string=\"\"",
+      "toolOutput": "Edit applied. Commit message: fix: make the refactor start and serve on the real V20 schema. Totals: 6 file(s), 11 insertion(s), 44 deletion(s). Changed paths: backend/src/main/java/com/ablueforce/cortexce/repository/PendingMessageRepository.java, backend/src/main/java/com/ablueforce/cortexce/repository/SessionRepository.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java. Other touched: backend/src/main/java/com/ablueforce/cortexce/repository/SessionRepository.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "harden",
+        "pendingmessagerepository",
+        "sessionrepository"
+      ],
+      "titleVerb": "harden",
+      "titleSubject": [
+        "PendingMessageRepository"
+      ],
+      "titleIdentifiers": [
+        "PendingMessageRepository",
+        "SessionRepository"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "secure",
+      "notes": "generated from a8cc1754bc08d499d85e567350e82fa3d0206a0b (fix: make the refactor start and serve on the real V20 schema)"
+    },
+    {
+      "id": "real-9a0e90bed5",
+      "category": "security-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java\nold_string=\"WHERE (:project IS NULL OR o.projectPath = :project)\"\nnew_string=\"WHERE (:project IS NULL OR o.memoryScopeId IN (\"",
+      "toolOutput": "Edit applied. Commit message: refactor(scope): route observation reads through memory scope predicates. Totals: 4 file(s), 145 insertion(s), 38 deletion(s). Changed paths: backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java, backend/src/main/java/com/ablueforce/cortexce/entity/MemoryScopeEntity.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java. Other touched: backend/src/main/java/com/ablueforce/cortexce/entity/MemoryScopeEntity.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "harden",
+        "observationrepository",
+        "memoryscopeentity"
+      ],
+      "titleVerb": "harden",
+      "titleSubject": [
+        "ObservationRepository"
+      ],
+      "titleIdentifiers": [
+        "ObservationRepository",
+        "MemoryScopeEntity"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "secure",
+      "notes": "generated from 9a0e90bed5a093bfd676d2ddebdfac641ff1c646 (refactor(scope): route observation reads through memory scope predicates)"
+    },
+    {
+      "id": "real-63b5502fb9",
+      "category": "security-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql\nold_string=\"CREATE TABLE IF NOT EXISTS mem_memory_scopes (\"\nnew_string=\"-- V20: Conversation / Memory Scope identity — one-shot migration.\"",
+      "toolOutput": "Edit applied. Commit message: db: make V20 a single atomic migration with fail-closed conflicts. Totals: 4 file(s), 848 insertion(s), 296 deletion(s). Changed paths: backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql, scripts/db/rehearse-conversation-scope.sh, scripts/db/conversation-scope-conflict-fixture.sql. Other touched: scripts/db/rehearse-conversation-scope.sh, scripts/db/conversation-scope-conflict-fixture.sql. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "harden",
+        "v20__conversation_memory_scope_expand.sql",
+        "rehearse-conversation-scope.sh"
+      ],
+      "titleVerb": "harden",
+      "titleSubject": [
+        "V20__conversation_memory_scope_expand.sql"
+      ],
+      "titleIdentifiers": [
+        "V20__conversation_memory_scope_expand.sql",
+        "rehearse-conversation-scope.sh"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "secure",
+      "notes": "generated from 63b5502fb99ed70f201be208a1f00f1d3d4342fc (db: make V20 a single atomic migration with fail-closed conflicts)"
+    },
+    {
+      "id": "real-d33efbd8ae",
+      "category": "security-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/migration/ConversationScopeBackfillRunner.java\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.migration;\"",
+      "toolOutput": "Edit applied. Commit message: feat(migration): add fail-closed classifier and checkpointed backfill runner. Totals: 4 file(s), 1510 insertion(s), 0 deletion(s). Changed paths: backend/src/main/java/com/ablueforce/cortexce/migration/ConversationScopeBackfillRunner.java, backend/src/test/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifierTest.java, backend/src/main/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifier.java. Other touched: backend/src/test/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifierTest.java, backend/src/main/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifier.java. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "harden",
+        "conversationscopebackfillrunner",
+        "technicalbucketclassifiertest"
+      ],
+      "titleVerb": "harden",
+      "titleSubject": [
+        "ConversationScopeBackfillRunner"
+      ],
+      "titleIdentifiers": [
+        "ConversationScopeBackfillRunner",
+        "TechnicalBucketClassifierTest"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "secure",
+      "notes": "generated from d33efbd8ae1dccbd3b53902414c08b7d55711bea (feat(migration): add fail-closed classifier and checkpointed backfill runner)"
+    },
+    {
+      "id": "real-cd6b972cfd",
+      "category": "security-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.service;\"",
+      "toolOutput": "Edit applied. Commit message: feat(summary): add durable, resumable SessionEnd summary job. Totals: 1 file(s), 326 insertion(s), 0 deletion(s). Changed paths: backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "harden",
+        "summaryjobservice"
+      ],
+      "titleVerb": "harden",
+      "titleSubject": [
+        "SummaryJobService"
+      ],
+      "titleIdentifiers": [
+        "SummaryJobService"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "secure",
+      "notes": "generated from cd6b972cfdec3224cf91247b2d0fd6d8e8920a90 (feat(summary): add durable, resumable SessionEnd summary job)"
+    },
+    {
+      "id": "real-46e467bff6",
+      "category": "security-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=scripts/db/conversation-scope-preflight.sql\nold_string=\"\"\nnew_string=\"-- conversation-scope-preflight.sql\"",
+      "toolOutput": "Edit applied. Commit message: db: add V20 additive expansion and read-only preflight for scope refactor. Totals: 3 file(s), 986 insertion(s), 0 deletion(s). Changed paths: scripts/db/conversation-scope-preflight.sql, backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql, scripts/db/conversation-scope-fixture.sql. Other touched: backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql, scripts/db/conversation-scope-fixture.sql. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "harden",
+        "conversation-scope-preflight.sql",
+        "v20__conversation_memory_scope_expand.sql"
+      ],
+      "titleVerb": "harden",
+      "titleSubject": [
+        "conversation-scope-preflight.sql"
+      ],
+      "titleIdentifiers": [
+        "conversation-scope-preflight.sql",
+        "V20__conversation_memory_scope_expand.sql"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "secure",
+      "notes": "generated from 46e467bff6e7bcc217625271c7552cbdb862cce7 (db: add V20 additive expansion and read-only preflight for scope refactor)"
+    },
+    {
+      "id": "real-325c817bbf",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=docs/drafts/conversation-memory-scope-refactor-plan.md\nold_string=\"\"\nnew_string=\"# Conversation 与 Memory Scope 身份边界重构实施蓝图\"",
+      "toolOutput": "Edit applied. Commit message: docs: add conversation and memory scope refactor plan. Totals: 1 file(s), 917 insertion(s), 0 deletion(s). Changed paths: docs/drafts/conversation-memory-scope-refactor-plan.md. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "conversation-memory-scope-refactor-plan.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "conversation-memory-scope-refactor-plan.md"
+      ],
+      "titleIdentifiers": [
+        "conversation-memory-scope-refactor-plan.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "notes": "generated from 325c817bbf580c0c1451212aa0ca472d7afa7089 (docs: add conversation and memory scope refactor plan)"
+    },
+    {
+      "id": "real-e8c8b314d6",
+      "category": "feature",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=docs/drafts/backend-review-findings.md\nold_string=\"# Backend Review Findings\"\nnew_string=\"- **第 360 轮补充：受影响的不止 README，零覆盖设计稿同样未记载**:\"",
+      "toolOutput": "Edit applied. Commit message: patrol: round 360 - a blank base-url aborts the whole Spring application. Totals: 6 file(s), 126 insertion(s), 34 deletion(s). Changed paths: docs/drafts/backend-review-findings.md, docs/archive/2026-10-19_backend-review-evidence-58.md, docs/drafts/cortex-mem-integration-capture-analysis.md. Other touched: docs/archive/2026-10-19_backend-review-evidence-58.md, docs/drafts/cortex-mem-integration-capture-analysis.md. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "change",
+        "backend-review-findings.md",
+        "2026-10-19_backend-review-evidence-58.md"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "backend-review-findings.md"
+      ],
+      "titleIdentifiers": [
+        "backend-review-findings.md",
+        "2026-10-19_backend-review-evidence-58.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "modify",
+      "notes": "generated from e8c8b314d67ebe12ef401ffea5c3b90b34933981 (patrol: round 360 - a blank base-url aborts the whole Spring application)"
+    },
+    {
+      "id": "real-7149578a88",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=docs/drafts/backend-fix-progress.md\nold_string=\"\"\nnew_string=\"## 2026-10-02 01:57 | 构建修复第二轮 — docker-e2e 构建上下文 + byte-buddy 方案更正\"",
+      "toolOutput": "Edit applied. Commit message: docs: record byte-buddy/docker-e2e fixes and advance baseline to 95de35b. Totals: 1 file(s), 10 insertion(s), 0 deletion(s). Changed paths: docs/drafts/backend-fix-progress.md. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "backend-fix-progress.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "backend-fix-progress.md"
+      ],
+      "titleIdentifiers": [
+        "backend-fix-progress.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "notes": "generated from 7149578a88ccebd0603fe39417fa0fa54d3674a6 (docs: record byte-buddy/docker-e2e fixes and advance baseline to 95de35b)"
+    },
+    {
+      "id": "real-95de35b2ea",
+      "category": "bug-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/pom.xml\nold_string=\"<!-- Pin test-classpath byte-buddy to 1.15.x for JDK 24 compatibility:\"\nnew_string=\"<!-- Pin byte-buddy to 1.15.x: Mockito 5.11 (via spring-boot-starter-test BOM)\"",
+      "toolOutput": "Edit applied. Commit message: fix: byte-buddy 1.15.11 pin and docker-e2e build context. Totals: 2 file(s), 19 insertion(s), 21 deletion(s). Changed paths: backend/pom.xml, scripts/docker-e2e-test.sh. Other touched: scripts/docker-e2e-test.sh. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "change",
+        "pom.xml",
+        "docker-e2e-test.sh"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "pom.xml"
+      ],
+      "titleIdentifiers": [
+        "pom.xml",
+        "docker-e2e-test.sh"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "modify",
+      "notes": "generated from 95de35b2eae7da0012ffd98cc9772d8a049fd78d (fix: byte-buddy 1.15.11 pin and docker-e2e build context)"
+    }
+  ]
+}

@@ -19,6 +19,9 @@
 # Key samples are repeated EVAL_KEY_REPEAT times (default 3).
 # EVAL_REPEAT_ALL=1 repeats every sample EVAL_KEY_REPEAT times to measure run-to-run
 # variance and list samples whose type/action changed between runs.
+# EVAL_GOLDEN=real scores the mechanically generated real-history set
+# (backend/src/test/resources/eval/golden-tool-use-real.json) instead of the
+# hand-written set. Keep the two reports separate; they are different distributions.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

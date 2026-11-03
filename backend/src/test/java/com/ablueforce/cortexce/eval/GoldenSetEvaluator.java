@@ -92,6 +92,7 @@ public final class GoldenSetEvaluator {
         boolean validate = "1".equals(envOr("EVAL_VALIDATE", "1"));
 
         GoldenSet golden = loadGoldenSet();
+        String goldenSet = envOr("EVAL_GOLDEN", "main");
         String promptDir = blankToNull(env("EVAL_PROMPT_DIR"));
         String systemPrompt = readPrompt(promptDir, "init.txt");
         String observationTemplate = readPrompt(promptDir, "observation.txt");
@@ -211,7 +212,8 @@ public final class GoldenSetEvaluator {
 
         String reportPath = envOr("EVAL_REPORT",
                 "docs/archive/" + LocalDate.now() + "_model-output-quality-eval.md");
-        String report = renderReport(provider, modelName, baseUrl, promptDir, phase, temperature,
+        String report = "golden set: " + goldenSet + " (" + golden.samples.size() + " samples)\n\n"
+                + renderReport(provider, modelName, baseUrl, promptDir, phase, temperature,
                 calls, maxCalls, keyRepeat, durationMs, aggregate);
         Path path = Path.of(reportPath);
         if (path.getParent() != null) {
@@ -344,10 +346,14 @@ public final class GoldenSetEvaluator {
     }
 
     static GoldenSet loadGoldenSet() throws Exception {
+        String which = envOr("EVAL_GOLDEN", "main");
+        String resource = "real".equalsIgnoreCase(which)
+                ? "/eval/golden-tool-use-real.json"
+                : "/eval/golden-tool-use.json";
         ObjectMapper mapper = new ObjectMapper();
-        try (InputStream in = GoldenSetEvaluator.class.getResourceAsStream("/eval/golden-tool-use.json")) {
+        try (InputStream in = GoldenSetEvaluator.class.getResourceAsStream(resource)) {
             if (in == null) {
-                throw new IllegalStateException("Missing test resource /eval/golden-tool-use.json");
+                throw new IllegalStateException("Missing test resource " + resource);
             }
             return mapper.readValue(in, GoldenSet.class);
         }
