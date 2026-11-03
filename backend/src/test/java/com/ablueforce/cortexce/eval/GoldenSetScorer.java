@@ -320,6 +320,8 @@ public final class GoldenSetScorer {
         public double titleTraceSubjectHitRate;
         public int titleTraceSubjectSamples;
         public int titleTraceSubjectUnreachable;
+        /** Labels the trace never mentions, one line per sample, for the exclusion evidence. */
+        public List<String> unreachableSubjectSamples = new ArrayList<>();
         public double titleContractHitRate;
         public double titleTraceContractHitRate;
         public double titleVerbContractHitRate;
@@ -512,6 +514,7 @@ public final class GoldenSetScorer {
                     titleTraceSubjectSamples++;
                 } else {
                     titleTraceSubjectUnreachable++;
+                    agg.unreachableSubjectSamples.add(sample.id + ": " + subject);
                 }
                 titleContractHits += score.titleContractHit ? 1 : 0;
                 titleTraceContractHits += score.titleTraceContractHit ? 1 : 0;

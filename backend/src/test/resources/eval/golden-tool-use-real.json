@@ -2,6 +2,64 @@
   "version": "real-git-2026-11-03",
   "samples": [
     {
+      "id": "real-77ba40df77",
+      "category": "refactor",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.service;\"",
+      "toolOutput": "Edit applied. Commit message: Add an opt-in majority vote for observation extraction. Totals: 4 file(s), 210 insertion(s), 11 deletion(s). Changed paths: backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java, backend/src/test/java/com/ablueforce/cortexce/service/ExtractionConsistencyTest.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java. Other touched: backend/src/test/java/com/ablueforce/cortexce/service/ExtractionConsistencyTest.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "refactor",
+      "titleKeywords": [
+        "change",
+        "extractionconsistency"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "ExtractionConsistency"
+      ],
+      "titleIdentifiers": [
+        "ExtractionConsistency"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "modify",
+      "notes": "generated from 77ba40df773490276c448382e4b0ef493725ffe3 (Add an opt-in majority vote for observation extraction)"
+    },
+    {
+      "id": "real-f0d346eab1",
+      "category": "feature",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "",
+      "toolInput": "file_path=backend/src/test/resources/eval/golden-tool-use-real.json\nold_string=\"\"\nnew_string=\"{\"",
+      "toolOutput": "Edit applied. Commit message: Generate a 36-sample golden set from real git history. Totals: 5 file(s), 1482 insertion(s), 3 deletion(s). Changed paths: backend/src/test/resources/eval/golden-tool-use-real.json, scripts/gen-real-golden.py, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealDataTest.java. Other touched: scripts/gen-real-golden.py, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealDataTest.java. Verification: not recorded in this commit.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "change",
+        "golden-tool-use-real.json"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "golden-tool-use-real.json"
+      ],
+      "titleIdentifiers": [
+        "golden-tool-use-real.json"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "modify",
+      "notes": "generated from f0d346eab1f5ca186ada71554f4ec8198846e145 (Generate a 36-sample golden set from real git history)"
+    },
+    {
       "id": "real-3a2d426fdf",
       "category": "refactor",
       "keySample": false,
@@ -14,16 +72,14 @@
       "expectedType": "refactor",
       "titleKeywords": [
         "change",
-        "goldensetscorer",
-        "goldensetevaluator"
+        "goldensetscorer"
       ],
       "titleVerb": "change",
       "titleSubject": [
         "GoldenSetScorer"
       ],
       "titleIdentifiers": [
-        "GoldenSetScorer",
-        "GoldenSetEvaluator"
+        "GoldenSetScorer"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -45,16 +101,14 @@
       "expectedType": "feature",
       "titleKeywords": [
         "change",
-        "goldensetscorer",
-        "goldensetevaluator"
+        "goldensetscorer"
       ],
       "titleVerb": "change",
       "titleSubject": [
         "GoldenSetScorer"
       ],
       "titleIdentifiers": [
-        "GoldenSetScorer",
-        "GoldenSetEvaluator"
+        "GoldenSetScorer"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -163,16 +217,14 @@
       "expectedType": "feature",
       "titleKeywords": [
         "add",
-        "searchsimilarityevaluator",
-        "search-similarity-bge-m3.json"
+        "searchsimilarityevaluator"
       ],
       "titleVerb": "add",
       "titleSubject": [
         "SearchSimilarityEvaluator"
       ],
       "titleIdentifiers": [
-        "SearchSimilarityEvaluator",
-        "search-similarity-bge-m3.json"
+        "SearchSimilarityEvaluator"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -194,16 +246,14 @@
       "expectedType": "bugfix",
       "titleKeywords": [
         "harden",
-        "continuation.txt",
-        "init.txt"
+        "continuation.txt"
       ],
       "titleVerb": "harden",
       "titleSubject": [
         "continuation.txt"
       ],
       "titleIdentifiers": [
-        "continuation.txt",
-        "init.txt"
+        "continuation.txt"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -254,16 +304,14 @@
       "expectedType": "bugfix",
       "titleKeywords": [
         "harden",
-        "continuation.txt",
-        "init.txt"
+        "continuation.txt"
       ],
       "titleVerb": "harden",
       "titleSubject": [
         "continuation.txt"
       ],
       "titleIdentifiers": [
-        "continuation.txt",
-        "init.txt"
+        "continuation.txt"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -314,16 +362,14 @@
       "expectedType": "feature",
       "titleKeywords": [
         "add",
-        "longcat-after-v7.json",
-        "minimax-after-v7.json"
+        "longcat-after-v7.json"
       ],
       "titleVerb": "add",
       "titleSubject": [
         "longcat-after-v7.json"
       ],
       "titleIdentifiers": [
-        "longcat-after-v7.json",
-        "minimax-after-v7.json"
+        "longcat-after-v7.json"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -345,16 +391,14 @@
       "expectedType": "change",
       "titleKeywords": [
         "document",
-        "continuation.txt",
-        "init.txt"
+        "continuation.txt"
       ],
       "titleVerb": "document",
       "titleSubject": [
         "continuation.txt"
       ],
       "titleIdentifiers": [
-        "continuation.txt",
-        "init.txt"
+        "continuation.txt"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -405,16 +449,14 @@
       "expectedType": "feature",
       "titleKeywords": [
         "add",
-        "longcat-after-v6.json",
-        "minimax-after-v6.json"
+        "longcat-after-v6.json"
       ],
       "titleVerb": "add",
       "titleSubject": [
         "longcat-after-v6.json"
       ],
       "titleIdentifiers": [
-        "longcat-after-v6.json",
-        "minimax-after-v6.json"
+        "longcat-after-v6.json"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -436,16 +478,14 @@
       "expectedType": "change",
       "titleKeywords": [
         "change",
-        "continuation.txt",
-        "init.txt"
+        "continuation.txt"
       ],
       "titleVerb": "change",
       "titleSubject": [
         "continuation.txt"
       ],
       "titleIdentifiers": [
-        "continuation.txt",
-        "init.txt"
+        "continuation.txt"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -496,16 +536,14 @@
       "expectedType": "bugfix",
       "titleKeywords": [
         "harden",
-        "continuation.txt",
-        "init.txt"
+        "continuation.txt"
       ],
       "titleVerb": "harden",
       "titleSubject": [
         "continuation.txt"
       ],
       "titleIdentifiers": [
-        "continuation.txt",
-        "init.txt"
+        "continuation.txt"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -527,16 +565,14 @@
       "expectedType": "feature",
       "titleKeywords": [
         "change",
-        "goldensetscorer",
-        "goldensetevaluator"
+        "goldensetscorer"
       ],
       "titleVerb": "change",
       "titleSubject": [
         "GoldenSetScorer"
       ],
       "titleIdentifiers": [
-        "GoldenSetScorer",
-        "GoldenSetEvaluator"
+        "GoldenSetScorer"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -558,16 +594,14 @@
       "expectedType": "change",
       "titleKeywords": [
         "document",
-        "2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md",
-        "2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md"
+        "2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md"
       ],
       "titleVerb": "document",
       "titleSubject": [
         "2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md"
       ],
       "titleIdentifiers": [
-        "2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md",
-        "2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md"
+        "2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -589,16 +623,14 @@
       "expectedType": "bugfix",
       "titleKeywords": [
         "harden",
-        "embeddingbackfillconcurrencydatabasetest",
-        "embeddingbackfillservicetest"
+        "embeddingbackfillconcurrencydatabasetest"
       ],
       "titleVerb": "harden",
       "titleSubject": [
         "EmbeddingBackfillConcurrencyDatabaseTest"
       ],
       "titleIdentifiers": [
-        "EmbeddingBackfillConcurrencyDatabaseTest",
-        "EmbeddingBackfillServiceTest"
+        "EmbeddingBackfillConcurrencyDatabaseTest"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -649,16 +681,14 @@
       "expectedType": "bugfix",
       "titleKeywords": [
         "harden",
-        "logscontrollertest",
-        "logscontroller"
+        "logscontrollertest"
       ],
       "titleVerb": "harden",
       "titleSubject": [
         "LogsControllerTest"
       ],
       "titleIdentifiers": [
-        "LogsControllerTest",
-        "LogsController"
+        "LogsControllerTest"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -680,16 +710,14 @@
       "expectedType": "change",
       "titleKeywords": [
         "change",
-        "extractionvalidationservicetest",
-        "extractionvalidationservice"
+        "extractionvalidationservicetest"
       ],
       "titleVerb": "change",
       "titleSubject": [
         "ExtractionValidationServiceTest"
       ],
       "titleIdentifiers": [
-        "ExtractionValidationServiceTest",
-        "ExtractionValidationService"
+        "ExtractionValidationServiceTest"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -711,16 +739,14 @@
       "expectedType": "feature",
       "titleKeywords": [
         "change",
-        "2026-11-02_model-output-quality-eval-minimax.md",
-        "goldensetevaluator"
+        "2026-11-02_model-output-quality-eval-minimax.md"
       ],
       "titleVerb": "change",
       "titleSubject": [
         "2026-11-02_model-output-quality-eval-minimax.md"
       ],
       "titleIdentifiers": [
-        "2026-11-02_model-output-quality-eval-minimax.md",
-        "GoldenSetEvaluator"
+        "2026-11-02_model-output-quality-eval-minimax.md"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -771,16 +797,14 @@
       "expectedType": "bugfix",
       "titleKeywords": [
         "harden",
-        "index.html",
-        "viewer-bundle.js"
+        "index.html"
       ],
       "titleVerb": "harden",
       "titleSubject": [
         "index.html"
       ],
       "titleIdentifiers": [
-        "index.html",
-        "viewer-bundle.js"
+        "index.html"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -802,16 +826,14 @@
       "expectedType": "bugfix",
       "titleKeywords": [
         "harden",
-        "pendingmessagerepository",
-        "sessionrepository"
+        "pendingmessagerepository"
       ],
       "titleVerb": "harden",
       "titleSubject": [
         "PendingMessageRepository"
       ],
       "titleIdentifiers": [
-        "PendingMessageRepository",
-        "SessionRepository"
+        "PendingMessageRepository"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -833,16 +855,14 @@
       "expectedType": "bugfix",
       "titleKeywords": [
         "harden",
-        "observationrepository",
-        "memoryscopeentity"
+        "observationrepository"
       ],
       "titleVerb": "harden",
       "titleSubject": [
         "ObservationRepository"
       ],
       "titleIdentifiers": [
-        "ObservationRepository",
-        "MemoryScopeEntity"
+        "ObservationRepository"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -864,16 +884,14 @@
       "expectedType": "bugfix",
       "titleKeywords": [
         "harden",
-        "v20__conversation_memory_scope_expand.sql",
-        "rehearse-conversation-scope.sh"
+        "v20__conversation_memory_scope_expand.sql"
       ],
       "titleVerb": "harden",
       "titleSubject": [
         "V20__conversation_memory_scope_expand.sql"
       ],
       "titleIdentifiers": [
-        "V20__conversation_memory_scope_expand.sql",
-        "rehearse-conversation-scope.sh"
+        "V20__conversation_memory_scope_expand.sql"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -895,16 +913,14 @@
       "expectedType": "bugfix",
       "titleKeywords": [
         "harden",
-        "conversationscopebackfillrunner",
-        "technicalbucketclassifiertest"
+        "conversationscopebackfillrunner"
       ],
       "titleVerb": "harden",
       "titleSubject": [
         "ConversationScopeBackfillRunner"
       ],
       "titleIdentifiers": [
-        "ConversationScopeBackfillRunner",
-        "TechnicalBucketClassifierTest"
+        "ConversationScopeBackfillRunner"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -955,16 +971,14 @@
       "expectedType": "bugfix",
       "titleKeywords": [
         "harden",
-        "conversation-scope-preflight.sql",
-        "v20__conversation_memory_scope_expand.sql"
+        "conversation-scope-preflight.sql"
       ],
       "titleVerb": "harden",
       "titleSubject": [
         "conversation-scope-preflight.sql"
       ],
       "titleIdentifiers": [
-        "conversation-scope-preflight.sql",
-        "V20__conversation_memory_scope_expand.sql"
+        "conversation-scope-preflight.sql"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -1015,16 +1029,14 @@
       "expectedType": "change",
       "titleKeywords": [
         "change",
-        "backend-review-findings.md",
-        "2026-10-19_backend-review-evidence-58.md"
+        "backend-review-findings.md"
       ],
       "titleVerb": "change",
       "titleSubject": [
         "backend-review-findings.md"
       ],
       "titleIdentifiers": [
-        "backend-review-findings.md",
-        "2026-10-19_backend-review-evidence-58.md"
+        "backend-review-findings.md"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
@@ -1032,66 +1044,6 @@
       ],
       "titleAction": "modify",
       "notes": "generated from e8c8b314d67ebe12ef401ffea5c3b90b34933981 (patrol: round 360 - a blank base-url aborts the whole Spring application)"
-    },
-    {
-      "id": "real-7149578a88",
-      "category": "docs-update",
-      "keySample": false,
-      "toolName": "Edit",
-      "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=docs/drafts/backend-fix-progress.md\nold_string=\"\"\nnew_string=\"## 2026-10-02 01:57 | 构建修复第二轮 — docker-e2e 构建上下文 + byte-buddy 方案更正\"",
-      "toolOutput": "Edit applied. Commit message: docs: record byte-buddy/docker-e2e fixes and advance baseline to 95de35b. Totals: 1 file(s), 10 insertion(s), 0 deletion(s). Changed paths: docs/drafts/backend-fix-progress.md. Verification: not recorded in this commit.",
-      "expectObservation": true,
-      "expectedType": "change",
-      "titleKeywords": [
-        "document",
-        "backend-fix-progress.md"
-      ],
-      "titleVerb": "document",
-      "titleSubject": [
-        "backend-fix-progress.md"
-      ],
-      "titleIdentifiers": [
-        "backend-fix-progress.md"
-      ],
-      "factsKeywords": [],
-      "conceptsKeywords": [
-        "what-changed"
-      ],
-      "titleAction": "document",
-      "notes": "generated from 7149578a88ccebd0603fe39417fa0fa54d3674a6 (docs: record byte-buddy/docker-e2e fixes and advance baseline to 95de35b)"
-    },
-    {
-      "id": "real-95de35b2ea",
-      "category": "bug-fix",
-      "keySample": false,
-      "toolName": "Edit",
-      "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/pom.xml\nold_string=\"<!-- Pin test-classpath byte-buddy to 1.15.x for JDK 24 compatibility:\"\nnew_string=\"<!-- Pin byte-buddy to 1.15.x: Mockito 5.11 (via spring-boot-starter-test BOM)\"",
-      "toolOutput": "Edit applied. Commit message: fix: byte-buddy 1.15.11 pin and docker-e2e build context. Totals: 2 file(s), 19 insertion(s), 21 deletion(s). Changed paths: backend/pom.xml, scripts/docker-e2e-test.sh. Other touched: scripts/docker-e2e-test.sh. Verification: not recorded in this commit.",
-      "expectObservation": true,
-      "expectedType": "bugfix",
-      "titleKeywords": [
-        "change",
-        "pom.xml",
-        "docker-e2e-test.sh"
-      ],
-      "titleVerb": "change",
-      "titleSubject": [
-        "pom.xml"
-      ],
-      "titleIdentifiers": [
-        "pom.xml",
-        "docker-e2e-test.sh"
-      ],
-      "factsKeywords": [],
-      "conceptsKeywords": [
-        "problem-solution"
-      ],
-      "titleAction": "modify",
-      "notes": "generated from 95de35b2eae7da0012ffd98cc9772d8a049fd78d (fix: byte-buddy 1.15.11 pin and docker-e2e build context)"
     }
   ]
 }

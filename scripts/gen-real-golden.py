@@ -9,9 +9,10 @@ Sample construction
 -------------------
 For each qualifying commit we take the real diff and build the tool trace the agent
 would have produced: the path it touched, the first removed line, the first added line,
-and a result line that repeats the commit subject. Identifiers are the changed
-artifacts' class/file names; the expected action class is derived from the shape of
-the diff and the commit message, following the rules below.
+and a result line that repeats the commit subject. The identifier is the changed
+artifact named in the trace's ``file_path`` (the file the agent edited); the expected
+action class is derived from the shape of the diff and the commit message, following
+the rules below.
 
 Action rules (first match wins)
 -------------------------------
@@ -205,11 +206,7 @@ def build_sample(commit: dict, files: list[dict], index: int) -> dict | None:
         tool_name = "Edit"
 
     old_line, new_line = first_lines(commit["sha"], primary["path"])
-    identifiers = []
-    for f in ranked[:2]:
-        candidate = identifier(f["path"])
-        if candidate not in identifiers:
-            identifiers.append(candidate)
+    identifiers = [identifier(primary["path"])]
     subject = identifiers[0]
 
     if tool_name == "Write":

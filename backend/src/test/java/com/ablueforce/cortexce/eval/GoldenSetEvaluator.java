@@ -543,6 +543,16 @@ public final class GoldenSetEvaluator {
             }
         }
 
+        if (!agg.unreachableSubjectSamples.isEmpty()) {
+            sb.append("## Unreachable subject labels (excluded from A6b)\n\n");
+            sb.append(agg.unreachableSubjectSamples.size())
+                    .append(" sample(s) declare subject tokens the recorded trace never contains:\n\n");
+            for (String entry : agg.unreachableSubjectSamples) {
+                sb.append("- ").append(entry).append('\n');
+            }
+            sb.append('\n');
+        }
+
         sb.append("## Per sample\n\n");
         sb.append("| id | category | expected | actual | contract | title norm | title contract | title exact | type | facts P/R | facts actionable | concepts P/R | ms |\n");
         sb.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
@@ -651,6 +661,7 @@ public final class GoldenSetEvaluator {
         metrics.put("titleTraceSubjectHitRate", agg.titleTraceSubjectHitRate);
         metrics.put("titleTraceSubjectSamples", agg.titleTraceSubjectSamples);
         metrics.put("titleTraceSubjectUnreachable", agg.titleTraceSubjectUnreachable);
+        metrics.put("unreachableSubjectSamples", agg.unreachableSubjectSamples);
         metrics.put("titleContractHitRate", agg.titleContractHitRate);
         metrics.put("titleTraceContractHitRate", agg.titleTraceContractHitRate);
         metrics.put("titleVerbContractHitRate", agg.titleVerbContractHitRate);

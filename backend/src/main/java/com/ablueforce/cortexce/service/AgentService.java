@@ -87,10 +87,11 @@ public class AgentService implements LogHelper {
     private int maxRetries;
 
     /**
-     * Attempts per trace. One disables the vote (default); three make the extraction pay
-     * three calls to settle a type/action disagreement measured at temperature 0.
+     * Attempts per trace. Default 3 (majority vote): the round-9 measurement at
+     * temperature 0 found 13/87 samples changing type or action between runs. Set 1 to
+     * disable the vote and pay one call instead of three.
      */
-    @Value("${cortexce.extraction.consistency-samples:1}")
+    @Value("${cortexce.extraction.consistency-samples:3}")
     private int extractionConsistencySamples;
 
     public AgentService(SessionManagementService sessionManagementService,

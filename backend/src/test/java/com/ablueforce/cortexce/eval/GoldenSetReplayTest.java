@@ -26,7 +26,8 @@ class GoldenSetReplayTest {
     @Test
     @DisplayName("replaying LongCat fixtures reproduces the committed metrics exactly")
     void longcatReplayReproducesMetrics() throws Exception {
-        for (String name : List.of("longcat-before", "longcat-after")) {
+        for (String name : List.of("longcat-before", "longcat-after", "longcat-after-v8b",
+                "longcat-after-v9")) {
             if (resource("/eval/fixtures/" + name + ".json") == null) {
                 Assumptions.assumeTrue(false, "no recorded fixture for " + name);
             }
@@ -37,7 +38,8 @@ class GoldenSetReplayTest {
     @Test
     @DisplayName("replaying MiniMax fixtures reproduces the committed metrics exactly")
     void minimaxReplayReproducesMetrics() throws Exception {
-        for (String name : List.of("minimax-before", "minimax-after")) {
+        for (String name : List.of("minimax-before", "minimax-after", "minimax-after-v8b",
+                "minimax-after-v9")) {
             boolean present = resource("/eval/fixtures/" + name + ".json") != null;
             if (!present) {
                 Assumptions.assumeTrue(false, "no recorded fixture for " + name);
@@ -109,6 +111,14 @@ class GoldenSetReplayTest {
                     .isCloseTo(doubleValue(expected, "titleActionHitRate"), within(1e-9));
             assertThat(agg.titleSubjectHitRate).as(name + " title subject")
                     .isCloseTo(doubleValue(expected, "titleSubjectHitRate"), within(1e-9));
+            if (expected.containsKey("titleTraceSubjectHitRate")) {
+                assertThat(agg.titleTraceSubjectHitRate).as(name + " trace-visible subject")
+                        .isCloseTo(doubleValue(expected, "titleTraceSubjectHitRate"), within(1e-9));
+                assertThat(agg.titleTraceContractHitRate).as(name + " trace contract")
+                        .isCloseTo(doubleValue(expected, "titleTraceContractHitRate"), within(1e-9));
+                assertThat(agg.titleTraceSubjectUnreachable).as(name + " unreachable subjects")
+                        .isEqualTo(intValue(expected, "titleTraceSubjectUnreachable"));
+            }
             assertThat(agg.titleContractHitRate).as(name + " title contract")
                     .isCloseTo(doubleValue(expected, "titleContractHitRate"), within(1e-9));
             assertThat(agg.titleVerbContractHitRate).as(name + " title verb contract (diagnostic)")
@@ -129,6 +139,14 @@ class GoldenSetReplayTest {
                     .isCloseTo(doubleValue(expected, "conceptsRecall"), within(1e-9));
             assertThat(agg.repeatConsistency).as(name + " repeat consistency")
                     .isCloseTo(doubleValue(expected, "repeatConsistency"), within(1e-9));
+            if (expected.containsKey("p95Tokens")) {
+                assertThat(agg.p50Tokens).as(name + " p50 tokens")
+                        .isEqualTo(((Number) expected.get("p50Tokens")).longValue());
+                assertThat(agg.p95Tokens).as(name + " p95 tokens")
+                        .isEqualTo(((Number) expected.get("p95Tokens")).longValue());
+                assertThat(agg.meanTokens).as(name + " mean tokens")
+                        .isEqualTo(intValue(expected, "meanTokens"));
+            }
         }
     }
 
@@ -160,8 +178,11 @@ class GoldenSetReplayTest {
                 String status = entry.get("status") == null ? null : String.valueOf(entry.get("status"));
                 int runIndex = ((Number) entry.getOrDefault("runIndex", 0)).intValue();
                 long elapsed = ((Number) entry.getOrDefault("elapsedMs", 0)).longValue();
+                int promptTokens = ((Number) entry.getOrDefault("promptTokens", 0)).intValue();
+                int completionTokens = ((Number) entry.getOrDefault("completionTokens", 0)).intValue();
                 outcomes.add(GoldenSetEvaluator.toOutcome(sample, raw, error, status, elapsed,
-                        runIndex, Boolean.parseBoolean(String.valueOf(fixture.getOrDefault("validate", true)))));
+                        runIndex, Boolean.parseBoolean(String.valueOf(fixture.getOrDefault("validate", true))),
+                        promptTokens, completionTokens));
             }
         }
         return GoldenSetScorer.score(outcomes);
