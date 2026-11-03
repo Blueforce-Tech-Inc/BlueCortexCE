@@ -1,0 +1,351 @@
+{
+  "model" : "BAAI/bge-m3",
+  "limit" : 5,
+  "observations" : [ "pagination-offset", "paging-clamp", "cache-race", "cache-evict", "tz-login", "feature-flag-removal", "hikari-pool", "log-redaction", "sql-injection", "deploy-canary", "docker-health", "mcp-timeout" ],
+  "queries" : [ {
+    "id" : "q-pagination",
+    "text" : "page offset starts at zero for the first page",
+    "relevant" : [ "pagination-offset", "paging-clamp" ]
+  }, {
+    "id" : "q-cache-concurrency",
+    "text" : "two threads loading the same cached user at once",
+    "relevant" : [ "cache-race" ]
+  }, {
+    "id" : "q-cache-expiry",
+    "text" : "cached session expires after inactivity",
+    "relevant" : [ "cache-evict" ]
+  }, {
+    "id" : "q-timezone",
+    "text" : "login audit timestamp shows the wrong timezone",
+    "relevant" : [ "tz-login" ]
+  }, {
+    "id" : "q-feature-flag",
+    "text" : "remove an obsolete feature toggle",
+    "relevant" : [ "feature-flag-removal" ]
+  }, {
+    "id" : "q-pool",
+    "text" : "database connection pool sizing and timeout",
+    "relevant" : [ "hikari-pool" ]
+  }, {
+    "id" : "q-secret-log",
+    "text" : "mask credentials in log output",
+    "relevant" : [ "log-redaction" ]
+  }, {
+    "id" : "q-sql",
+    "text" : "prevent SQL injection in search queries",
+    "relevant" : [ "sql-injection" ]
+  }, {
+    "id" : "q-rollback",
+    "text" : "automatic rollback when the canary error rate rises",
+    "relevant" : [ "deploy-canary" ]
+  }, {
+    "id" : "q-vague-pagination",
+    "text" : "results start on the wrong row when moving between pages",
+    "relevant" : [ "pagination-offset" ]
+  }, {
+    "id" : "q-vague-cache",
+    "text" : "cached data goes stale after sitting idle",
+    "relevant" : [ "cache-evict" ]
+  }, {
+    "id" : "q-vague-redaction",
+    "text" : "sensitive identifiers show up in application logs",
+    "relevant" : [ "log-redaction" ]
+  }, {
+    "id" : "q-vague-deploy",
+    "text" : "release safety automation for risky rollouts",
+    "relevant" : [ "deploy-canary" ]
+  }, {
+    "id" : "q-vague-timezone",
+    "text" : "the displayed clock offset does not match local time",
+    "relevant" : [ "tz-login" ]
+  } ],
+  "similarities" : {
+    "q-pagination" : {
+      "pagination-offset" : 0.728101,
+      "paging-clamp" : 0.618116,
+      "cache-race" : 0.382078,
+      "cache-evict" : 0.322544,
+      "tz-login" : 0.366073,
+      "feature-flag-removal" : 0.315014,
+      "hikari-pool" : 0.376156,
+      "log-redaction" : 0.342391,
+      "sql-injection" : 0.311514,
+      "deploy-canary" : 0.381781,
+      "docker-health" : 0.354634,
+      "mcp-timeout" : 0.344305
+    },
+    "q-cache-concurrency" : {
+      "pagination-offset" : 0.3509,
+      "paging-clamp" : 0.389247,
+      "cache-race" : 0.565278,
+      "cache-evict" : 0.465147,
+      "tz-login" : 0.3966,
+      "feature-flag-removal" : 0.339075,
+      "hikari-pool" : 0.368991,
+      "log-redaction" : 0.41195,
+      "sql-injection" : 0.421142,
+      "deploy-canary" : 0.36149,
+      "docker-health" : 0.388901,
+      "mcp-timeout" : 0.373958
+    },
+    "q-cache-expiry" : {
+      "pagination-offset" : 0.343335,
+      "paging-clamp" : 0.354134,
+      "cache-race" : 0.535203,
+      "cache-evict" : 0.651424,
+      "tz-login" : 0.41846,
+      "feature-flag-removal" : 0.380167,
+      "hikari-pool" : 0.38674,
+      "log-redaction" : 0.472657,
+      "sql-injection" : 0.430829,
+      "deploy-canary" : 0.394388,
+      "docker-health" : 0.431031,
+      "mcp-timeout" : 0.449613
+    },
+    "q-timezone" : {
+      "pagination-offset" : 0.321443,
+      "paging-clamp" : 0.351092,
+      "cache-race" : 0.388459,
+      "cache-evict" : 0.453028,
+      "tz-login" : 0.738913,
+      "feature-flag-removal" : 0.355444,
+      "hikari-pool" : 0.432325,
+      "log-redaction" : 0.446882,
+      "sql-injection" : 0.397299,
+      "deploy-canary" : 0.396409,
+      "docker-health" : 0.464385,
+      "mcp-timeout" : 0.46912
+    },
+    "q-feature-flag" : {
+      "pagination-offset" : 0.339336,
+      "paging-clamp" : 0.352791,
+      "cache-race" : 0.343123,
+      "cache-evict" : 0.398063,
+      "tz-login" : 0.338346,
+      "feature-flag-removal" : 0.54424,
+      "hikari-pool" : 0.35421,
+      "log-redaction" : 0.397574,
+      "sql-injection" : 0.329437,
+      "deploy-canary" : 0.374615,
+      "docker-health" : 0.359793,
+      "mcp-timeout" : 0.328502
+    },
+    "q-pool" : {
+      "pagination-offset" : 0.345875,
+      "paging-clamp" : 0.319506,
+      "cache-race" : 0.370948,
+      "cache-evict" : 0.412813,
+      "tz-login" : 0.40153,
+      "feature-flag-removal" : 0.268066,
+      "hikari-pool" : 0.673102,
+      "log-redaction" : 0.336996,
+      "sql-injection" : 0.444669,
+      "deploy-canary" : 0.41448,
+      "docker-health" : 0.430433,
+      "mcp-timeout" : 0.47157
+    },
+    "q-secret-log" : {
+      "pagination-offset" : 0.268752,
+      "paging-clamp" : 0.322367,
+      "cache-race" : 0.392086,
+      "cache-evict" : 0.389853,
+      "tz-login" : 0.502358,
+      "feature-flag-removal" : 0.369376,
+      "hikari-pool" : 0.397155,
+      "log-redaction" : 0.58531,
+      "sql-injection" : 0.396467,
+      "deploy-canary" : 0.386779,
+      "docker-health" : 0.409226,
+      "mcp-timeout" : 0.380825
+    },
+    "q-sql" : {
+      "pagination-offset" : 0.386774,
+      "paging-clamp" : 0.354411,
+      "cache-race" : 0.381127,
+      "cache-evict" : 0.354426,
+      "tz-login" : 0.377401,
+      "feature-flag-removal" : 0.422772,
+      "hikari-pool" : 0.401898,
+      "log-redaction" : 0.431596,
+      "sql-injection" : 0.62606,
+      "deploy-canary" : 0.329854,
+      "docker-health" : 0.376187,
+      "mcp-timeout" : 0.317079
+    },
+    "q-rollback" : {
+      "pagination-offset" : 0.381304,
+      "paging-clamp" : 0.351869,
+      "cache-race" : 0.408665,
+      "cache-evict" : 0.403813,
+      "tz-login" : 0.398351,
+      "feature-flag-removal" : 0.313013,
+      "hikari-pool" : 0.441994,
+      "log-redaction" : 0.327265,
+      "sql-injection" : 0.347209,
+      "deploy-canary" : 0.764843,
+      "docker-health" : 0.36136,
+      "mcp-timeout" : 0.389471
+    },
+    "q-vague-pagination" : {
+      "pagination-offset" : 0.506349,
+      "paging-clamp" : 0.475054,
+      "cache-race" : 0.402183,
+      "cache-evict" : 0.396797,
+      "tz-login" : 0.406674,
+      "feature-flag-removal" : 0.369786,
+      "hikari-pool" : 0.393195,
+      "log-redaction" : 0.343655,
+      "sql-injection" : 0.441344,
+      "deploy-canary" : 0.40245,
+      "docker-health" : 0.386439,
+      "mcp-timeout" : 0.326409
+    },
+    "q-vague-cache" : {
+      "pagination-offset" : 0.361786,
+      "paging-clamp" : 0.385038,
+      "cache-race" : 0.529007,
+      "cache-evict" : 0.572416,
+      "tz-login" : 0.41473,
+      "feature-flag-removal" : 0.391907,
+      "hikari-pool" : 0.409974,
+      "log-redaction" : 0.409837,
+      "sql-injection" : 0.4229,
+      "deploy-canary" : 0.379017,
+      "docker-health" : 0.456004,
+      "mcp-timeout" : 0.372883
+    },
+    "q-vague-redaction" : {
+      "pagination-offset" : 0.288429,
+      "paging-clamp" : 0.359609,
+      "cache-race" : 0.41544,
+      "cache-evict" : 0.384439,
+      "tz-login" : 0.473664,
+      "feature-flag-removal" : 0.418947,
+      "hikari-pool" : 0.386798,
+      "log-redaction" : 0.513018,
+      "sql-injection" : 0.44921,
+      "deploy-canary" : 0.366983,
+      "docker-health" : 0.410168,
+      "mcp-timeout" : 0.318245
+    },
+    "q-vague-deploy" : {
+      "pagination-offset" : 0.208809,
+      "paging-clamp" : 0.252923,
+      "cache-race" : 0.333343,
+      "cache-evict" : 0.371416,
+      "tz-login" : 0.358628,
+      "feature-flag-removal" : 0.214402,
+      "hikari-pool" : 0.416966,
+      "log-redaction" : 0.318362,
+      "sql-injection" : 0.37978,
+      "deploy-canary" : 0.536969,
+      "docker-health" : 0.346213,
+      "mcp-timeout" : 0.342402
+    },
+    "q-vague-timezone" : {
+      "pagination-offset" : 0.424394,
+      "paging-clamp" : 0.432331,
+      "cache-race" : 0.427111,
+      "cache-evict" : 0.401825,
+      "tz-login" : 0.584924,
+      "feature-flag-removal" : 0.342394,
+      "hikari-pool" : 0.436259,
+      "log-redaction" : 0.367318,
+      "sql-injection" : 0.374254,
+      "deploy-canary" : 0.404511,
+      "docker-health" : 0.404299,
+      "mcp-timeout" : 0.479721
+    }
+  },
+  "curve" : [ {
+    "threshold" : 0.3,
+    "recall" : 1.0,
+    "precision" : 0.21428571428571427,
+    "missedRecall" : 0.0,
+    "retrieved" : 70,
+    "relevantRetrieved" : 15,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.35,
+    "recall" : 1.0,
+    "precision" : 0.21428571428571427,
+    "missedRecall" : 0.0,
+    "retrieved" : 70,
+    "relevantRetrieved" : 15,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.4,
+    "recall" : 1.0,
+    "precision" : 0.2727272727272727,
+    "missedRecall" : 0.0,
+    "retrieved" : 55,
+    "relevantRetrieved" : 15,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.45,
+    "recall" : 1.0,
+    "precision" : 0.5357142857142857,
+    "missedRecall" : 0.0,
+    "retrieved" : 28,
+    "relevantRetrieved" : 15,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.5,
+    "recall" : 1.0,
+    "precision" : 0.8333333333333334,
+    "missedRecall" : 0.0,
+    "retrieved" : 18,
+    "relevantRetrieved" : 15,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.55,
+    "recall" : 0.7333333333333333,
+    "precision" : 1.0,
+    "missedRecall" : 0.2666666666666667,
+    "retrieved" : 11,
+    "relevantRetrieved" : 11,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.6,
+    "recall" : 0.4666666666666667,
+    "precision" : 1.0,
+    "missedRecall" : 0.5333333333333333,
+    "retrieved" : 7,
+    "relevantRetrieved" : 7,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.65,
+    "recall" : 0.3333333333333333,
+    "precision" : 1.0,
+    "missedRecall" : 0.6666666666666667,
+    "retrieved" : 5,
+    "relevantRetrieved" : 5,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.7,
+    "recall" : 0.2,
+    "precision" : 1.0,
+    "missedRecall" : 0.8,
+    "retrieved" : 3,
+    "relevantRetrieved" : 3,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.75,
+    "recall" : 0.06666666666666667,
+    "precision" : 1.0,
+    "missedRecall" : 0.9333333333333333,
+    "retrieved" : 1,
+    "relevantRetrieved" : 1,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.8,
+    "recall" : 0.0,
+    "precision" : 0.0,
+    "missedRecall" : 1.0,
+    "retrieved" : 0,
+    "relevantRetrieved" : 0,
+    "relevantTotal" : 15
+  } ],
+  "missedRecallAt050" : 0.0,
+  "chosenThreshold" : 0.5
+}

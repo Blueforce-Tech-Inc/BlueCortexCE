@@ -1,0 +1,98 @@
+{
+  "model" : "BAAI/bge-m3",
+  "queries" : 14,
+  "observations" : 12,
+  "missedRecallAt050" : 0.0,
+  "chosenThreshold" : 0.5,
+  "chosenRecall" : 1.0,
+  "chosenPrecision" : 0.8333333333333334,
+  "curve" : [ {
+    "threshold" : 0.3,
+    "recall" : 1.0,
+    "precision" : 0.21428571428571427,
+    "missedRecall" : 0.0,
+    "retrieved" : 70,
+    "relevantRetrieved" : 15,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.35,
+    "recall" : 1.0,
+    "precision" : 0.21428571428571427,
+    "missedRecall" : 0.0,
+    "retrieved" : 70,
+    "relevantRetrieved" : 15,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.4,
+    "recall" : 1.0,
+    "precision" : 0.2727272727272727,
+    "missedRecall" : 0.0,
+    "retrieved" : 55,
+    "relevantRetrieved" : 15,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.45,
+    "recall" : 1.0,
+    "precision" : 0.5357142857142857,
+    "missedRecall" : 0.0,
+    "retrieved" : 28,
+    "relevantRetrieved" : 15,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.5,
+    "recall" : 1.0,
+    "precision" : 0.8333333333333334,
+    "missedRecall" : 0.0,
+    "retrieved" : 18,
+    "relevantRetrieved" : 15,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.55,
+    "recall" : 0.7333333333333333,
+    "precision" : 1.0,
+    "missedRecall" : 0.2666666666666667,
+    "retrieved" : 11,
+    "relevantRetrieved" : 11,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.6,
+    "recall" : 0.4666666666666667,
+    "precision" : 1.0,
+    "missedRecall" : 0.5333333333333333,
+    "retrieved" : 7,
+    "relevantRetrieved" : 7,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.65,
+    "recall" : 0.3333333333333333,
+    "precision" : 1.0,
+    "missedRecall" : 0.6666666666666667,
+    "retrieved" : 5,
+    "relevantRetrieved" : 5,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.7,
+    "recall" : 0.2,
+    "precision" : 1.0,
+    "missedRecall" : 0.8,
+    "retrieved" : 3,
+    "relevantRetrieved" : 3,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.75,
+    "recall" : 0.06666666666666667,
+    "precision" : 1.0,
+    "missedRecall" : 0.9333333333333333,
+    "retrieved" : 1,
+    "relevantRetrieved" : 1,
+    "relevantTotal" : 15
+  }, {
+    "threshold" : 0.8,
+    "recall" : 0.0,
+    "precision" : 0.0,
+    "missedRecall" : 1.0,
+    "retrieved" : 0,
+    "relevantRetrieved" : 0,
+    "relevantTotal" : 15
+  } ]
+}

@@ -1,0 +1,186 @@
+{
+  "version": "1.0",
+  "note": "Hand-authored corpus for the search-similarity curve. Observations are memory records; queries are retrieval requests. Relevance is intentional, not derived from lexical overlap, so paraphrase pairs land near the relevance floor.",
+  "observations": [
+    {
+      "id": "pagination-offset",
+      "title": "Fixed OrderQuery.pageOffset off-by-one in pagination",
+      "narrative": "OrderQuery.pageOffset now subtracts one from the requested page before multiplying by pageSize; page 1 starts at index 0.",
+      "facts": [
+        "OrderQuery.pageOffset computes (page - 1) * pageSize",
+        "OrderQueryTest#firstPageStartsAtZero asserts offset 0 for page 1"
+      ]
+    },
+    {
+      "id": "paging-clamp",
+      "title": "Clamped negative page numbers in PageRequest",
+      "narrative": "PageRequest.normalizePage maps page <= 0 to 1 before building the offset.",
+      "facts": [
+        "PageRequest.normalizePage clamps page to 1",
+        "PageRequestTest#negativePageUsesFirstPage covers page -3"
+      ]
+    },
+    {
+      "id": "cache-race",
+      "title": "Fixed UserCache computeIfAbsent race",
+      "narrative": "UserCache.get now performs the load inside computeIfAbsent so concurrent callers share one value.",
+      "facts": [
+        "UserCache.get delegates to computeIfAbsent",
+        "CacheConcurrencyTest#reads returns one instance for 8 threads"
+      ]
+    },
+    {
+      "id": "cache-evict",
+      "title": "Evicted stale entries after 10 minutes in SessionCache",
+      "narrative": "SessionCache.expireAfterWrite is 10 minutes and eviction runs on access.",
+      "facts": [
+        "SessionCache.expireAfterWrite = 10 minutes",
+        "SessionCacheTest#staleEntryIsReloaded asserts a reload after 11 minutes"
+      ]
+    },
+    {
+      "id": "tz-login",
+      "title": "Fixed login timestamp timezone regression",
+      "narrative": "LoginAudit.timestamp now writes UTC and formats Asia/Shanghai at render time.",
+      "facts": [
+        "LoginAudit.timestamp stores UTC",
+        "LoginAuditTest#rendersShanghaiOffset asserts +08:00"
+      ]
+    },
+    {
+      "id": "feature-flag-removal",
+      "title": "Removed legacy-search feature flag",
+      "narrative": "FeatureFlags.LEGACY_SEARCH was deleted; SearchService no longer branches on it.",
+      "facts": [
+        "FeatureFlags.LEGACY_SEARCH no longer exists",
+        "SearchService.search has a single code path"
+      ]
+    },
+    {
+      "id": "hikari-pool",
+      "title": "Set maximum-pool-size to 10 in application.yml",
+      "narrative": "spring.datasource.hikari.maximum-pool-size is 10 and connection-timeout is 3000.",
+      "facts": [
+        "spring.datasource.hikari.maximum-pool-size = 10",
+        "spring.datasource.hikari.connection-timeout = 3000"
+      ]
+    },
+    {
+      "id": "log-redaction",
+      "title": "Redacted session tokens from ingest logs",
+      "narrative": "IngestController masks the Authorization header before logging.",
+      "facts": [
+        "IngestController masks Authorization",
+        "IngestControllerTest#logHasNoToken asserts the token is absent"
+      ]
+    },
+    {
+      "id": "sql-injection",
+      "title": "Hardened observation search against SQL injection",
+      "narrative": "ObservationRepository uses parameterized queries for project and query text.",
+      "facts": [
+        "ObservationRepository.hybridSearchScored uses bound parameters",
+        "ObservationRepositoryTest#quoteInQueryIsNotExecuted passes a quote payload"
+      ]
+    },
+    {
+      "id": "deploy-canary",
+      "title": "Enabled canary rollback at 5% error rate",
+      "narrative": "The rollout pipeline rolls back when canary.errorRate exceeds 5%.",
+      "facts": [
+        "canary.errorRate threshold = 5%",
+        "rollback.sh exits 1 when the threshold is exceeded"
+      ]
+    },
+    {
+      "id": "docker-health",
+      "title": "Added healthcheck to backend Dockerfile",
+      "narrative": "The backend image probes /api/health every 30 seconds with a 3 second timeout.",
+      "facts": [
+        "Dockerfile HEALTHCHECK calls /api/health",
+        "interval = 30s, timeout = 3s"
+      ]
+    },
+    {
+      "id": "mcp-timeout",
+      "title": "Set MCP client timeout to 30 seconds",
+      "narrative": "McpClient.requestTimeout is 30 seconds and a timeout returns McpTimeoutException.",
+      "facts": [
+        "McpClient.requestTimeout = 30 seconds",
+        "McpClient throws McpTimeoutException on expiry"
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "id": "q-pagination",
+      "text": "page offset starts at zero for the first page",
+      "relevant": ["pagination-offset", "paging-clamp"]
+    },
+    {
+      "id": "q-cache-concurrency",
+      "text": "two threads loading the same cached user at once",
+      "relevant": ["cache-race"]
+    },
+    {
+      "id": "q-cache-expiry",
+      "text": "cached session expires after inactivity",
+      "relevant": ["cache-evict"]
+    },
+    {
+      "id": "q-timezone",
+      "text": "login audit timestamp shows the wrong timezone",
+      "relevant": ["tz-login"]
+    },
+    {
+      "id": "q-feature-flag",
+      "text": "remove an obsolete feature toggle",
+      "relevant": ["feature-flag-removal"]
+    },
+    {
+      "id": "q-pool",
+      "text": "database connection pool sizing and timeout",
+      "relevant": ["hikari-pool"]
+    },
+    {
+      "id": "q-secret-log",
+      "text": "mask credentials in log output",
+      "relevant": ["log-redaction"]
+    },
+    {
+      "id": "q-sql",
+      "text": "prevent SQL injection in search queries",
+      "relevant": ["sql-injection"]
+    },
+    {
+      "id": "q-rollback",
+      "text": "automatic rollback when the canary error rate rises",
+      "relevant": ["deploy-canary"]
+    },
+    {
+      "id": "q-vague-pagination",
+      "text": "results start on the wrong row when moving between pages",
+      "relevant": ["pagination-offset"]
+    },
+    {
+      "id": "q-vague-cache",
+      "text": "cached data goes stale after sitting idle",
+      "relevant": ["cache-evict"]
+    },
+    {
+      "id": "q-vague-redaction",
+      "text": "sensitive identifiers show up in application logs",
+      "relevant": ["log-redaction"]
+    },
+    {
+      "id": "q-vague-deploy",
+      "text": "release safety automation for risky rollouts",
+      "relevant": ["deploy-canary"]
+    },
+    {
+      "id": "q-vague-timezone",
+      "text": "the displayed clock offset does not match local time",
+      "relevant": ["tz-login"]
+    }
+  ]
+}
