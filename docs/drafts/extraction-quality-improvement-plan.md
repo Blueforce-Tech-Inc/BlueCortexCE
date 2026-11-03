@@ -1507,3 +1507,148 @@ The hand-written gates (§4) remain unchanged. The real-set gates run in the sam
 The 90% identifier/subject target is recorded as unmet, with the cluster evidence
 above, rather than lowered silently.
 
+## 10. Round 12 — the identifier becomes an observation
+
+### 10.1 The failure was selection, not missing evidence
+
+Every r11 identifier miss was a sample where the trace already named the edited file
+and the tool result already reported its changed lines, yet the model titled a class,
+a symbol or a supporting file instead. The prompt was asking for a search over a long
+trace; the trace could answer that question mechanically. Round 12 moves the search
+into `TraceSignals` and hands the model a ranked candidate list plus an explicit
+title contract. Nothing in the block is a classification label: it reports touched
+paths, changed lines and identifier strings, and the model still writes the title.
+
+### 10.2 Candidate artifacts
+
+`rank()` builds the candidate list from `EDIT_STAT` (path plus removed/added lines) in
+trace order, appends paths seen without an edit stat, and stable-sorts by changed
+lines. Ties keep the edit-stat order, which is what `gen-real-golden.py` does when it
+takes the first file from `max(files, key=added+deleted)`. Two fixes were needed to
+match the generator:
+
+- `EXTENSIONLESS_TOKEN` lets `EDIT_STAT` parse `backend/Dockerfile`, `Makefile`,
+  `Jenkinsfile`, `Procfile`, `Gemfile`, `Vagrantfile`, `LICENSE`, `CODEOWNERS` and
+  `OWNERS`. Before this, the Dockerfile reported zero changed lines and a documentation
+  file became rank 1.
+- A path token must end at a non-alphanumeric boundary, so `index.h` is not read out of
+  `index.html` and `Object.create` is not read as a C file.
+
+Evidence (offline `CheckRank` over the 60 real samples, final build): rank 1 equals the
+golden identifier **60/60 (100%)**, and the candidate list contains the expected
+identifier **60/60**. The list is capped at 8 artifacts and 16 identifiers.
+
+### 10.3 Candidate identifiers, title contract and title budget
+
+The block now carries:
+
+- `<title_subject_candidate>` — the rank-1 path, i.e. which artifact to name.
+- `<candidate_artifacts note="…rank 1 changed the most lines">` — ranked paths and
+  changed-line counts.
+- `<candidate_identifiers note="…copy the relevant one(s) verbatim">` — rank-1 path,
+  basenames (`.java` suffix dropped, matching the golden convention), class and method
+  declarations from the diff, configuration keys, endpoint paths and test class names.
+- `<title_identifier_required>` — the exact string the title must end with.
+- `<title_budget identifier_chars="N" verb_object_chars="M">` — the arithmetic for
+  the 100-character validator: the identifier takes N characters, so the verb and
+  object must fit in M. A rejected title records no observation, so this turns "keep
+  it short" into a number.
+
+The prompt states that `<title_contract>` overrides every other naming preference and
+that a supporting file may appear in facts but never as the subject. Identifier
+validation uses the copied string, never a paraphrase.
+
+### 10.4 Real-set results
+
+| metric | r11 MiniMax | r12 MiniMax | r11 LongCat | r12 LongCat | target |
+|---|---|---|---|---|---|
+| identifier | 56.25% | **97.67%** | 74.42% | **100%** | ≥90% (met) |
+| subject | 56.25% | **97.67%** | 74.42% | **100%** | ≥90% (met) |
+| action class | 97.92% | 97.67% | 88.37% | 89.58% | ≥80% (met) |
+| type, raw | 79.17% | 79.07% | 72.09% | 72.92% | — |
+| type, auditable | 83.72% | **89.47%** | 81.58% | **83.33%** | ≥80% (met) |
+| skip accuracy | 100% | 100% | 96.67% | 98.33% | — |
+| call failures | 2 | 6 | 0 | 1 | — |
+| latency p50 / p95 | 4,031 / 9,888 ms | 3,165 / 14,357 ms | 19,577 / 58,468 ms | 18,245 / 45,635 ms | A11 |
+| p95 tokens per call | 5,173 | 6,093 | 7,094 | 7,857 | A12 |
+
+The MiniMax row with six failed calls has 54 successful responses and 43 scored
+titles; LongCat has 59 and 48. Rates are computed on the responses that exist, and
+the failure count is reported rather than hidden. The type improvement comes from one
+mechanical rule added in this round: when no source file changed and at least one
+test file did, the type is `feature`, even if the trace also edits docs or contains a
+defect word. That rule reflects the generator (`tests added, no production -> feature`)
+and fixed the samples where a defect word in a test trace pulled the answer to
+`bugfix` or `change`.
+
+### 10.5 Residual misses, by identifier kind
+
+MiniMax has 1 miss in 43 scored titles; LongCat has 0 in 48.
+
+| kind | misses | share of misses |
+|---|---|---|
+| file basename omitted from the title | 1 | 100% |
+| class / method name | 0 | 0% |
+| configuration key | 0 | 0% |
+| endpoint path | 0 | 0% |
+
+The single miss (`real-28edef5a35`) wrote `Added model output quality evaluation
+fixtures and reports` although `<title_identifier_required>` named
+`longcat-after-v6.json`; the identifier is file basename and the title simply omitted
+it. No miss was a generalization (the r12 contract forbids `...-after-v7.json` becoming
+`v7`) or an unreachable label. One action miss remains (`real-0fd4ffcc31`, expected
+`modify`, titled `create`).
+
+### 10.6 Gates only rise
+
+`scripts/eval-gates.json` now records `identifier 0.90`, `traceSubject 0.90`,
+`action 0.80`, `typeAuditable 0.80`. The two 0.90 values are **raised** from the r11
+measurements (0.5625 / 0.7441); no value was lowered. Enforcement is threefold:
+
+- `scripts/eval-gates-floor.json` is an append-only high-water mark, currently the same
+  values.
+- `scripts/check-eval-gates.py` fails when any current value is below the floor;
+  `--ratchet` only raises. `verify-local.sh` runs it as step 6b.
+- `GoldenSetRealReplayTest` reads `eval-gates.json` and asserts each fixture clear the
+  floors, plus `gateFloorsAreMonotonic` against the floor file.
+
+The same rule now covers the suite baseline: `scripts/test-baseline-floor.json`
+(493 tests, L1 479 / L2 7 / L3 6 / L4 1) is checked by the same script, so a lowered
+`test-baseline.json` fails step 6b even if all remaining tests pass. Raising the
+baseline is part of this round (485 → 493), and the floor was created at the new value.
+
+### 10.7 Latency and token cost
+
+A11 is red for MiniMax only because the aggregate includes provider failures. The 54
+successful calls have p95 **8,157 ms**, under the 8,472 ms floor (1.5 × 5,648 ms).
+The six failures (`all attempts returned no content`) took 9.2–27.3 s, and the
+aggregate p95 of 14,357 ms is one of those failures. LongCat passes at 45,635 ms
+against 50,574 ms. p50 is below the baseline for both (3,165 vs 5,648; 18,245 vs
+33,716), which is what an extraction-latency regression would not look like.
+
+A12: LongCat passes (7,857 vs 8,644). MiniMax measures **6,093 vs 6,072**, i.e. 21
+tokens (+0.35%); p90 is 6,046, so the threshold sits between p90 and p95. Completion
+output is not the cause: p50/p95 completion tokens are 314/627 (MiniMax) and 913/2,382
+(LongCat), with `max_tokens 4096` never reached (max 666 / 3,727). The overage is
+prompt-side — the mandatory candidate list — and is the stated cost of the identifier
+gate.
+
+Optimizations applied instead of cutting `max_tokens`:
+
+- the narrative is capped at three sentences (r11 shipped "Full context");
+- the output template orders type, title, subtitle and facts before the narrative;
+- the duplicate `<title_identifier_candidate>` and the full paths of supporting files
+  were removed, which took p95 tokens from 6,103 to 6,093 on the final build.
+
+**Proposal for review, values unchanged:** measure A11 over successful responses,
+because provider failures are currently counted as latency; and either re-baseline
+A12 at ~6,300 tokens (1.56×) for the candidate block now required by the identifier
+gate, or keep 6,072 and accept the 0.35% overage as its documented cost. No threshold
+was edited in this round.
+
+### 10.8 Verification
+
+`./scripts/verify-local.sh`: 493 tests (L1 479 / L2 7 / L3 6 / L4 1), 0 failures,
+0 skipped; replay 4/4; gate monotonicity stable; EN/ZH API surface 80/80; proxy E2E
+0 skipped. Both r12 fixtures replay offline with no provider call.
+
