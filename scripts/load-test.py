@@ -537,11 +537,26 @@ def index_evidence(scope_id: str) -> dict:
             f"SELECT * FROM mem_observations WHERE project_path = '{PROJECT}' "
             "ORDER BY created_at_epoch DESC, id DESC LIMIT 20"
         ),
+        # Exact shape served by /api/search?project=&type= after the V25 rewrite:
+        # the scope predicate is scalar InitPlans, so the composite index sees a
+        # constant scope id and can serve both the filter and the ordering.
+        "type_filter": (
+            "SELECT * FROM mem_observations WHERE ("
+            "  memory_scope_id = (SELECT id FROM mem_memory_scopes "
+            "    WHERE scope_type = 'project' "
+            f"    AND scope_key = '{PROJECT}' COLLATE \"C\" LIMIT 1)"
+            f"  OR ('{PROJECT}' COLLATE \"C\" = 'manual-memories' COLLATE \"C\""
+            "      AND memory_scope_id = (SELECT id FROM mem_memory_scopes "
+            "        WHERE scope_type = 'manual_default' "
+            "          AND scope_key = 'manual-default-v1' LIMIT 1))"
+            ") AND type = 'feature' ORDER BY created_at_epoch DESC LIMIT 40"
+        ),
     }
     indexes = {
         "scope_recent": "idx_observations_scope_created",
         "type_recent": "idx_observations_type_created",
         "project_recent": "idx_observations_project_created",
+        "type_filter": "idx_observations_scope_type_created",
     }
     evidence = {}
     for name, query in queries.items():
@@ -1180,7 +1195,7 @@ def render_report(args, stages: list[dict], indexes: dict, queue: dict) -> str:
 
     lines += [
         "",
-        f"## V23 index evidence ({last['rows']} rows)",
+        f"## Index evidence ({last['rows']} rows; V23 composites + V25 scope/type)",
         "",
         "| query | index | index used | with index ms | without index ms | plan without index |",
         "|---|---|---|---:|---:|---|",

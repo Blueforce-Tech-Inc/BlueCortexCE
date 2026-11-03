@@ -25,24 +25,46 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         FROM mem_observations o
         """;
 
+    /**
+     * Scope predicate for one project.
+     *
+     * <p>The previous form was {@code memory_scope_id IN (SELECT ... WHERE a OR b)}. That
+     * made the subquery a hash-join member, so the scope column was never visible as an
+     * index condition: a type-filtered page scanned every row of the type (20% of the
+     * table), sorted them, and only then applied {@code LIMIT} — 29 ms p95 at 100k rows.
+     *
+     * <p>Each branch is now its own scalar {@code InitPlan}, so the planner sees a constant
+     * scope id and can use the V25 composite index {@code (memory_scope_id, type,
+     * created_at_epoch, id)} as both filter and ordering. Semantics are unchanged, including
+     * the {@code manual-memories} sentinel, which still matches the project scope and the
+     * manual-default scope. {@code LIMIT 1} keeps the scalar subquery single-valued even if
+     * a digest collision ever put two rows under one key.
+     */
     String PROJECT_SCOPE_FILTER = "\n" + """
-        memory_scope_id IN (
-            SELECT id FROM mem_memory_scopes
-            WHERE (scope_type = 'project'
-                   AND scope_key = cast(:project AS text) COLLATE "C")
-               OR (scope_type = 'manual_default'
-                   AND scope_key = 'manual-default-v1'
-                   AND cast(:project AS text) COLLATE "C" = 'manual-memories' COLLATE "C")
+        (
+            memory_scope_id = (
+                SELECT id FROM mem_memory_scopes
+                WHERE scope_type = 'project'
+                  AND scope_key = cast(:project AS text) COLLATE "C"
+                LIMIT 1)
+            OR (cast(:project AS text) COLLATE "C" = 'manual-memories' COLLATE "C"
+                AND memory_scope_id = (
+                    SELECT id FROM mem_memory_scopes
+                    WHERE scope_type = 'manual_default'
+                      AND scope_key = 'manual-default-v1'
+                    LIMIT 1))
         )
         """;
 
     String MULTI_PROJECT_SCOPE_FILTER = "\n" + """
         memory_scope_id IN (
             SELECT id FROM mem_memory_scopes
-            WHERE (scope_type = 'project' AND scope_key COLLATE "C" IN (:projects))
-               OR (scope_type = 'manual_default'
-                   AND scope_key = 'manual-default-v1'
-                   AND 'manual-memories' COLLATE "C" IN (:projects))
+            WHERE scope_type = 'project' AND scope_key COLLATE "C" IN (:projects)
+            UNION ALL
+            SELECT id FROM mem_memory_scopes
+            WHERE scope_type = 'manual_default'
+              AND scope_key = 'manual-default-v1'
+              AND 'manual-memories' COLLATE "C" IN (:projects)
         )
         """;
 

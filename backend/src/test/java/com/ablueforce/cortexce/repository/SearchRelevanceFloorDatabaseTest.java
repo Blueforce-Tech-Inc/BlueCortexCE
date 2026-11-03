@@ -17,6 +17,9 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -158,6 +161,65 @@ class SearchRelevanceFloorDatabaseTest {
             .containsExactly(relatedId);
         assertThat(ids(hybrid)).isEqualTo(ids(text));
         assertThat(ids(hybrid)).doesNotContain(unrelatedId);
+    }
+
+    @Test
+    @DisplayName("the scope+type index exists and the type-filtered page is index-driven, not a sort over a scan")
+    void typeFilterPageUsesTheScopeTypeIndex() throws Exception {
+        String definition = jdbcTemplate.queryForObject(
+            "SELECT indexdef FROM pg_indexes WHERE tablename = 'mem_observations' "
+                + "AND indexname = 'idx_observations_scope_type_created'",
+            String.class);
+        assertThat(definition)
+            .as("V25 must ship a scope-leading composite index")
+            .contains("memory_scope_id", "type", "created_at_epoch DESC");
+
+        String plan = explainWithSeqScanDisabled(String.format("""
+            SELECT o.* FROM mem_observations o
+            WHERE (
+                o.memory_scope_id = (
+                    SELECT id FROM mem_memory_scopes
+                    WHERE scope_type = 'project' AND scope_key = '%1$s' COLLATE "C"
+                    LIMIT 1)
+                OR ('%1$s' COLLATE "C" = 'manual-memories' COLLATE "C"
+                    AND o.memory_scope_id = (
+                        SELECT id FROM mem_memory_scopes
+                        WHERE scope_type = 'manual_default' AND scope_key = 'manual-default-v1'
+                        LIMIT 1))
+            )
+            AND o.type = 'discovery'
+            ORDER BY o.created_at_epoch DESC
+            LIMIT 40
+            """, projectPath));
+
+        assertThat(plan)
+            .as("the type-filtered page must be satisfied by an index, never a Seq Scan + Sort")
+            .contains("Index")
+            .doesNotContain("Seq Scan");
+    }
+
+    /**
+     * Run {@code EXPLAIN} with sequential scans disabled so the assertion is about
+     * "an index can serve this predicate", not about the planner's cost choice on a
+     * two-row fixture. The setting is local to a transaction that is rolled back.
+     */
+    private String explainWithSeqScanDisabled(String sql) throws Exception {
+        StringBuilder plan = new StringBuilder();
+        try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
+            connection.setAutoCommit(false);
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("SET LOCAL enable_seqscan = off");
+                try (ResultSet rows = statement.executeQuery("EXPLAIN " + sql)) {
+                    while (rows.next()) {
+                        plan.append(rows.getString(1)).append('\n');
+                    }
+                }
+            } finally {
+                connection.rollback();
+                connection.setAutoCommit(true);
+            }
+        }
+        return plan.toString();
     }
 
     /** Insert a row with text and a zero vector at {@code index} (semantic tests). */
