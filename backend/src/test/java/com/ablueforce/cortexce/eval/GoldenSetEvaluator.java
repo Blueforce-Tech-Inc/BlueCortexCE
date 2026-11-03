@@ -168,29 +168,34 @@ public final class GoldenSetEvaluator {
                         promptTokens, completionTokens));
             }
         } else {
+            int consistency = Math.max(1,
+                    Integer.parseInt(envOr("EVAL_CONSISTENCY_SAMPLES", "1")));
             for (int i = 0; i < planned; i++) {
                 GoldenSet.Sample sample = plan.get(i);
                 int runIndex = runIndexes.merge(sample.id, 1, Integer::sum) - 1;
                 String userPrompt = fillTemplate(observationTemplate, sample);
                 long started = System.nanoTime();
-                calls++;
+                calls += consistency;
                 try {
-                    ChatResponse response = model.call(new Prompt(
-                            List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt))));
-                    String raw = response.getResult().getOutput().getText();
+                    List<CallResult> results = callConcurrently(model, systemPrompt, userPrompt,
+                            consistency);
                     long elapsedMs = (System.nanoTime() - started) / 1_000_000;
-                    int promptTokens = 0;
-                    int completionTokens = 0;
-                    if (response.getMetadata() != null && response.getMetadata().getUsage() != null) {
-                        promptTokens = response.getMetadata().getUsage().getPromptTokens();
-                        completionTokens = response.getMetadata().getUsage().getCompletionTokens();
+                    String raw = majorityRaw(results);
+                    if (raw == null) {
+                        CallResult failure = results.stream()
+                                .filter(result -> result.error() != null).findFirst().orElse(null);
+                        throw new IllegalStateException(failure == null
+                                ? "all attempts returned no content" : failure.error());
                     }
+                    int promptTokens = results.stream().mapToInt(CallResult::promptTokens).sum();
+                    int completionTokens = results.stream().mapToInt(CallResult::completionTokens).sum();
                     outcomes.add(toOutcome(sample, raw, null, "200", elapsedMs, runIndex, validate,
                             promptTokens, completionTokens));
                     recorded.add(entry(sample, raw, null, "200", elapsedMs, runIndex,
                             promptTokens, completionTokens));
-                    System.out.printf(Locale.ROOT, "  [%d/%d] %-30s run %d %5d ms%n",
-                            i + 1, planned, sample.id, runIndex, elapsedMs);
+                    System.out.printf(Locale.ROOT, "  [%d/%d] %-30s run %d %5d ms (x%d, %d tokens)%n",
+                            i + 1, planned, sample.id, runIndex, elapsedMs, consistency,
+                            promptTokens + completionTokens);
                 } catch (Exception e) {
                     long elapsedMs = (System.nanoTime() - started) / 1_000_000;
                     String error = e.getClass().getSimpleName() + ": " + e.getMessage();
@@ -582,6 +587,8 @@ public final class GoldenSetEvaluator {
             sb.append('\n');
         }
 
+        appendFailureClusters(sb, agg);
+
         sb.append("## Per sample\n\n");
         sb.append("| id | category | expected | actual | contract | title norm | title contract | title exact | type | facts P/R | facts actionable | concepts P/R | ms |\n");
         sb.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
@@ -663,6 +670,153 @@ public final class GoldenSetEvaluator {
         sb.append("- The golden set is hand-authored and describes this set, not all production traffic.\n");
         sb.append("- Real calls are manual-only and never retried; CI only replays fixtures.\n");
         return sb.toString();
+    }
+
+    /**
+     * Round 10: classify every scored observation into the four failure clusters the review
+     * asked for, with one line of evidence per sample. A sample can sit in several clusters —
+     * a title can miss both the identifier and the action — so the shares do not sum to 100%.
+     */
+    private static void appendFailureClusters(StringBuilder sb,
+                                              GoldenSetScorer.Aggregate agg) {
+        List<GoldenSetScorer.SampleScore> scored = agg.scores.stream()
+                .filter(score -> score.parsed && !score.expectedSkip && !score.actualSkip)
+                .toList();
+        sb.append("## Failure clusters (first run)\n\n");
+        sb.append("| cluster | misses | share of scored (").append(scored.size()).append(") |\n");
+        sb.append("|---|---|---|\n");
+        clusterRow(sb, "identifier missing", scored,
+                score -> !score.titleIdentifierHit);
+        clusterRow(sb, "action class wrong", scored,
+                score -> !score.titleActionHit);
+        clusterRow(sb, "subject wrong", scored,
+                score -> score.titleTraceSubjectScored && !score.titleTraceSubjectHit);
+        clusterRow(sb, "type wrong", scored,
+                score -> !score.typeMatch);
+        sb.append('\n');
+        clusterEvidence(sb, "identifier missing", scored,
+                score -> !score.titleIdentifierHit,
+                score -> "expected identifiers " + score.expectedIdentifiers
+                        + ", title '" + score.title + "'");
+        clusterEvidence(sb, "action class wrong", scored,
+                score -> !score.titleActionHit,
+                score -> "expected " + score.titleActionExpected + ", got '"
+                        + score.titleActionActual + "' from title '" + score.title + "'");
+        clusterEvidence(sb, "subject wrong", scored,
+                score -> score.titleTraceSubjectScored && !score.titleTraceSubjectHit,
+                score -> "expected subject tokens " + score.titleTraceSubject
+                        + ", title '" + score.title + "'");
+        clusterEvidence(sb, "type wrong", scored,
+                score -> !score.typeMatch,
+                score -> "expected '" + score.expectedType + "', got '" + score.actualType
+                        + "' (title '" + score.title + "')");
+    }
+
+    private static void clusterRow(StringBuilder sb, String name,
+                                   List<GoldenSetScorer.SampleScore> scored,
+                                   java.util.function.Predicate<GoldenSetScorer.SampleScore> miss) {
+        long misses = scored.stream().filter(miss).count();
+        sb.append("| ").append(name).append(" | ").append(misses).append(" | ")
+                .append(pct(scored.isEmpty() ? 0.0 : (double) misses / scored.size()))
+                .append(" |\n");
+    }
+
+    private static void clusterEvidence(StringBuilder sb, String name,
+                                        List<GoldenSetScorer.SampleScore> scored,
+                                        java.util.function.Predicate<GoldenSetScorer.SampleScore> miss,
+                                        java.util.function.Function<GoldenSetScorer.SampleScore, String> evidence) {
+        List<GoldenSetScorer.SampleScore> misses = scored.stream().filter(miss).toList();
+        if (misses.isEmpty()) {
+            return;
+        }
+        sb.append("### ").append(name).append(" (").append(misses.size()).append(")\n\n");
+        for (GoldenSetScorer.SampleScore score : misses) {
+            sb.append("- ").append(score.id).append(" — ").append(evidence.apply(score)).append('\n');
+        }
+        sb.append('\n');
+    }
+
+    /** Result of one provider call, including failure, usage and latency. */
+    private record CallResult(String raw, String error, int promptTokens,
+                              int completionTokens, long elapsedMs) {
+    }
+
+    /**
+     * Round 10: run the same trace {@code n} times concurrently, mirroring the production
+     * majority vote. Wall-clock latency is the group's latency, not the sum, which is the
+     * point of the change; token cost is the sum of all attempts and is reported as such.
+     */
+    private static List<CallResult> callConcurrently(ChatModel model, String systemPrompt,
+                                                     String userPrompt, int n) throws Exception {
+        if (n <= 1) {
+            long started = System.nanoTime();
+            ChatResponse response = model.call(new Prompt(
+                    List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt))));
+            long elapsedMs = (System.nanoTime() - started) / 1_000_000;
+            return List.of(resultOf(response, elapsedMs));
+        }
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors
+                .newFixedThreadPool(n);
+        try {
+            List<java.util.concurrent.Future<CallResult>> futures = new ArrayList<>();
+            for (int attempt = 0; attempt < n; attempt++) {
+                futures.add(pool.submit(() -> {
+                    long started = System.nanoTime();
+                    ChatResponse response = model.call(new Prompt(
+                            List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt))));
+                    return resultOf(response, (System.nanoTime() - started) / 1_000_000);
+                }));
+            }
+            List<CallResult> results = new ArrayList<>();
+            for (var future : futures) {
+                results.add(future.get());
+            }
+            return results;
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private static CallResult resultOf(ChatResponse response, long elapsedMs) {
+        String raw = response.getResult().getOutput().getText();
+        int promptTokens = 0;
+        int completionTokens = 0;
+        if (response.getMetadata() != null && response.getMetadata().getUsage() != null) {
+            promptTokens = response.getMetadata().getUsage().getPromptTokens();
+            completionTokens = response.getMetadata().getUsage().getCompletionTokens();
+        }
+        return new CallResult(raw, null, promptTokens, completionTokens, elapsedMs);
+    }
+
+    /** Majority winner over the concurrent attempts; order is attempt order for tie-breaks. */
+    private static String majorityRaw(List<CallResult> results) {
+        List<com.ablueforce.cortexce.service.ExtractionConsistency.Candidate> candidates =
+                new ArrayList<>();
+        for (CallResult result : results) {
+            candidates.add(candidateOf(result.raw()));
+        }
+        int winner = com.ablueforce.cortexce.service.ExtractionConsistency.select(candidates);
+        return winner < 0 ? null : results.get(winner).raw();
+    }
+
+    private static com.ablueforce.cortexce.service.ExtractionConsistency.Candidate candidateOf(
+            String raw) {
+        if (raw == null) {
+            return new com.ablueforce.cortexce.service.ExtractionConsistency.Candidate(
+                    false, false, null, null);
+        }
+        if (raw.contains("<skip>")) {
+            return new com.ablueforce.cortexce.service.ExtractionConsistency.Candidate(
+                    true, true, null, null);
+        }
+        try {
+            var observation = XmlParser.parseObservation(raw);
+            return new com.ablueforce.cortexce.service.ExtractionConsistency.Candidate(
+                    false, true, observation.type, observation.title);
+        } catch (RuntimeException e) {
+            return new com.ablueforce.cortexce.service.ExtractionConsistency.Candidate(
+                    false, false, null, null);
+        }
     }
 
     private static Map<String, Object> metrics(GoldenSetScorer.Aggregate agg, int calls, long durationMs) {

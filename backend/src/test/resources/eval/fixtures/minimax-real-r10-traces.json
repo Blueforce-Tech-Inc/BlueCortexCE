@@ -1,0 +1,490 @@
+{
+  "provider" : "anthropic",
+  "model" : "MiniMax-M3",
+  "phase" : "r10-traces",
+  "promptDir" : "current",
+  "validate" : true,
+  "entries" : [ {
+    "id" : "real-f6a1b89e41",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4125,
+    "promptTokens" : 4124,
+    "completionTokens" : 500,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Expanded real-history golden set to 60 samples with round-10 evidence</title>\n  <subtitle>Golden data, generator, scorer, and tests now capture broader diff coverage and generated-title failures.</subtitle>\n  <facts>\n    <fact>backend/src/test/resources/eval/golden-tool-use-real.json version changed to real-git-2026-11-03-r10.</fact>\n    <fact>GoldenSetRealDataTest now requires at least 60 mechanically valid real-history samples.</fact>\n    <fact>GoldenSetScorer retains the model-produced title as round-10 failure-cluster evidence.</fact>\n    <fact>scripts/gen-real-golden.py now describes coverage of every file touched by the diff.</fact>\n  </facts>\n  <narrative>The real-tool-use evaluation dataset was regenerated and expanded, while its supporting generator and Java scorer/test fixtures were updated. The changes preserve round-10 evidence of generated titles and increase the minimum mechanically valid sample count from 30 to 60.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/test/resources/eval/golden-tool-use-real.json</file>\n    <file>scripts/gen-real-golden.py</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealDataTest.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSet.java</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/resources/eval/golden-tool-use-real.json</file>\n    <file>scripts/gen-real-golden.py</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealDataTest.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSet.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-1fe4ffb124",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4408,
+    "promptTokens" : 4090,
+    "completionTokens" : 504,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Raised minimum test count to 472 across test configuration</title>\n  <subtitle>Local, CI, baseline, and testing documentation now enforce the expanded extraction-quality test suite.</subtitle>\n  <facts>\n    <fact>scripts/test-baseline.json changed the total test count from 423 to 472.</fact>\n    <fact>scripts/verify-local.sh changed VERIFY_MIN_TESTS from 423 to 472 while retaining VERIFY_APP_PORT=37888 and VERIFY_E2E_PORT=37777.</fact>\n    <fact>.github/workflows/backend-tests.yml runs python3 scripts/check-test-results.py with --min-tests 472, --require-layers, and --require-baseline.</fact>\n    <fact>docs/TESTING.md and docs/TESTING-zh-CN.md now document --min-tests 472.</fact>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md added 169 lines for Round 9, titled \"identifier 100%: every miss attributed\".</fact>\n  </facts>\n  <narrative>The extraction-quality test threshold was increased from 423 to 472 across the machine-readable baseline, local verification script, backend CI workflow, and English and Chinese testing guides. The accompanying draft plan gained a Round 9 section documenting the new identifier-quality target and attributing every remaining miss.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>trade-off</concept>\n  </concepts>\n  <files_read>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n    <file>docs/TESTING-zh-CN.md</file>\n    <file>docs/TESTING.md</file>\n    <file>scripts/test-baseline.json</file>\n    <file>scripts/verify-local.sh</file>\n    <file>.github/workflows/backend-tests.yml</file>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n    <file>docs/TESTING-zh-CN.md</file>\n    <file>docs/TESTING.md</file>\n    <file>scripts/test-baseline.json</file>\n    <file>scripts/verify-local.sh</file>\n    <file>.github/workflows/backend-tests.yml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-d13e2c90cd",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2713,
+    "promptTokens" : 520,
+    "completionTokens" : 502,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added real-history golden evaluation for MiniMax</title>\n  <subtitle>Real replay fixtures, metrics, a JUnit test, and archived evaluation documentation were added.</subtitle>\n  <facts>\n    <fact>backend/src/test/resources/eval/fixtures/minimax-real-v9.json contains 36 real golden-set samples.</fact>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealReplayTest.java adds replay coverage for the MiniMax real-history golden set.</fact>\n    <fact>backend/src/test/resources/eval/fixtures/minimax-real-v9-metrics.json defines expected metrics for the real-history evaluation.</fact>\n    <fact>docs/archive/2026-11-03_real-history-golden-eval-minimax.md documents the golden set as real with 36 samples.</fact>\n  </facts>\n  <narrative>The evaluation suite gained a real-history MiniMax golden set with 36 samples, reusable JSON fixtures, expected metrics, and a dedicated JUnit replay test. An archived evaluation document records the fixture set and associated context, providing a repeatable baseline for comparing model behavior against real historical cases.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/archive/2026-11-03_real-history-golden-eval-minimax.md</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-real-v9.json</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealReplayTest.java</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-real-v9-metrics.json</file>\n  </files_read>\n  <files_modified>\n    <file>docs/archive/2026-11-03_real-history-golden-eval-minimax.md</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-real-v9.json</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealReplayTest.java</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-real-v9-metrics.json</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-3b4f737562",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 12661,
+    "promptTokens" : 474,
+    "completionTokens" : 647,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated Minimax v9 evaluation fixtures and scoring</title>\n  <subtitle>Minimax v9 now includes full output fixtures, metrics, archived evaluation results, and revised golden-set categorization.</subtitle>\n  <facts>\n    <fact>backend/src/test/resources/eval/fixtures/minimax-after-v9.json contains 2096 lines of model output evaluation fixture data.</fact>\n    <fact>backend/src/test/resources/eval/fixtures/minimax-after-v9-metrics.json contains 90 lines of evaluation metric data.</fact>\n    <fact>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v9.md contains 646 lines of archived model output quality evaluation results.</fact>\n    <fact>GoldenSetEvaluator.java now adds 30 lines of scoring documentation around calls, maxCalls, keyRepeat, durationMs, and aggregate metrics.</fact>\n    <fact>scripts/gen-real-golden.py now excludes documentation changes and requires every changed file to contain only deleted lines, while golden-tool-use-real.json categorizes the case as docs-update.</fact>\n  </facts>\n  <narrative>The evaluation suite was expanded with a complete Minimax after-v9 fixture and matching metrics, and the corresponding model output quality evaluation was archived for review. GoldenSetEvaluator received expanded scoring guidance covering call counts, repeated keys, duration, and aggregate behavior. The real golden-set generator was adjusted to treat documentation-only changes as docs-update cases and to distinguish changes consisting exclusively of deleted lines, with the corresponding golden fixture updated to use the docs-update category.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/test/resources/eval/fixtures/minimax-after-v9.json</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v9.md</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-after-v9-metrics.json</file>\n    <file>backend/src/test/resources/eval/golden-tool-use-real.json</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>scripts/gen-real-golden.py</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/resources/eval/fixtures/minimax-after-v9.json</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v9.md</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-after-v9-metrics.json</file>\n    <file>backend/src/test/resources/eval/golden-tool-use-real.json</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>scripts/gen-real-golden.py</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-77ba40df77",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4587,
+    "promptTokens" : 4003,
+    "completionTokens" : 492,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added extraction consistency voting and configured tool trace attempts</title>\n  <subtitle>ExtractionConsistency adds majority voting for tool traces, while application.yml controls voting attempts.</subtitle>\n  <facts>\n    <fact>ExtractionConsistency.java was added with 82 lines in backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java.</fact>\n    <fact>ExtractionConsistencyTest.java was added with 74 lines in backend/src/test/java/com/ablueforce/cortexce/service/ExtractionConsistencyTest.java.</fact>\n    <fact>AgentService.java was updated to import java.util.ArrayList and add 51 lines around tool-trace LLM calls.</fact>\n    <fact>application.yml now documents attempts per tool trace, including 3 attempts for majority voting at 3x latency.</fact>\n  </facts>\n  <narrative>The backend gained a dedicated ExtractionConsistency capability and a corresponding test suite. AgentService was extended to integrate consistency handling for tool traces, and application.yml now exposes the number of attempts used by the voting mechanism. The configuration comment explicitly identifies the latency trade-off of majority voting.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>trade-off</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/service/ExtractionConsistencyTest.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java</file>\n    <file>backend/src/main/resources/application.yml</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/service/ExtractionConsistencyTest.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java</file>\n    <file>backend/src/main/resources/application.yml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-f0d346eab1",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 11319,
+    "promptTokens" : 4016,
+    "completionTokens" : 522,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added real-history golden tool-use evaluation dataset in golden-tool-use-real.json</title>\n  <subtitle>Mechanically generated real-history cases now support dedicated model-quality evaluation runs.</subtitle>\n  <facts>\n    <fact>backend/src/test/resources/eval/golden-tool-use-real.json contains 1097 lines of real-history golden tool-use evaluation data.</fact>\n    <fact>scripts/gen-real-golden.py provides a 292-line Python generator for the real-history golden set.</fact>\n    <fact>GoldenSetRealDataTest.java adds an 81-line test covering the real-history golden dataset.</fact>\n    <fact>GoldenSetEvaluator reads EVAL_GOLDEN with the default value main.</fact>\n    <fact>scripts/eval-model-quality.sh documents EVAL_GOLDEN=real as the selector for the mechanically generated real-history set.</fact>\n  </facts>\n  <narrative>The evaluation suite gained a dedicated real-history golden tool-use dataset, a reproducible Python generation script, and a Java validation test. GoldenSetEvaluator can now select the dataset through the EVAL_GOLDEN environment variable while retaining main as the default, and the shell entry point documents EVAL_GOLDEN=real for scoring the mechanically generated real-history cases.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/test/resources/eval/golden-tool-use-real.json</file>\n    <file>scripts/gen-real-golden.py</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealDataTest.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>scripts/eval-model-quality.sh</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/resources/eval/golden-tool-use-real.json</file>\n    <file>scripts/gen-real-golden.py</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealDataTest.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>scripts/eval-model-quality.sh</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-3a2d426fdf",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 7209,
+    "promptTokens" : 3995,
+    "completionTokens" : 438,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Extended GoldenSetScorer with promptTokens and repeat-all evaluation</title>\n  <subtitle>Golden-set evaluation now records prompt token counts and can repeat every sample for run-to-run measurements.</subtitle>\n  <facts>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java adds a public final int promptTokens field and expands its scoring result construction.</fact>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java adds the EVAL_REPEAT_ALL environment switch and defaults it to 0.</fact>\n    <fact>scripts/eval-model-quality.sh documents that EVAL_REPEAT_ALL=1 repeats every sample EVAL_KEY_REPEAT times to measure run-to-run variation.</fact>\n  </facts>\n  <narrative>The golden-set evaluation tooling was extended to capture prompt token usage in scorer results and support an optional EVAL_REPEAT_ALL mode. The new mode repeats every sample using the existing EVAL_KEY_REPEAT count, enabling run-to-run quality measurements rather than repeating only key samples. The shell script now documents the switch and its expected environment variables.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>scripts/eval-model-quality.sh</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>scripts/eval-model-quality.sh</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-864dadf51b",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 5011,
+    "promptTokens" : 4129,
+    "completionTokens" : 610,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Extended GoldenSetScorer evidence handling and legacy metrics</title>\n  <subtitle>Golden-set scoring now handles structured tool evidence and labels the legacy title-subject metric.</subtitle>\n  <facts>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java was expanded by 70 lines and replaced tool-name-only evidence construction with documented scoring behavior.</fact>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java labels `title subject hit rate` as `title subject hit rate (legacy, diagnostic)`.</fact>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorerTest.java adds a fixture with `sample.toolInput = \"file_path=InvoiceService.java delegation of tax rendering\"`.</fact>\n    <fact>backend/src/main/resources/prompts/continuation.txt and backend/src/main/resources/prompts/init.txt each add a rule requiring reproduction-test titles to name both the test identifier and the affected class or method.</fact>\n  </facts>\n  <narrative>Golden-set evaluation was expanded with richer tool-input evidence handling in GoldenSetScorer, while GoldenSetEvaluator explicitly marks the title-subject hit rate as legacy and diagnostic. GoldenSetScorerTest now exercises structured file-path and delegation text as tool input. The init and continuation prompt templates also standardize reproduction-test naming by requiring both the test identifier and the affected production identifier.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorerTest.java</file>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorerTest.java</file>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-b064308244",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 18753,
+    "promptTokens" : 3824,
+    "completionTokens" : 248,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented rehearsal database gate in extraction-quality-improvement-plan.md</title>\n  <subtitle>The extraction quality plan now places the offline-model stand-in test under the rehearsal database gate.</subtitle>\n  <facts>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md now states that the offline model stand-in test runs under the rehearsal database gate.</fact>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md replaced the previous L4-layer rehearsal wording with rehearsal database gate wording.</fact>\n  </facts>\n  <narrative>The extraction quality improvement plan was updated to clarify that the offline model stand-in test runs under the rehearsal database gate rather than being described solely as an L4-layer rehearsal test.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-30a956e462",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4380,
+    "promptTokens" : 218,
+    "completionTokens" : 299,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented Round 8 extraction quality improvements in extraction-quality-improvement-plan.md</title>\n  <subtitle>Added a Round 8 plan covering insertion scope, coverage removal, and a reverted security verb.</subtitle>\n  <facts>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md contains the heading \"### 7.14 Round 8 — insertion-scope contract, remove coverage, and a reverted security verb\".</fact>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md received 139 insertions and 0 deletions.</fact>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md is located in the /repo working directory.</fact>\n  </facts>\n  <narrative>The extraction quality improvement plan was extended with a Round 8 section describing an insertion-scope contract, removal of coverage, and the reversion of a security-related verb. The document now records 139 lines of additional planning guidance without deleting existing content.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-ba86bf2588",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 5254,
+    "promptTokens" : 3819,
+    "completionTokens" : 325,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added McpEndToEndTest end-to-end coverage</title>\n  <subtitle>New MCP integration test establishes the layers package test suite.</subtitle>\n  <facts>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java declares package com.ablueforce.cortexce.layers.</fact>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java contains 187 inserted lines.</fact>\n    <fact>McpEndToEndTest is the new test artifact under backend/src/test/java/com/ablueforce/cortexce/layers/.</fact>\n  </facts>\n  <narrative>A new McpEndToEndTest was added at backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java, introducing 187 lines of end-to-end MCP test coverage in the layers package.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-a9c8452967",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3880,
+    "promptTokens" : 4099,
+    "completionTokens" : 634,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added semantic relevance evaluation harness in backend/src/test</title>\n  <subtitle>Added a replayable search similarity evaluator, fixtures, corpus, metrics, and archived evaluation documentation.</subtitle>\n  <facts>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityEvaluator.java defines a 411-line semantic similarity evaluation implementation.</fact>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityReplayTest.java defines a 122-line replay test harness.</fact>\n    <fact>backend/src/test/resources/eval/search-similarity-corpus.json contains 186 lines of evaluation corpus data.</fact>\n    <fact>backend/src/test/resources/eval/fixtures/search-similarity-bge-m3.json and search-similarity-bge-m3-metrics.json contain BGE-M3 replay data and expected metrics.</fact>\n    <fact>docs/archive/2026-11-03_search-similarity-eval.md documents the semantic relevance floor evaluation.</fact>\n  </facts>\n  <narrative>A complete semantic relevance evaluation fixture was introduced for the backend test suite. The new evaluator and replay test are supported by a shared corpus, BGE-M3 query fixture, expected metric fixture, and an archived evaluation document, creating a repeatable baseline for measuring search similarity quality.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityEvaluator.java</file>\n    <file>backend/src/test/resources/eval/fixtures/search-similarity-bge-m3.json</file>\n    <file>backend/src/test/resources/eval/search-similarity-corpus.json</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityReplayTest.java</file>\n    <file>backend/src/test/resources/eval/fixtures/search-similarity-bge-m3-metrics.json</file>\n    <file>docs/archive/2026-11-03_search-similarity-eval.md</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityEvaluator.java</file>\n    <file>backend/src/test/resources/eval/fixtures/search-similarity-bge-m3.json</file>\n    <file>backend/src/test/resources/eval/search-similarity-corpus.json</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityReplayTest.java</file>\n    <file>backend/src/test/resources/eval/fixtures/search-similarity-bge-m3-metrics.json</file>\n    <file>docs/archive/2026-11-03_search-similarity-eval.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-db8ac0287e",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2088,
+    "promptTokens" : 424,
+    "completionTokens" : 295,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated defect classification guidance in prompt resources</title>\n  <subtitle>Prompt templates now classify all reported defects as Fixed without limiting the definition to non-security code.</subtitle>\n  <facts>\n    <fact>backend/src/main/resources/prompts/continuation.txt now defines Fixed as “a defect already produced wrong or failing behaviour.”</fact>\n    <fact>backend/src/main/resources/prompts/init.txt now defines Fixed as “a defect already produced wrong or failing behaviour.”</fact>\n    <fact>Both prompt resources removed the phrase “in non-security code.”</fact>\n  </facts>\n  <narrative>The continuation and initialization prompt templates were aligned so the Fixed classification covers defects generally, including security defects, rather than explicitly excluding non-security code.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-9e6612fdf9",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2951,
+    "promptTokens" : 589,
+    "completionTokens" : 464,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated defect taxonomy and golden-set action rules</title>\n  <subtitle>Prompts now distinguish non-security defects, while golden-set scoring recognizes extend actions.</subtitle>\n  <facts>\n    <fact>backend/src/main/resources/prompts/continuation.txt defines “Fixed” as a defect producing wrong or failing behaviour “in non-security code”.</fact>\n    <fact>backend/src/main/resources/prompts/init.txt defines “Fixed” as a defect producing wrong or failing behaviour “in non-security code”.</fact>\n    <fact>GoldenSetActionRules.java maps “extend” to “modify”.</fact>\n    <fact>GoldenSetScorer.java accepts “extend”, “extended”, “extends”, and “extending” for the extend action.</fact>\n  </facts>\n  <narrative>The evaluation prompt taxonomy was clarified so the “Fixed” classification excludes security defects. Golden-set action rules and scoring were extended to normalize extend-related wording, including exact “extend” and common grammatical variants, while mapping the normalized action to “modify”.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetActionRules.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetActionRules.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-f43cfd6f44",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2995,
+    "promptTokens" : 200,
+    "completionTokens" : 281,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented Round 7 A6 action classes in extraction-quality-improvement-plan.md</title>\n  <subtitle>Added a 115-line Round 7 section deriving A6 action classes from the extraction trace.</subtitle>\n  <facts>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md now contains the heading \"## 7.13 Round 7 — A6 action classes derived from the trace\".</fact>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md received 115 insertions and 0 deletions.</fact>\n    <fact>Round 7 documents A6 action classes derived from the trace.</fact>\n  </facts>\n  <narrative>The extraction quality improvement plan gained a dedicated Round 7 section documenting how A6 action classes are derived from the trace. The new section adds 115 lines to the existing draft without removing prior content.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-e352ba3da3",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 5947,
+    "promptTokens" : 4063,
+    "completionTokens" : 640,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added model output quality evaluation fixtures for longcat and minimax</title>\n  <subtitle>Version 7 JSON fixtures, metrics, and archived evaluation reports now cover both model output sets.</subtitle>\n  <facts>\n    <fact>backend/src/test/resources/eval/fixtures/longcat-after-v7.json contains 656 lines of model output evaluation fixture data.</fact>\n    <fact>backend/src/test/resources/eval/fixtures/minimax-after-v7.json contains 656 lines of model output evaluation fixture data.</fact>\n    <fact>backend/src/test/resources/eval/fixtures/longcat-after-v7-metrics.json and backend/src/test/resources/eval/fixtures/minimax-after-v7-metrics.json each contain 38 lines of evaluation metrics.</fact>\n    <fact>docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v7.md contains a 526-line archived model output quality evaluation.</fact>\n    <fact>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v7.md contains a 561-line archived model output quality evaluation.</fact>\n  </facts>\n  <narrative>The evaluation suite gained parallel longcat and minimax v7 fixture outputs, corresponding metrics files, and archived model output quality reports. The six artifacts provide repeatable sample data and recorded evaluation results for both model configurations.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/test/resources/eval/fixtures/longcat-after-v7.json</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-after-v7.json</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v7.md</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v7.md</file>\n    <file>backend/src/test/resources/eval/fixtures/longcat-after-v7-metrics.json</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-after-v7-metrics.json</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/resources/eval/fixtures/longcat-after-v7.json</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-after-v7.json</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v7.md</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v7.md</file>\n    <file>backend/src/test/resources/eval/fixtures/longcat-after-v7-metrics.json</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-after-v7-metrics.json</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-112de33e23",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2349,
+    "promptTokens" : 3854,
+    "completionTokens" : 291,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Extended replacement naming guidance in prompt templates</title>\n  <subtitle>Both prompt templates now require retaining the replaced key and its new file.</subtitle>\n  <facts>\n    <fact>backend/src/main/resources/prompts/continuation.txt includes the rule “A replacement keeps BOTH names”.</fact>\n    <fact>backend/src/main/resources/prompts/init.txt includes the rule “A replacement keeps BOTH names”.</fact>\n    <fact>The prompt edits added 3 lines to each file with 0 deletions.</fact>\n  </facts>\n  <narrative>The replacement-title guidance was added to both initialization and continuation prompt templates. Future replacement titles must preserve the replaced literal or key together with the file that now contains it.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-28edef5a35",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4630,
+    "promptTokens" : 4028,
+    "completionTokens" : 649,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added MiniMax and LongCat v6 model-output evaluation fixtures</title>\n  <subtitle>Archived v6 evaluations now include transcript fixtures, metrics, and Markdown reports for both models.</subtitle>\n  <facts>\n    <fact>backend/src/test/resources/eval/fixtures/minimax-after-v6.json contains 656 lines of MiniMax v6 model-output evaluation data.</fact>\n    <fact>backend/src/test/resources/eval/fixtures/longcat-after-v6.json contains 656 lines of LongCat v6 model-output evaluation data.</fact>\n    <fact>backend/src/test/resources/eval/fixtures/minimax-after-v6-metrics.json and backend/src/test/resources/eval/fixtures/longcat-after-v6-metrics.json each contain 34 lines of metrics.</fact>\n    <fact>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v6.md contains 525 lines of evaluation documentation.</fact>\n    <fact>docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v6.md contains 517 lines of evaluation documentation.</fact>\n  </facts>\n  <narrative>The repository gained a complete v6 model-output quality evaluation snapshot for MiniMax and LongCat. Each model has a 656-line transcript fixture, a 34-line metrics fixture, and an archived Markdown evaluation report, providing reusable baseline data for comparing model output quality.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/test/resources/eval/fixtures/longcat-after-v6.json</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-after-v6.json</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v6.md</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v6.md</file>\n    <file>backend/src/test/resources/eval/fixtures/longcat-after-v6-metrics.json</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-after-v6-metrics.json</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/resources/eval/fixtures/longcat-after-v6.json</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-after-v6.json</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v6.md</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v6.md</file>\n    <file>backend/src/test/resources/eval/fixtures/longcat-after-v6-metrics.json</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-after-v6-metrics.json</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-6d6df2c321",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3866,
+    "promptTokens" : 3883,
+    "completionTokens" : 322,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Hardened continuation and init prompt skip guidance</title>\n  <subtitle>Prompt templates now explicitly classify identifier searches as non-recordable exploration.</subtitle>\n  <facts>\n    <fact>backend/src/main/resources/prompts/continuation.txt adds guidance excluding identifier usage or definition searches from recorded observations.</fact>\n    <fact>backend/src/main/resources/prompts/init.txt adds guidance excluding identifier usage or definition searches from recorded observations.</fact>\n    <fact>Both prompt files were expanded to include the exact identifier-search wording “only locates where an identifier is used or defined (grep/glob search), even when matches are”.</fact>\n  </facts>\n  <narrative>The continuation and initialization prompt templates were revised to clarify that grep and glob searches locating identifier definitions or usages remain exploration-only, even when matches are found. The edits expand the skip criteria used by the memory observation workflow.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-d3431639a9",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 5310,
+    "promptTokens" : 4060,
+    "completionTokens" : 635,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented Round 4 model output quality evaluation in five files</title>\n  <subtitle>Archived evaluations and the extraction plan now capture contract-title, summary-grounding, retrieval, and repair-claim results.</subtitle>\n  <facts>\n    <fact>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md contains 598 added lines beginning with '# Model output quality evaluation'.</fact>\n    <fact>docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md contains 559 added lines beginning with '# Model output quality evaluation'.</fact>\n    <fact>docs/archive/2026-11-03_summary-chain-eval-minimax.md contains 238 added lines beginning with '# Session-summary quality evaluation'.</fact>\n    <fact>docs/archive/2026-11-03_summary-chain-eval-longcat.md contains 224 added lines beginning with '# Session-summary quality evaluation'.</fact>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md adds '## 7.10 Round 4 — contract titles, trace-grounded summaries, retrieval floor, repair-claim review' with 192 added lines.</fact>\n  </facts>\n  <narrative>The documentation now includes archived model-output and session-summary quality evaluations for MiniMax and LongCat after the v4 contract, plus a Round 4 section in the extraction-quality improvement plan. The added material records contract titles, trace-grounded summaries, retrieval floor results, and repair-claim review, providing a reusable evaluation baseline for future extraction work.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md</file>\n    <file>docs/archive/2026-11-03_summary-chain-eval-minimax.md</file>\n    <file>docs/archive/2026-11-03_summary-chain-eval-longcat.md</file>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md</file>\n    <file>docs/archive/2026-11-03_summary-chain-eval-minimax.md</file>\n    <file>docs/archive/2026-11-03_summary-chain-eval-longcat.md</file>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-7093cb5c56",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4879,
+    "promptTokens" : 4083,
+    "completionTokens" : 589,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added embedding backfill concurrency and sanitization tests</title>\n  <subtitle>Database and service tests now cover concurrent backfills, isolated row failures, and sanitized sensitive output.</subtitle>\n  <facts>\n    <fact>EmbeddingBackfillConcurrencyDatabaseTest.java adds 333 lines covering repository-level embedding backfill concurrency.</fact>\n    <fact>EmbeddingBackfillServiceTest.java adds 167 lines covering embedding backfill service behavior.</fact>\n    <fact>EmbeddingBackfillService.java replaces the batch rollback description with row-level saving semantics and adds UUID import handling.</fact>\n    <fact>LogSanitizerTest.java adds 22 lines with @Test coverage for sanitize behavior.</fact>\n    <fact>ControllableAiTestModels.java adds 12 lines and an AtomicInteger embedCalls counter for deterministic embedding-call assertions.</fact>\n  </facts>\n  <narrative>Embedding backfill behavior received dedicated repository and service test coverage, including concurrency and row-level failure isolation. Logging sanitization gained explicit test coverage, while the controllable offline AI test models now expose an embedCalls counter for deterministic assertions. The service implementation was adjusted to align documentation and behavior with independent row saves, using UUID-based handling in the changed implementation.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/test/java/com/ablueforce/cortexce/repository/EmbeddingBackfillConcurrencyDatabaseTest.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/service/EmbeddingBackfillServiceTest.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/EmbeddingBackfillService.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/util/LogSanitizerTest.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/offline/ControllableAiTestModels.java</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/repository/EmbeddingBackfillConcurrencyDatabaseTest.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/service/EmbeddingBackfillServiceTest.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/EmbeddingBackfillService.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/util/LogSanitizerTest.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/offline/ControllableAiTestModels.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-f3d12860ff",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 8501,
+    "promptTokens" : 300,
+    "completionTokens" : 403,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Hardened log directory handling in LogsController and LogsControllerTest</title>\n  <subtitle>Log endpoint behavior and its reflection-based test setup were revised with credential-related security handling.</subtitle>\n  <facts>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/controller/LogsController.java now contains expanded handling for the log directory and request parameters.</fact>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java now sets the private logDir field through setField(\"logDir\", logDir.toString()) instead of direct Field access.</fact>\n    <fact>LogsController request handling changed from @RequestParam(defaultValue = \"1000\") int lines to an expanded endpoint implementation.</fact>\n  </facts>\n  <narrative>LogsController and LogsControllerTest were updated together to revise log-directory handling and the corresponding test fixture. The test now initializes logDir through a helper that accepts the directory path as a string, while the controller received additional request-handling logic and comments. The observed edit was also classified as security hardening because credential-related handling was matched.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/controller/LogsController.java</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/controller/LogsController.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-3409dda60c",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3487,
+    "promptTokens" : 3846,
+    "completionTokens" : 324,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented implementation commit range in conversation-memory-scope-refactor-plan.md</title>\n  <subtitle>The refactor plan now identifies nine implemented commits and adds supporting detail.</subtitle>\n  <facts>\n    <fact>docs/drafts/conversation-memory-scope-refactor-plan.md sets the implementation commit range to `325c817..f7b865e`.</fact>\n    <fact>docs/drafts/conversation-memory-scope-refactor-plan.md identifies the implementation commit range as 9 commits with a list at the end of the document.</fact>\n    <fact>docs/drafts/conversation-memory-scope-refactor-plan.md changed by 69 inserted lines and 11 removed lines.</fact>\n  </facts>\n  <narrative>The conversation-memory scope refactor plan was expanded from a placeholder implementation status into a concrete record of the completed work. The document now names the `325c817..f7b865e` commit range, states that it contains 9 commits, and provides a supporting commit list at the end of the plan.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/drafts/conversation-memory-scope-refactor-plan.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/conversation-memory-scope-refactor-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-f7b865efe5",
+    "runIndex" : 0,
+    "status" : "exception",
+    "elapsedMs" : 12665,
+    "promptTokens" : 0,
+    "completionTokens" : 0,
+    "raw" : null,
+    "error" : "IllegalStateException: all attempts returned no content"
+  }, {
+    "id" : "real-a8cc1754bc",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 6315,
+    "promptTokens" : 4216,
+    "completionTokens" : 691,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Refactored pending-message deduplication and repository queries</title>\n  <subtitle>Pending-message deduplication now uses conversation scope, while repository lookups were aligned with current entity fields.</subtitle>\n  <facts>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/repository/PendingMessageRepository.java removed the comment describing same-session tool deduplication.</fact>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java now describes deduplication as scoped on the same conversation, tool, and input.</fact>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/repository/SummaryRepository.java queries summaries by conversationId and orders by createdAtEpoch DESC.</fact>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java changed the project scope predicate to `ms.scopeKey = :project` without the `COLLATE \"C\"` clause.</fact>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/service/MemoryScopeService.java imported `org.springframework.beans.factory.annotation.Autowired`.</fact>\n  </facts>\n  <narrative>The repository and service changes were edited together to align pending-message deduplication semantics with conversation scope and to update database queries against current entity properties. Summary lookup now uses `conversationId`, the observation scope predicate no longer applies the explicit `COLLATE \"C\"` collation, and `MemoryScopeService` received an `Autowired` import. The edit removed 44 lines and added 11 lines across six files.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/PendingMessageRepository.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/SessionRepository.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/SummaryRepository.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/MemoryScopeService.java</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/PendingMessageRepository.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/SessionRepository.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/SummaryRepository.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/MemoryScopeService.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-e2c887775a",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 10863,
+    "promptTokens" : 544,
+    "completionTokens" : 458,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Corrected /api/context/inject updateFiles contract in AGENTS.md</title>\n  <subtitle>The endpoint contract now names the route that actually returns updateFiles.</subtitle>\n  <facts>\n    <fact>AGENTS.md maps `/api/context/inject` to `updateFiles` in `proxy/proxy.js`.</fact>\n    <fact>AGENTS.md no longer maps `/api/context/generate` to `updateFiles`.</fact>\n    <fact>docs/drafts/patrol-state.json sets `lastDirection` to `jsSdk`.</fact>\n    <fact>docs/drafts/patrol-rotation.md records JS/TS SDK round 257.</fact>\n  </facts>\n  <narrative>The hard-contract table in AGENTS.md was corrected so the `updateFiles` field is associated with `/api/context/inject` rather than the endpoint that never returned that field. Patrol documentation was advanced to the JS/TS SDK cycle, with round 257 recorded in the rotation log and `lastDirection` changed to `jsSdk`. The review task now identifies the three AGENTS.md edits as the recent completed work and marks DOC-1 as fixed.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n    <file>AGENTS.md</file>\n    <file>docs/drafts/doc-review-task.md</file>\n    <file>docs/drafts/patrol-state.json</file>\n    <file>js-sdk/cortex-mem-js/src/client.ts</file>\n    <file>docs/drafts/patrol-rotation.md</file>\n  </files_read>\n  <files_modified>\n    <file>AGENTS.md</file>\n    <file>docs/drafts/doc-review-task.md</file>\n    <file>docs/drafts/patrol-state.json</file>\n    <file>js-sdk/cortex-mem-js/src/client.ts</file>\n    <file>docs/drafts/patrol-rotation.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-cf667b4d8b",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4994,
+    "promptTokens" : 3874,
+    "completionTokens" : 372,
+    "raw" : "<observation>\n  <type>refactor</type>\n  <title>Updated ObservationFeedbackEntity and repository query documentation</title>\n  <subtitle>Observation feedback repository now documents newest-first ordering, with entity documentation formatting adjusted.</subtitle>\n  <facts>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/entity/ObservationFeedbackEntity.java removed 10 lines and added 9 lines while changing the Javadoc opening marker.</fact>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/repository/ObservationFeedbackRepository.java changed the feedback lookup description from creation-time ordering to most-recent-first ordering.</fact>\n    <fact>ObservationFeedbackRepository.java now documents that feedback for a specific observation is returned most recent first.</fact>\n  </facts>\n  <narrative>The observation feedback entity documentation was reformatted, and the repository method documentation was updated to describe newest-first ordering for feedback associated with a specific observation. The change affects documentation wording and formatting rather than introducing a new runtime capability.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/main/java/com/ablueforce/cortexce/entity/ObservationFeedbackEntity.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/ObservationFeedbackRepository.java</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/java/com/ablueforce/cortexce/entity/ObservationFeedbackEntity.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/ObservationFeedbackRepository.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-a0e77ca4ee",
+    "runIndex" : 0,
+    "status" : "exception",
+    "elapsedMs" : 12663,
+    "promptTokens" : 0,
+    "completionTokens" : 0,
+    "raw" : null,
+    "error" : "IllegalStateException: all attempts returned no content"
+  }, {
+    "id" : "real-d958416fdc",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4833,
+    "promptTokens" : 621,
+    "completionTokens" : 501,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated patrol state and API documentation across six files</title>\n  <subtitle>Patrol records now mark Backend as completed, and API docs align with backend endpoints.</subtitle>\n  <facts>\n    <fact>docs/drafts/patrol-state.json sets \"lastDirection\" to \"backend\" instead of \"demo\".</fact>\n    <fact>docs/drafts/patrol-rotation.md records \"Last completed: Backend (2026-09-30 04:32)\".</fact>\n    <fact>docs/drafts/doc-review-task.md records \"最近完成: 架构文档（2026-09-30）\".</fact>\n    <fact>backend/README.md removes the documented GET `/api/mode` endpoint.</fact>\n    <fact>docs/ARCHITECTURE-zh-CN.md and docs/ARCHITECTURE.md update the Viewer endpoint list.</fact>\n  </facts>\n  <narrative>Documentation and patrol metadata were synchronized after the backend review. The patrol state and rotation now identify Backend as the latest completed direction, the task log points to architecture documentation, the obsolete `/api/mode` endpoint was removed from backend/README.md, and both English and Chinese architecture documents were updated to match the documented Viewer API surface.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/drafts/patrol-state.json</file>\n    <file>docs/drafts/patrol-rotation.md</file>\n    <file>docs/drafts/doc-review-task.md</file>\n    <file>backend/README.md</file>\n    <file>docs/ARCHITECTURE-zh-CN.md</file>\n    <file>docs/ARCHITECTURE.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/patrol-state.json</file>\n    <file>docs/drafts/patrol-rotation.md</file>\n    <file>docs/drafts/doc-review-task.md</file>\n    <file>backend/README.md</file>\n    <file>docs/ARCHITECTURE-zh-CN.md</file>\n    <file>docs/ARCHITECTURE.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-9b424d0d02",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4079,
+    "promptTokens" : 3998,
+    "completionTokens" : 349,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented corrected GET /api/settings defaults in docs/API.md and docs/API-zh-CN.md</title>\n  <subtitle>API changelogs now align six settings examples with AppSettings.toMap() actual defaults.</subtitle>\n  <facts>\n    <fact>docs/API.md records version 0.1.0-beta+42 dated 2026-05-06 for corrected GET /api/settings example values.</fact>\n    <fact>docs/API-zh-CN.md records version 0.1.0-beta+42 dated 2026-05-06 for corrected GET /api/settings example values.</fact>\n    <fact>GET /api/settings examples changed PROVIDER from openai to claude and MODEL from gpt-4o to claude-sonnet-4-5.</fact>\n  </facts>\n  <narrative>Both English and Chinese API changelogs were updated to correct six GET /api/settings example values so they match the actual defaults returned by AppSettings.toMap(), including PROVIDER openai→claude and MODEL gpt-4o→claude-sonnet-4-5.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/API-zh-CN.md</file>\n    <file>docs/API.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/API-zh-CN.md</file>\n    <file>docs/API.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-85480a720e",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 5177,
+    "promptTokens" : 3869,
+    "completionTokens" : 289,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated database environment variable documentation in docs/TESTING.md</title>\n  <subtitle>Testing guides now list DB_NAME with the default claude_mem instead of DB_HOST.</subtitle>\n  <facts>\n    <fact>docs/TESTING.md documents DB_NAME with default value claude_mem and description Database name.</fact>\n    <fact>docs/TESTING-zh-CN.md documents DB_NAME with default value claude_mem and description 数据库名称.</fact>\n    <fact>The DB_HOST entry with default value 127.0.0.1 was removed from both testing guides.</fact>\n  </facts>\n  <narrative>The English and Chinese testing documentation were aligned to describe the DB_NAME environment variable and its claude_mem default. The previous DB_HOST entry was removed from both language versions.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/TESTING-zh-CN.md</file>\n    <file>docs/TESTING.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/TESTING-zh-CN.md</file>\n    <file>docs/TESTING.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-c67e7a5ad3",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2612,
+    "promptTokens" : 3800,
+    "completionTokens" : 257,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Removed empty else branch and ignored memory/.dreams in .gitignore</title>\n  <subtitle>Cleaned up DTO control flow and excluded generated dream artifacts from version control.</subtitle>\n  <facts>\n    <fact>python-sdk/cortex-mem-python/cortex_mem/dto.py removed an empty else branch containing no statements.</fact>\n    <fact>.gitignore now includes memory/.dreams.</fact>\n  </facts>\n  <narrative>The Python SDK DTO control flow was simplified by removing an empty else branch, and generated dream artifacts under memory/.dreams are now excluded by .gitignore.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>python-sdk/cortex-mem-python/cortex_mem/dto.py</file>\n    <file>.gitignore</file>\n  </files_read>\n  <files_modified>\n    <file>python-sdk/cortex-mem-python/cortex_mem/dto.py</file>\n    <file>.gitignore</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-bdf72f2509",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3371,
+    "promptTokens" : 3863,
+    "completionTokens" : 283,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Removed SDK version comment in CortexMemClientImpl.java</title>\n  <subtitle>Deleted a stale User-Agent SDK version maintenance comment.</subtitle>\n  <facts>\n    <fact>cortex-mem-spring-integration/cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/CortexMemClientImpl.java removed the comment `/** SDK version for User-Agent header. Update when releasing new SDK versions. */`.</fact>\n    <fact>The edit changed 1 file with 0 insertions and 1 deletion.</fact>\n  </facts>\n  <narrative>The standalone SDK version maintenance comment was removed from CortexMemClientImpl.java, leaving the surrounding implementation unchanged.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>cortex-mem-spring-integration/cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/CortexMemClientImpl.java</file>\n  </files_read>\n  <files_modified>\n    <file>cortex-mem-spring-integration/cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/CortexMemClientImpl.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-8ac2a32980",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3457,
+    "promptTokens" : 3859,
+    "completionTokens" : 326,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated default port documentation and removed build-argument guidance</title>\n  <subtitle>Deployment docs now omit build arguments, while the Dockerfile identifies port 37777 as the default.</subtitle>\n  <facts>\n    <fact>backend/Dockerfile documents 37777 as the default port overridable by the SERVER_PORT environment variable.</fact>\n    <fact>docs/DEPLOYMENT-zh-CN.md removes the six-line “带构建参数” build-argument section.</fact>\n    <fact>docs/DEPLOYMENT.md removes the six-line “Build with arguments” section.</fact>\n  </facts>\n  <narrative>The Docker default-port comment now explicitly states that 37777 is used unless SERVER_PORT overrides it. The English and Chinese deployment guides no longer instruct users to build with arguments, aligning their build instructions with the documented deployment process.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/Dockerfile</file>\n    <file>docs/DEPLOYMENT-zh-CN.md</file>\n    <file>docs/DEPLOYMENT.md</file>\n  </files_read>\n  <files_modified>\n    <file>backend/Dockerfile</file>\n    <file>docs/DEPLOYMENT-zh-CN.md</file>\n    <file>docs/DEPLOYMENT.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-2025b33a95",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 763,
+    "promptTokens" : 3705,
+    "completionTokens" : 18,
+    "raw" : "<skip>Only read the extraction quality improvement plan; no change applied</skip>"
+  }, {
+    "id" : "real-e8c8b314d6",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1001,
+    "promptTokens" : 3843,
+    "completionTokens" : 20,
+    "raw" : "<skip>Read-only investigation of backend review and patrol documentation; no changes applied.</skip>"
+  }, {
+    "id" : "real-c42d7a9c5d",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1210,
+    "promptTokens" : 3836,
+    "completionTokens" : 25,
+    "raw" : "<skip>Read-only investigation; no code, tests, configuration, deployment, or documentation changes were applied.</skip>"
+  }, {
+    "id" : "real-b5ae725e2a",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1021,
+    "promptTokens" : 3769,
+    "completionTokens" : 16,
+    "raw" : "<skip>Read patrol state and rotation documentation without making changes.</skip>"
+  }, {
+    "id" : "real-9261b542ca",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1029,
+    "promptTokens" : 3773,
+    "completionTokens" : 25,
+    "raw" : "<skip>Read patrol state and rotation notes only; no code, configuration, tests, or documentation changed.</skip>"
+  }, {
+    "id" : "real-7c557c8d79",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1448,
+    "promptTokens" : 243,
+    "completionTokens" : 23,
+    "raw" : "<skip>Investigation only; no code, test, configuration, deployment, or documentation changes.</skip>"
+  }, {
+    "id" : "real-1dbccd058e",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3320,
+    "promptTokens" : 3766,
+    "completionTokens" : 23,
+    "raw" : "<skip>Investigation only; no code, tests, configuration, deployment, or documentation changes.</skip>"
+  }, {
+    "id" : "real-1f9b5d09e7",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3220,
+    "promptTokens" : 3833,
+    "completionTokens" : 23,
+    "raw" : "<skip>Investigation only; no code, tests, configuration, deployment, or documentation changes.</skip>"
+  }, {
+    "id" : "real-ed737be6bb",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 18068,
+    "promptTokens" : 183,
+    "completionTokens" : 19,
+    "raw" : "<skip>Read-only inspection of patrol state and rotation; no changes applied.</skip>"
+  }, {
+    "id" : "real-b2d48b12a1",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 7251,
+    "promptTokens" : 3834,
+    "completionTokens" : 25,
+    "raw" : "<skip>Investigation only; no code, test, configuration, deployment, or documentation changes were applied.</skip>"
+  }, {
+    "id" : "real-bc3512ae8d",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2754,
+    "promptTokens" : 3786,
+    "completionTokens" : 254,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented Round 6 category few-shots in extraction-quality-improvement-plan.md</title>\n  <subtitle>The extraction quality plan now records category few-shot guidance and the measured title ceiling.</subtitle>\n  <facts>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md contains the section \"## 7.12 Round 6 — category few-shots and the measured title ceiling\".</fact>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md received 81 inserted lines and 0 deleted lines.</fact>\n  </facts>\n  <narrative>The extraction quality improvement plan was extended with a Round 6 section covering category few-shots and the measured title ceiling, establishing a reusable reference for subsequent extraction-quality work.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-e02e436bdd",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2929,
+    "promptTokens" : 3854,
+    "completionTokens" : 330,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated prompt title guidance in continuation.txt and init.txt</title>\n  <subtitle>Prompt templates now require category-specific verb, object, identifier, and symptom formatting.</subtitle>\n  <facts>\n    <fact>backend/src/main/resources/prompts/continuation.txt replaced the `Fixed UserCache.computeIfAbsent null placeholder race` example with category-specific title guidance.</fact>\n    <fact>backend/src/main/resources/prompts/init.txt replaced the `Fixed UserCache.computeIfAbsent null placeholder race` example with category-specific title guidance.</fact>\n    <fact>The two prompt edits removed 9 lines and added 11 lines in each file.</fact>\n  </facts>\n  <narrative>The continuation and initialization prompt templates were aligned so generated observation titles follow the intended category examples. The new guidance emphasizes that titles must describe the semantic action, preserve exact identifiers, and include the decisive cause or symptom rather than naming only the affected file.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-d44a83721d",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2728,
+    "promptTokens" : 3782,
+    "completionTokens" : 243,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented Round 5 metric correctness and title ceiling in extraction plan</title>\n  <subtitle>Added a 99-line Round 5 section to the extraction quality improvement plan.</subtitle>\n  <facts>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md added 99 lines.</fact>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md contains the heading \"## 7.11 Round 5 — metric correctness and the remaining title ceiling\".</fact>\n  </facts>\n  <narrative>The extraction quality improvement plan was extended with a Round 5 section covering metric correctness and the remaining title ceiling. The new section was appended without deleting existing content.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-0fd4ffcc31",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 5253,
+    "promptTokens" : 4026,
+    "completionTokens" : 446,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed must-record sample skip gate in GoldenSetReplayTest</title>\n  <subtitle>Golden-set evaluation now checks false-positive skips instead of false-negative skips for record-worthy samples.</subtitle>\n  <facts>\n    <fact>GoldenSetEvaluator now defines skipFp as a record-worthy sample being skipped and skipFn as a non-record-worthy sample being skipped.</fact>\n    <fact>GoldenSetReplayTest now asserts a.skipFp for the \"must-record samples skipped\" condition.</fact>\n    <fact>GoldenSetScorer now includes the \"docs\" and \"documentation\" aliases in its canonical \"doc\" mapping.</fact>\n  </facts>\n  <narrative>The golden-set replay test previously checked agg.skipFn while describing the result as skipped record-worthy samples. The evaluator semantics were corrected to distinguish record-worthy false-positive skips from non-record-worthy false-negative skips, and GoldenSetReplayTest now asserts the correct skipFp value. GoldenSetScorer also expands its documentation alias mapping to preserve canonicalization for \"docs\" and \"documentation\".</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetReplayTest.java</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetReplayTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-eee7785ec8",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3863,
+    "promptTokens" : 614,
+    "completionTokens" : 478,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Extended GoldenSetEvaluator for Anthropic model evaluation</title>\n  <subtitle>Golden-set evaluation now supports Anthropic alongside the existing provider configuration.</subtitle>\n  <facts>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java imports org.springframework.ai.anthropic.AnthropicChatModel.</fact>\n    <fact>scripts/eval-model-quality.sh documents EVAL_PROVIDER=anthropic for Anthropic evaluation.</fact>\n    <fact>docs/archive/2026-11-02_model-output-quality-eval-minimax.md contains a 133-line model output quality evaluation document.</fact>\n    <fact>docs/TESTING.md and docs/TESTING-zh-CN.md retain manual-only, CI-refusing evaluation harness documentation with EVAL_MAX_CALLS default limit 20.</fact>\n  </facts>\n  <narrative>The model output quality evaluation harness was extended to exercise Anthropic through AnthropicChatModel, and the shell entry point now shows the EVAL_PROVIDER=anthropic invocation. The archived evaluation results and English and Chinese testing guides describe the Golden-set evaluator and its manual-only CI-refusing behavior with a default EVAL_MAX_CALLS limit of 20.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>scripts/eval-model-quality.sh</file>\n    <file>docs/TESTING-zh-CN.md</file>\n    <file>docs/TESTING.md</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>scripts/eval-model-quality.sh</file>\n    <file>docs/archive/2026-11-02_model-output-quality-eval-minimax.md</file>\n    <file>docs/TESTING-zh-CN.md</file>\n    <file>docs/TESTING.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-9a0e90bed5",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 5408,
+    "promptTokens" : 4079,
+    "completionTokens" : 489,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Extended ObservationRepository filtering by memoryScopeId</title>\n  <subtitle>Observation queries now support memory-scope membership while preserving project filtering.</subtitle>\n  <facts>\n    <fact>ObservationRepository.java replaces the project-only predicate with a memoryScopeId IN filter for :project-scoped queries.</fact>\n    <fact>MemoryScopeEntity.java defines the new memory-scope entity used by repository and service integration.</fact>\n    <fact>AgentService.java injects MemoryScopeService through a private final memoryScopeService field.</fact>\n    <fact>PendingMessageEventListenerTest.java adds one null argument to match the updated constructor or listener signature.</fact>\n  </facts>\n  <narrative>The observation persistence layer was extended to represent memory scopes and retrieve observations belonging to the relevant scope. ObservationRepository now uses memoryScopeId membership for project-scoped lookups, MemoryScopeEntity provides the corresponding entity definition, and AgentService delegates scope-related work through MemoryScopeService. PendingMessageEventListenerTest was aligned with the changed listener contract by adding a null argument.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/entity/MemoryScopeEntity.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/event/PendingMessageEventListenerTest.java</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/entity/MemoryScopeEntity.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/event/PendingMessageEventListenerTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-63b5502fb9",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 6765,
+    "promptTokens" : 3991,
+    "completionTokens" : 436,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added one-shot conversation memory scope migration and rehearsal fixtures</title>\n  <subtitle>V20 establishes conversation and memory scope identity, with database rehearsal and conflict fixtures.</subtitle>\n  <facts>\n    <fact>backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql now defines a one-shot Conversation / Memory Scope identity migration.</fact>\n    <fact>scripts/db/rehearse-conversation-scope.sh provides a 183-line Bash rehearsal script for conversation scope behavior.</fact>\n    <fact>scripts/db/conversation-scope-conflict-fixture.sql provides an 88-line fixture for conversation scope conflict scenarios.</fact>\n    <fact>scripts/db/conversation-scope-fixture.sql now separates the clean extraction bucket from mixed or empty buckets.</fact>\n  </facts>\n  <narrative>The V20 migration was expanded into a comprehensive one-shot identity migration for conversation and memory scopes. Database rehearsal tooling and dedicated conflict and regular fixtures now support validation of scope behavior, including the extraction bucket requirement that clean buckets remain distinct from empty or mixed buckets.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql</file>\n    <file>scripts/db/rehearse-conversation-scope.sh</file>\n    <file>scripts/db/conversation-scope-conflict-fixture.sql</file>\n    <file>scripts/db/conversation-scope-fixture.sql</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql</file>\n    <file>scripts/db/rehearse-conversation-scope.sh</file>\n    <file>scripts/db/conversation-scope-conflict-fixture.sql</file>\n    <file>scripts/db/conversation-scope-fixture.sql</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-d33efbd8ae",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4491,
+    "promptTokens" : 4009,
+    "completionTokens" : 503,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added conversation scope backfill migration toolkit in backend/src/main/java/com/ablueforce/cortexce/migration</title>\n  <subtitle>Introduced classifier, runner, CLI entry point, and tests for conversation-scope backfill processing.</subtitle>\n  <facts>\n    <fact>ConversationScopeBackfillRunner.java contains 845 lines under package com.ablueforce.cortexce.migration.</fact>\n    <fact>TechnicalBucketClassifier.java contains 269 lines and TechnicalBucketClassifierTest.java contains 275 lines.</fact>\n    <fact>BackfillCliMain.java contains 121 lines as the migration CLI entry point.</fact>\n    <fact>The four migration files received 1,510 inserted lines with 0 deleted lines.</fact>\n  </facts>\n  <narrative>The backend migration package now provides a new conversation-scope backfill toolkit. ConversationScopeBackfillRunner orchestrates the migration workflow, TechnicalBucketClassifier classifies conversation content, BackfillCliMain exposes a command-line entry point, and TechnicalBucketClassifierTest covers the classifier behavior.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/main/java/com/ablueforce/cortexce/migration/ConversationScopeBackfillRunner.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifierTest.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifier.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/migration/BackfillCliMain.java</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/java/com/ablueforce/cortexce/migration/ConversationScopeBackfillRunner.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifierTest.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifier.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/migration/BackfillCliMain.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-cd6b972cfd",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3545,
+    "promptTokens" : 231,
+    "completionTokens" : 282,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added SummaryJobService service implementation in SummaryJobService.java</title>\n  <subtitle>Summary job processing now has a dedicated service implementation under the backend service package.</subtitle>\n  <facts>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java declares package com.ablueforce.cortexce.service.</fact>\n    <fact>SummaryJobService.java contains 326 newly inserted lines.</fact>\n    <fact>SummaryJobService.java was created with zero deleted lines and one file modified.</fact>\n  </facts>\n  <narrative>A new backend service implementation was added at backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java, establishing the dedicated SummaryJobService artifact in the service layer.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java</file>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-46e467bff6",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3801,
+    "promptTokens" : 3881,
+    "completionTokens" : 391,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added conversation scope preflight and fixture SQL scripts</title>\n  <subtitle>Added additive database scripts for conversation and memory scope identity expansion.</subtitle>\n  <facts>\n    <fact>scripts/db/conversation-scope-preflight.sql contains 426 lines beginning with `-- conversation-scope-preflight.sql`.</fact>\n    <fact>backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql contains 311 lines beginning with `-- V20: Conversation / Memory Scope identity — additive expansion only.`</fact>\n    <fact>scripts/db/conversation-scope-fixture.sql contains 249 lines beginning with `-- conversation-scope-fixture.sql`.</fact>\n    <fact>The three SQL files received 986 total insertions and 0 deletions.</fact>\n  </facts>\n  <narrative>Database tooling and migration support now cover the conversation and memory scope identity expansion. The V20 migration explicitly uses additive expansion, while separate preflight and fixture scripts provide operational validation and test data setup for the new scope model.</narrative>\n  <concepts>\n    <concept>pattern</concept>\n    <concept>what-changed</concept>\n  </concepts>\n  <files_read>\n    <file>scripts/db/conversation-scope-preflight.sql</file>\n    <file>backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql</file>\n    <file>scripts/db/conversation-scope-fixture.sql</file>\n  </files_read>\n  <files_modified>\n    <file>scripts/db/conversation-scope-preflight.sql</file>\n    <file>backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql</file>\n    <file>scripts/db/conversation-scope-fixture.sql</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-325c817bbf",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2341,
+    "promptTokens" : 3910,
+    "completionTokens" : 258,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented Conversation 与 Memory Scope 身份边界重构实施蓝图</title>\n  <subtitle>新增 Conversation 与 Memory Scope 身份边界重构的详细实施蓝图，共 917 行。</subtitle>\n  <facts>\n    <fact>docs/drafts/conversation-memory-scope-refactor-plan.md 新增标题“# Conversation 与 Memory Scope 身份边界重构实施蓝图”。</fact>\n    <fact>docs/drafts/conversation-memory-scope-refactor-plan.md 本次编辑新增 917 行，未删除既有行。</fact>\n  </facts>\n  <narrative>项目新增 Conversation 与 Memory Scope 身份边界重构实施蓝图，为后续身份模型调整、边界梳理和实施步骤提供可复用的设计与执行依据。</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/drafts/conversation-memory-scope-refactor-plan.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/conversation-memory-scope-refactor-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-7149578a88",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1941,
+    "promptTokens" : 3802,
+    "completionTokens" : 261,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented second build-fix round in docs/drafts/backend-fix-progress.md</title>\n  <subtitle>Progress notes now cover docker-e2e build context and corrections to the byte-buddy approach.</subtitle>\n  <facts>\n    <fact>docs/drafts/backend-fix-progress.md added the section \"2026-10-02 01:57 | 构建修复第二轮 — docker-e2e 构建上下文 + byte-buddy 方案更正\".</fact>\n    <fact>docs/drafts/backend-fix-progress.md received 10 insertions and 0 deletions.</fact>\n  </facts>\n  <narrative>The backend fix progress draft gained a dated section documenting the second build-repair round, with explicit scope for the docker-e2e build context and a correction to the byte-buddy solution.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/drafts/backend-fix-progress.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/backend-fix-progress.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-95de35b2ea",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3355,
+    "promptTokens" : 3848,
+    "completionTokens" : 308,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated byte-buddy pin comment and Docker build context guidance</title>\n  <subtitle>Dependency documentation now identifies Mockito 5.11 as the byte-buddy source, and E2E guidance names repository-root build context.</subtitle>\n  <facts>\n    <fact>backend/pom.xml pins byte-buddy to 1.15.x for Mockito 5.11 via the spring-boot-starter-test BOM.</fact>\n    <fact>scripts/docker-e2e-test.sh states that the build context must be the repository root because the Dockerfile uses COPY.</fact>\n  </facts>\n  <narrative>The Maven test-classpath comment was replaced with the exact dependency rationale for byte-buddy 1.15.x, explicitly linking the pin to Mockito 5.11 from spring-boot-starter-test. The Docker E2E script comment was also updated to describe the repository root as the required build context for Dockerfile COPY operations.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>backend/pom.xml</file>\n    <file>scripts/docker-e2e-test.sh</file>\n  </files_read>\n  <files_modified>\n    <file>backend/pom.xml</file>\n    <file>scripts/docker-e2e-test.sh</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-53851b4a23",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 5185,
+    "promptTokens" : 3946,
+    "completionTokens" : 377,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented health-check history rounds 312~359+ in archive index</title>\n  <subtitle>Archived 1,206 lines of October 6–7 health-check history and indexed the new archive.</subtitle>\n  <facts>\n    <fact>docs/archive/2026-10-08_health-check-history-11.md contains 1,206 lines covering rounds 312~359+ from 2026-10-06 to 2026-10-07.</fact>\n    <fact>docs/archive/README.md indexes 2026-10-08_health-check-history-11.md as the third compressed migration, including parallel-process rounds.</fact>\n    <fact>The two documentation changes contain 1,207 insertions and 0 deletions.</fact>\n  </facts>\n  <narrative>A new health-check history archive was created for rounds 312~359+ spanning 2026-10-06 through 2026-10-07. The archive README now links the document to docs/drafts/health-check-task.md, records the 2026-10-08 archive date, and identifies it as the third compressed migration with parallel-process rounds.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/archive/2026-10-08_health-check-history-11.md</file>\n    <file>docs/archive/README.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/archive/2026-10-08_health-check-history-11.md</file>\n    <file>docs/archive/README.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-f4c6765fb9",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2813,
+    "promptTokens" : 296,
+    "completionTokens" : 228,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented performance test results in docs/drafts/performance-test-results.md</title>\n  <subtitle>Added a 34-line performance-test results draft headed by its document title.</subtitle>\n  <facts>\n    <fact>docs/drafts/performance-test-results.md contains the heading \"# Performance Test Results\".</fact>\n    <fact>docs/drafts/performance-test-results.md received 34 inserted lines and 0 deleted lines.</fact>\n  </facts>\n  <narrative>A performance-test results document was created in docs/drafts/performance-test-results.md, providing a dedicated draft for benchmark findings and related results.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/drafts/performance-test-results.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/performance-test-results.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-67083a7bc1",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4086,
+    "promptTokens" : 205,
+    "completionTokens" : 290,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented byte-buddy 1.15.11 JDK 24 build fix in backend-fix-progress.md</title>\n  <subtitle>Backend progress notes now record the test-scoped byte-buddy dependency update for JDK 24 compatibility.</subtitle>\n  <facts>\n    <fact>docs/drafts/backend-fix-progress.md contains the heading “2026-10-02 00:56 | 构建修复 — test 作用域 byte-buddy 1.15.11（JDK 24 兼容）”.</fact>\n    <fact>The documented byte-buddy version is 1.15.11 and the documented dependency scope is test.</fact>\n    <fact>The documented compatibility target is JDK 24.</fact>\n  </facts>\n  <narrative>The backend build-fix progress document was extended with a dated entry recording the use of byte-buddy 1.15.11 in the test scope to address JDK 24 compatibility.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>docs/drafts/backend-fix-progress.md</file>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/backend-fix-progress.md</file>\n  </files_modified>\n</observation>"
+  } ]
+}

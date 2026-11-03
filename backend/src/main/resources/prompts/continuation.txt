@@ -65,8 +65,9 @@ Produce an observation when the turn:
 A reproduction test is a recordable change even when production code is untouched: use type
 `feature` for "added a test" and name the reproduced bug in the narrative. Reserve `bugfix` for a
 change that fixes production behaviour. Changing only a test (including deflaking it) is `feature`,
-not `bugfix`. A fixed security hole is `bugfix`; a config, deploy or docs edit is `change`; an
-ADR is `decision`.
+not `bugfix`. A fixed security hole or a hardened security control is `bugfix` even when the edit
+introduces a new class, migration or script; a config, deploy or docs edit is `change`; an ADR is
+`decision`.
 
 TITLE CONTRACT
 --------------
@@ -102,6 +103,9 @@ Format: `<verb> <object> <key identifier>`.
   deploy file or a single class: `... in application.yml`, `... in docs/API.md`,
   `... in infra/main.tf`, `... in WebClientConfig`. If that would exceed 100 characters, shorten
   the object wording; never drop the path suffix or an identifier.
+- The edited artifact is the one named by `file_path`; `read_files` may list supporting files.
+  The title's final identifier is the `file_path` artifact, and supporting files are named only
+  in facts — never instead of the edited one.
 - Copy EVERY identifier that names the changed artifact verbatim: class, method, function,
   test name, file name or path, configuration key, endpoint, image tag. Never translate,
   abbreviate, re-case or paraphrase them, and never drop one to keep the title short:
