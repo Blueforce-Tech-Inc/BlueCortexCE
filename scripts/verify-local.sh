@@ -41,7 +41,7 @@ PG_CONTAINER="${PG_CONTAINER:-}"
 PG_PORT="${PG_PORT:-}"
 APP_PORT="${VERIFY_APP_PORT:-37888}"
 E2E_PORT="${VERIFY_E2E_PORT:-37777}"
-MIN_TESTS="${VERIFY_MIN_TESTS:-485}"
+MIN_TESTS="${VERIFY_MIN_TESTS:-493}"
 LOG_BASE="${TMPDIR:-/tmp}"
 LOG_BASE="${LOG_BASE%/}"
 LOG_DIR="${VERIFY_LOG_DIR:-${LOG_BASE}/cortexce-verify-$$}"
@@ -321,6 +321,15 @@ GATE_OUTPUT="$(python3 scripts/check-test-results.py --require-zero-skips \
   --min-tests "$MIN_TESTS" --require-layers --require-baseline 2>&1)" \
   || fail "test report gate" "check-test-results.py rejected the Surefire report:" "$GATE_OUTPUT"
 printf '%s\n' "$GATE_OUTPUT"
+
+# Evaluation floors and the per-layer test baseline are append-only. The replay test
+# in step 5 proves the fixtures clear the current floor, and step 6 proves the suite
+# clears the baseline; this check proves neither file was edited downward to make a low
+# measurement or a removed test pass.
+step "6b/8 Gate monotonicity (scripts/check-eval-gates.py)"
+GATE_FLOOR_OUTPUT="$(python3 scripts/check-eval-gates.py 2>&1)" \
+  || fail "evaluation gate" "check-eval-gates.py rejected a lowered floor:" "$GATE_FLOOR_OUTPUT"
+printf '%s\n' "$GATE_FLOOR_OUTPUT"
 
 # --------------------------------------------------------------------------
 # 7. documentation consistency, twice

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "note": "Append-only high-water mark for the evaluation floors. Never edit a value down.",
+  "real": {
+    "identifier": 0.90,
+    "traceSubject": 0.90,
+    "action": 0.80,
+    "typeAuditable": 0.80
+  }
+}

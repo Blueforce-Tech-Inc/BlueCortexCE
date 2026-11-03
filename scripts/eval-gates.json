@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "note": "Real-history evaluation floors. They may only rise; see eval-gates-floor.json and scripts/check-eval-gates.py.",
+  "real": {
+    "identifier": 0.90,
+    "traceSubject": 0.90,
+    "action": 0.80,
+    "typeAuditable": 0.80
+  }
+}

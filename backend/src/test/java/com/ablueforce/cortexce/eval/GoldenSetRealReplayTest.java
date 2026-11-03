@@ -22,41 +22,83 @@ class GoldenSetRealReplayTest {
     @DisplayName("replaying the MiniMax real-history fixture reproduces its committed metrics")
     void minimaxRealReplayReproducesMetrics() throws Exception {
         GoldenSet real = GoldenSetEvaluator.loadGoldenSet("real");
-        assertReplay(real, "minimax-real-r11-signals");
+        assertReplay(real, "minimax-real-r12-candidates");
     }
 
     @Test
     @DisplayName("replaying the LongCat real-history fixture reproduces its committed metrics")
     void longcatRealReplayReproducesMetrics() throws Exception {
         GoldenSet real = GoldenSetEvaluator.loadGoldenSet("real");
-        assertReplay(real, "longcat-real-r11-signals");
+        assertReplay(real, "longcat-real-r12-candidates");
     }
 
     /**
-     * Round 11 offline gate. Action and auditable type clear the pre-committed 80% target.
-     * Identifier and subject do not reach the planned 90%: the real set names the largest changed
-     * file, while a model often titles a different file of the same commit, so the two rates are
-     * ratcheted at the measured floor instead of a threshold that would turn every build red.
-     * The gap stays explicit here and in the round-11 report.
+     * Round 12 gate. The identifier and subject floors are the 90% target itself, not a
+     * measurement to be lowered later: a gate may only rise. If a fixture misses it the build
+     * stays red until the extraction improves, and a permanently unreachable floor has to be
+     * argued in the plan document before anyone touches this constant.
      */
     @Test
-    @DisplayName("the real-history fixtures clear their ratcheted quality floors")
+    @DisplayName("the real-history fixtures clear the 90% identifier and subject floors")
     void realFixturesClearRatchetedFloors() throws Exception {
         GoldenSet real = GoldenSetEvaluator.loadGoldenSet("real");
-        assertFloors(real, "minimax-real-r11-signals", 0.5625, 0.5625);
-        assertFloors(real, "longcat-real-r11-signals", 0.7441, 0.7441);
+        assertFloors(real, "minimax-real-r12-candidates");
+        assertFloors(real, "longcat-real-r12-candidates");
     }
 
-    private static void assertFloors(GoldenSet real, String name,
-                                     double identifierFloor, double subjectFloor) throws Exception {
+    private static void assertFloors(GoldenSet real, String name) throws Exception {
         GoldenSetScorer.Aggregate agg = score(real, name);
-        assertThat(agg.titleActionHitRate).as(name + " action class").isGreaterThanOrEqualTo(0.80);
+        Map<String, Double> gates = evalGates();
+        assertThat(agg.titleActionHitRate).as(name + " action class")
+                .isGreaterThanOrEqualTo(gates.get("action"));
         assertThat(agg.typeAccuracyAuditable).as(name + " auditable type")
-                .isGreaterThanOrEqualTo(0.80);
+                .isGreaterThanOrEqualTo(gates.get("typeAuditable"));
         assertThat(agg.titleIdentifierHitRate).as(name + " identifier")
-                .isGreaterThanOrEqualTo(identifierFloor);
+                .isGreaterThanOrEqualTo(gates.get("identifier"));
         assertThat(agg.titleTraceSubjectHitRate).as(name + " trace-visible subject")
-                .isGreaterThanOrEqualTo(subjectFloor);
+                .isGreaterThanOrEqualTo(gates.get("traceSubject"));
+    }
+
+    /**
+     * Gate floors live in {@code scripts/eval-gates.json}, and the committed high-water mark
+     * lives beside it. A floor may only rise: this test fails when the current file drops below
+     * the recorded floor, so a low measurement can never be turned into a green build by editing
+     * the gate. Lowering would require editing the floor file too, which is visible in review.
+     */
+    @Test
+    @DisplayName("the evaluation gate floors never move down")
+    void gateFloorsAreMonotonic() throws Exception {
+        Map<String, Double> current = evalGates();
+        Map<String, Double> floor = evalGates("eval-gates-floor.json");
+        for (String key : current.keySet()) {
+            assertThat(current.get(key)).as("gate " + key).isGreaterThanOrEqualTo(floor.get(key));
+        }
+    }
+
+    private static Map<String, Double> evalGates() throws Exception {
+        return evalGates("eval-gates.json");
+    }
+
+    private static Map<String, Double> evalGates(String file) throws Exception {
+        java.nio.file.Path path = null;
+        for (String candidate : new String[]{"scripts/" + file, "../scripts/" + file}) {
+            java.nio.file.Path candidatePath = java.nio.file.Paths.get(candidate);
+            if (java.nio.file.Files.exists(candidatePath)) {
+                path = candidatePath;
+                break;
+            }
+        }
+        assertThat(path).as("gate file " + file).isNotNull();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> parsed = new ObjectMapper().readValue(
+                java.nio.file.Files.readString(path), Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> real = (Map<String, Object>) parsed.get("real");
+        Map<String, Double> gates = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : real.entrySet()) {
+            gates.put(entry.getKey(), ((Number) entry.getValue()).doubleValue());
+        }
+        return gates;
     }
 
     private static void assertReplay(GoldenSet real, String name) throws Exception {
