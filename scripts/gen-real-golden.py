@@ -267,17 +267,33 @@ def concepts_for(actions: list[str], expected_type: str) -> list[str]:
 
 
 def trace_output(commit: dict, files: list[dict], mode: str) -> str:
+    """Render only what a tool would return — never the commit prose.
+
+    Copying "Commit message: ..." into the trace made models summarise the commit
+    instead of the edit, which is where the identifier losses came from. Each line
+    also states the operation ("removed 2 line(s), added 0") so every expected
+    action class is inferable from the trace itself.
+    """
+    primary = max(files, key=lambda f: f["added"] + f["deleted"])
     lines = []
     for file in sorted(files, key=lambda f: f["added"] + f["deleted"], reverse=True):
         removed, added = first_lines(commit["sha"], file["path"])
-        lines.append(f"Read {file['path']}: {removed or '(new file)'} -> {added or '(no added line)'}")
+        if mode == "diagnose":
+            lines.append(f"Read {file['path']}: {removed or '(start of file)'}")
+        else:
+            lines.append(f"Edit {file['path']}: removed {file['deleted']} line(s), "
+                         f"added {file['added']} line(s); "
+                         f"'{removed or '(none)'}' -> '{added or '(none)'}'")
     totals = (f"{len(files)} file(s), "
               f"{sum(f['added'] for f in files)} insertion(s), "
               f"{sum(f['deleted'] for f in files)} deletion(s)")
     if mode == "diagnose":
         lines.append("No change applied; investigation only.")
     else:
-        lines.append(f"Edit applied. Commit message: {commit['subject']}. Totals: {totals}.")
+        lines.append(f"Edited file_path={primary['path']}. Totals: {totals}.")
+        term = SECURITY_TERMS.search(commit_text(commit))
+        if term:
+            lines.append(f"Security hardening: matched '{term.group(0)}'.")
     return " ".join(lines)
 
 

@@ -60,6 +60,25 @@ class GoldenSetRealDataTest {
     }
 
     @Test
+    @DisplayName("every changed file is covered by the trace and no commit prose leaks in")
+    void traceCoversEveryFile() throws Exception {
+        GoldenSet real = load("/eval/golden-tool-use-real.json");
+        for (GoldenSet.Sample sample : real.samples) {
+            String trace = sample.toolName + sample.toolInput + sample.toolOutput;
+            assertThat(trace).as("commit prose must not leak into %s", sample.id)
+                    .doesNotContain("Commit message");
+            java.util.regex.Matcher matcher = java.util.regex.Pattern
+                    .compile("read_files=([^\\n]+)")
+                    .matcher(sample.toolInput);
+            assertThat(matcher.find()).as("read_files for %s", sample.id).isTrue();
+            for (String path : matcher.group(1).split(",")) {
+                assertThat(trace).as("path %s must appear in the trace of %s",
+                        path.trim(), sample.id).contains(path.trim());
+            }
+        }
+    }
+
+    @Test
     @DisplayName("the real-history set covers every action class with at least 10 samples")
     void realSetCoversEveryAction() throws Exception {
         GoldenSet real = load("/eval/golden-tool-use-real.json");
