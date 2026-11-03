@@ -43,6 +43,28 @@ class GoldenSetRealReplayTest {
         }
     }
 
+    @Test
+    @DisplayName("replaying the LongCat real-history fixture reproduces its committed metrics")
+    void longcatRealReplayReproducesMetrics() throws Exception {
+        GoldenSet real = GoldenSetEvaluator.loadGoldenSet("real");
+        GoldenSetScorer.Aggregate agg = score(real, "longcat-real-v9");
+
+        ObjectMapper mapper = new ObjectMapper();
+        try (InputStream in = resource("/eval/fixtures/longcat-real-v9-metrics.json")) {
+            assertThat(in).isNotNull();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> expected = mapper.readValue(in, Map.class);
+            assertThat(agg.total).isEqualTo(intValue(expected, "total"));
+            assertThat(agg.formatErrors).isEqualTo(intValue(expected, "formatErrors"));
+            assertThat(agg.titleIdentifierHitRate)
+                    .isCloseTo(doubleValue(expected, "titleIdentifierHitRate"), within(1e-9));
+            assertThat(agg.titleActionHitRate)
+                    .isCloseTo(doubleValue(expected, "titleActionHitRate"), within(1e-9));
+            assertThat(agg.typeAccuracy)
+                    .isCloseTo(doubleValue(expected, "typeAccuracy"), within(1e-9));
+        }
+    }
+
     private static GoldenSetScorer.Aggregate score(GoldenSet real, String name) throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         List<GoldenSetScorer.Outcome> outcomes = new ArrayList<>();

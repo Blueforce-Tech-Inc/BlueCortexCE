@@ -1,0 +1,90 @@
+{
+  "calls" : 261,
+  "durationMs" : 3879811,
+  "total" : 87,
+  "formatErrors" : 0,
+  "validationRejections" : 2,
+  "callFailures" : 0,
+  "skipAccuracy" : 1.0,
+  "skipTp" : 20,
+  "skipFp" : 0,
+  "skipFn" : 0,
+  "skipTn" : 67,
+  "contractPassRate" : 0.9770114942528736,
+  "titleExactHitRate" : 0.5230769230769231,
+  "titleNormalizedHitRate" : 0.5846153846153846,
+  "titleIdentifierHitRate" : 0.9846153846153847,
+  "titleVerbClassHitRate" : 0.7692307692307693,
+  "titleActionHitRate" : 0.8923076923076924,
+  "titleActionSamples" : 65,
+  "titleActionUnclassifiable" : 0,
+  "titleSubjectHitRate" : 0.8307692307692308,
+  "titleTraceSubjectHitRate" : 0.8909090909090909,
+  "titleTraceSubjectSamples" : 55,
+  "titleTraceSubjectUnreachable" : 10,
+  "titleContractHitRate" : 0.7384615384615385,
+  "titleTraceContractHitRate" : 0.8,
+  "titleVerbContractHitRate" : 0.6461538461538462,
+  "typeAccuracy" : 0.9538461538461539,
+  "factsPrecision" : 0.796153846153846,
+  "factsInformativeRate" : 0.8576923076923076,
+  "factsRecall" : 0.9333333333333335,
+  "factsSupportRate" : 1.0,
+  "conceptsPrecision" : 0.8692307692307693,
+  "conceptsRecall" : 0.8538461538461538,
+  "repeatConsistency" : 1.0,
+  "p50Ms" : 15726,
+  "p95Ms" : 33716,
+  "maxMs" : 45624,
+  "meanTokens" : 4420,
+  "p50Tokens" : 4352,
+  "p95Tokens" : 5763,
+  "maxTokens" : 6366,
+  "inconsistentSamples" : [ "refactor-config-loader: type {change, refactor, feature}; action {secure, modify}", "refactor-sql-repository: type {refactor, bugfix}", "test-contract-openapi: type {unparsed, feature}; action {unparsed, create}", "security-authz-admin: type {change, bugfix}", "security-csrf: action {secure, modify}", "security-secret-config: action {secure, remove}", "security-rate-limit: type {bugfix, feature}", "security-cookie-httponly: type {bugfix, change}", "config-cors: type {change, bugfix}", "config-docker-healthcheck: action {create, modify}", "config-maven-plugin: type {change, feature}; action {modify, create}", "docs-runbook: action {document, create}", "docs-security-policy: action {create, document}", "deploy-k8s-probe: action {modify, create}", "deploy-github-actions: type {unparsed, change}; action {unparsed, modify}", "remove-dead-code: type {refactor, change}", "remove-stale-config: action {modify, remove}", "remove-feature-flag: type {change, refactor}" ],
+  "variance" : [ {
+    "metric" : "type accuracy",
+    "min" : 0.8955223880597015,
+    "max" : 0.9538461538461539,
+    "mean" : 0.9149636433218523,
+    "stdDev" : 0.02749408686129095
+  }, {
+    "metric" : "title action class",
+    "min" : 0.8805970149253731,
+    "max" : 0.9104477611940298,
+    "mean" : 0.8944508228090319,
+    "stdDev" : 0.012280377829645113
+  }, {
+    "metric" : "title trace-visible subject",
+    "min" : 0.8909090909090909,
+    "max" : 0.9824561403508771,
+    "mean" : 0.9343965975544922,
+    "stdDev" : 0.03751349269528356
+  }, {
+    "metric" : "title identifiers",
+    "min" : 0.9846153846153847,
+    "max" : 1.0,
+    "mean" : 0.9948717948717949,
+    "stdDev" : 0.007252377242938923
+  }, {
+    "metric" : "title trace contract",
+    "min" : 0.8,
+    "max" : 0.8656716417910447,
+    "mean" : 0.8388059701492537,
+    "stdDev" : 0.028108352023533362
+  }, {
+    "metric" : "facts informative",
+    "min" : 0.8184079601990047,
+    "max" : 0.8576923076923076,
+    "mean" : 0.8410383977548156,
+    "stdDev" : 0.0165852173390048
+  }, {
+    "metric" : "skip accuracy",
+    "min" : 1.0,
+    "max" : 1.0,
+    "mean" : 1.0,
+    "stdDev" : 0.0
+  } ],
+  "statusCounts" : {
+    "200" : 87
+  }
+}

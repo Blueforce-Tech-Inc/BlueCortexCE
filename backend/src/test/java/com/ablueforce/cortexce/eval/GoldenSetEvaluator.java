@@ -56,9 +56,11 @@ public final class GoldenSetEvaluator {
      * verdict.
      */
     static final Map<String, Long> LATENCY_P95_BASELINE_MS = Map.of(
-            "anthropic", 5648L);
+            "anthropic", 5648L,
+            "openai", 33716L);
     static final Map<String, Long> TOKEN_P95_BASELINE = Map.of(
-            "anthropic", 4048L);
+            "anthropic", 4048L,
+            "openai", 5763L);
     static final double PERFORMANCE_TOLERANCE = 1.5;
 
     private GoldenSetEvaluator() {
