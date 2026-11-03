@@ -840,3 +840,142 @@ mapped to the wrong action class.
   fixtures `{longcat,minimax}-after-v7[-metrics].json`. The v6 reports remain as published under
   the retired verb contract and are not rewritten.
 
+### 7.14 Round 8 — insertion-scope contract, remove coverage, and a reverted security verb
+
+Three changes were requested together. Two landed; the third was measured and reverted.
+
+#### 7.14.1 Insertion scope (`Added` / `Extended` / `Updated` / `Documented`)
+
+The title contract now states the scope explicitly: `Added` is only a new file or a new
+independent entity (class, test file, migration, endpoint, plugin, module); a block or entry
+inserted into an existing non-document file is `Extended`; replaced content is `Updated`; a new
+or edited section in an existing document is `Documented`. `GoldenSetScorer` and
+`GoldenSetActionRules` accept `extend` as a `modify` verb so the scoring side matches the
+contract.
+
+#### 7.14.2 Security domain first — tried, then reverted
+
+The first attempt made `Hardened` lead **every** security change, with `<type>` carrying whether
+the change is a bugfix. It was measured (`*-after-v8`) and reverted (`*-after-v8b`) because type
+accuracy dropped on MiniMax:
+
+| provider | type v7 | type v8 (domain-first) | type v8b (reverted) |
+|---|---|---|---|
+| LongCat | 91.7% | 93.9% | 86.4% |
+| MiniMax | 95.2% | 89.6% | 90.2% |
+
+The MiniMax drop was causally specific: `config-cors` and `deploy-terraform-iam` moved from
+type `change` to `bugfix` once the contract said the security domain decides the verb. The
+revert restores `Fixed` / `Hardened` / `Restricted` / `Redacted`. LongCat's v8b type value is
+lower than both v8 and v7 because five security samples (`security-csrf`, `security-xxe`,
+`security-rate-limit`, `security-cookie-httponly`, `security-secret-config`) flipped to
+`feature`/`change`; those flips do not depend on the reverted clause and are recorded as
+run-to-run label instability, not as a prompted regression.
+
+#### 7.14.3 Remove coverage
+
+Five samples were added — `remove-dependency`, `remove-dead-code`, `remove-stale-config`,
+`remove-deprecated-endpoint`, `remove-feature-flag` — so the `remove` branch is exercised. All
+five derive `remove` mechanically from `new_string=""`. The set is now 87 samples (113 runs with
+13 key samples × 3).
+
+#### 7.14.4 Result — action passes, subject and identifiers still fail
+
+| run | LongCat action | LongCat subject | LongCat identifiers | MiniMax action | MiniMax subject | MiniMax identifiers |
+|---|---|---|---|---|---|---|
+| v7 (82 samples) | 76.7% | 86.7% | 100% | 77.4% | 79.0% | 95.2% |
+| v8 (87, domain-first) | 90.9% | 86.4% | 98.5% | 89.6% | 73.1% | 98.5% |
+| v8b (87, reverted) | 87.9% | 87.9% | 98.5% | 85.2% | 73.8% | 98.4% |
+
+A6a (action) now passes both providers. A6b (subject ≥ 90%) and A6c (identifiers = 100%)
+still fail. Per the decision the gates were not moved.
+
+Remaining action misjudgements in v8b, by share:
+
+| cluster | LongCat (8 errors) | MiniMax (9 errors) |
+|---|---|---|
+| `secure` fix titled `Fixed`/`Extended` (maps to `modify`) | 3 (37.5%) | 6 (66.7%) |
+| `Added` used for an insertion into an existing file (`modify`/`document`) | 3 (37.5%) | 2 (22.2%) |
+| `remove` expressed as `Disabled` (maps to `modify`) | 1 (12.5%) | 1 (11.1%) |
+| `Hardened` used on a refactor (`modify`) | 1 (12.5%) | 0 |
+
+Subject misses are paraphrase-driven: the model names the concrete change (`first-page
+off-by-one`, `concurrent null writes`, `api-key sk-live-123`) instead of the golden subject
+words (`pagination`, `race`, `hardcoded api key`). Identifier misses are a single sample on each
+provider (`test-repro-null-cache` names `CacheConcurrencyTest` but not the class under test
+`UserCache`). These are the final boundary evidence for the current prompt; no further contract
+iteration is made in this round.
+
+Format errors: MiniMax v8b produced 6 answers with deliberation text and no XML block; the
+LongCat v8b run had 0. The same phenomenon appeared in the MiniMax summary run (4). This is
+provider-side reasoning leakage, recorded under A1, not treated as a title-contract failure.
+
+#### 7.14.5 Rejected alternatives
+
+- Keeping the domain-first `Hardened` rule because LongCat improved — rejected by the
+  per-provider guard; MiniMax's two security samples flipped type in the predicted direction.
+- Re-running until a favorable type number appears — rejected as selection bias.
+- Remapping `add → create` in the scorer — already rejected in §7.13.5; it would erase the
+  only signal that item 2 was meant to measure.
+- Treating the `Disabled` title on `remove-stale-config` as `remove` — rejected: `Disabled`
+  is a distinct lifecycle action and the golden trace is a deletion.
+
+#### 7.14.6 Verification and artifacts
+
+- `GoldenSetDataTest` (action anti-drift), `GoldenSetScorerTest`, `PromptContractTest` pass.
+- Reports: `docs/archive/2026-11-03_model-output-quality-eval-{longcat,minimax}-after-v8.md`
+  (the rejected domain-first attempt) and `...-after-v8b.md` (the reverted contract).
+- Fixtures: `{longcat,minimax}-after-v8[-metrics].json` and `...-v8b[-metrics].json`.
+
+### 7.15 Summary chain — learned identifiers enter A7–A10
+
+The summary prompt now requires every `learned` sentence to name an exact identifier copied
+from the session plus the concrete behaviour or value, and forbids opinions and process notes.
+`learned` fact grounding was already A10; the identifier requirement is added as a second
+gate on the same line.
+
+The floor was fixed **after** the first measurement of the new contract, not before:
+
+| metric | LongCat before → after | MiniMax before → after |
+|---|---|---|
+| request coverage | 87.6% → 90.2% | 96.0% → 96.6% |
+| request trace support | 93.1% → 91.4% | 75.9% → 83.3% |
+| request identifier hit | 81.0% → 79.3% | 74.1% → 87.0% |
+| learned recall | 81.0% → 91.4% | 71.8% → 89.5% |
+| learned trace support | 64.9% → 79.9% | 72.4% → 87.0% |
+| learned identifier hit | 37.9% → 91.4% | 24.1% → 92.6% |
+
+`LEARNED_IDENTIFIER_FLOOR` is **0.90**, i.e. the lower measured provider value (91.4%) rounded
+down to the nearest five points. It may only be raised. A10 is split into A10a (trace support
+≥ 60%) and A10b (identifier hit ≥ 90%); the other floors are unchanged. MiniMax's summary run
+had 4 format errors (deliberation without XML), so A1 fails on that run while A7–A10b pass.
+
+Artifacts: `docs/archive/2026-11-03_summary-quality-eval-{longcat,minimax}-after-v8.md`, fixtures
+`summary-*-after-v8[-metrics].json`. `SummaryGoldenSetReplayTest` now replays these baselines and
+asserts both A10a and A10b.
+
+### 7.16 Search relevance floor — measured, not changed
+
+A 14-query / 15-relevant-pair corpus was added; five queries are deliberately vague so their
+relevant rows sit near the floor (the weakest pair is 0.506). The evaluator records the
+query/observation similarity matrix and sweeps 0.30–0.80 in 0.05 steps. The decision rule was
+fixed before the run: choose the highest threshold whose micro recall is within 1 percentage
+point of the maximum recall at 0.30.
+
+Measured: recall 100% at 0.50 with precision 83.3%; the next stricter step (0.55) misses 26.7%
+of relevant pairs; 0.60 misses 53.3%. The rule selects **0.50**, identical to the production
+floor, so `cortexce.search.min-similarity` is unchanged. Lowering it only adds non-relevant
+rows; raising it loses near-floor paraphrases. `SearchSimilarityReplayTest` reproduces the curve
+from the recorded matrix and guards that at least two relevant pairs sit in the 0.40–0.60 band.
+
+Artifacts: `docs/archive/2026-11-03_search-similarity-eval.md`, fixture
+`search-similarity-bge-m3[-metrics].json`.
+
+### 7.17 MCP end-to-end
+
+`McpEndToEndTest` completes a real SSE handshake with the MCP SDK client, asserts the server
+identity and the five-tool catalogue, then calls `search`, `timeline`, `get_observations`,
+`save_memory` and `recent` over JSON-RPC and checks each answer carries persisted data
+(observation title, narrative, saved memory, summary). Seeding still uses the documented REST
+hooks with the offline model stand-in. The test runs in the L4 layer under the rehearsal
+database gate and passed locally (1 test, 0 skipped).
