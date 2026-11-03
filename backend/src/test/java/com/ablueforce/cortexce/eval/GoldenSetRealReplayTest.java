@@ -22,35 +22,21 @@ class GoldenSetRealReplayTest {
     @DisplayName("replaying the MiniMax real-history fixture reproduces its committed metrics")
     void minimaxRealReplayReproducesMetrics() throws Exception {
         GoldenSet real = GoldenSetEvaluator.loadGoldenSet("real");
-        GoldenSetScorer.Aggregate agg = score(real, "minimax-real-v9");
-
-        ObjectMapper mapper = new ObjectMapper();
-        try (InputStream in = resource("/eval/fixtures/minimax-real-v9-metrics.json")) {
-            assertThat(in).isNotNull();
-            @SuppressWarnings("unchecked")
-            Map<String, Object> expected = mapper.readValue(in, Map.class);
-            assertThat(agg.total).isEqualTo(intValue(expected, "total"));
-            assertThat(agg.formatErrors).isEqualTo(intValue(expected, "formatErrors"));
-            assertThat(agg.titleIdentifierHitRate)
-                    .isCloseTo(doubleValue(expected, "titleIdentifierHitRate"), within(1e-9));
-            assertThat(agg.titleTraceSubjectHitRate)
-                    .isCloseTo(doubleValue(expected, "titleTraceSubjectHitRate"), within(1e-9));
-            assertThat(agg.titleActionHitRate)
-                    .isCloseTo(doubleValue(expected, "titleActionHitRate"), within(1e-9));
-            assertThat(agg.typeAccuracy)
-                    .isCloseTo(doubleValue(expected, "typeAccuracy"), within(1e-9));
-            assertThat(agg.p95Tokens).isEqualTo(((Number) expected.get("p95Tokens")).longValue());
-        }
+        assertReplay(real, "minimax-real-r10-prompt");
     }
 
     @Test
     @DisplayName("replaying the LongCat real-history fixture reproduces its committed metrics")
     void longcatRealReplayReproducesMetrics() throws Exception {
         GoldenSet real = GoldenSetEvaluator.loadGoldenSet("real");
-        GoldenSetScorer.Aggregate agg = score(real, "longcat-real-v9");
+        assertReplay(real, "longcat-real-r10-prompt");
+    }
+
+    private static void assertReplay(GoldenSet real, String name) throws Exception {
+        GoldenSetScorer.Aggregate agg = score(real, name);
 
         ObjectMapper mapper = new ObjectMapper();
-        try (InputStream in = resource("/eval/fixtures/longcat-real-v9-metrics.json")) {
+        try (InputStream in = resource("/eval/fixtures/" + name + "-metrics.json")) {
             assertThat(in).isNotNull();
             @SuppressWarnings("unchecked")
             Map<String, Object> expected = mapper.readValue(in, Map.class);
@@ -60,8 +46,11 @@ class GoldenSetRealReplayTest {
                     .isCloseTo(doubleValue(expected, "titleIdentifierHitRate"), within(1e-9));
             assertThat(agg.titleActionHitRate)
                     .isCloseTo(doubleValue(expected, "titleActionHitRate"), within(1e-9));
+            assertThat(agg.titleTraceSubjectHitRate)
+                    .isCloseTo(doubleValue(expected, "titleTraceSubjectHitRate"), within(1e-9));
             assertThat(agg.typeAccuracy)
                     .isCloseTo(doubleValue(expected, "typeAccuracy"), within(1e-9));
+            assertThat(agg.p95Tokens).isEqualTo(((Number) expected.get("p95Tokens")).longValue());
         }
     }
 
