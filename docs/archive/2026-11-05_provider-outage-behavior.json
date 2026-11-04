@@ -1,0 +1,79 @@
+{
+  "database": "cortexce_provider_outage",
+  "project": "/tmp/provider-outage",
+  "stub": "http://127.0.0.1:18124",
+  "steps": {
+    "observation_write": {
+      "http_status": 200,
+      "elapsed_ms": 1388.1,
+      "embedding_state": "failed",
+      "db_embedding_state": "failed",
+      "db_embedding_error": "TransientAiException",
+      "rows": 1
+    },
+    "search_without_embedding": {
+      "http_status": 200,
+      "elapsed_ms": 1094.2,
+      "strategy": "tsvector",
+      "fell_back": false,
+      "results": 1,
+      "first_title": "Queue handler drops events at session end"
+    },
+    "circuit_opens": {
+      "jobs": [
+        {
+          "http_status": 200,
+          "body": "{\"status\":\"accepted\"}",
+          "elapsed_ms": 52.8
+        },
+        {
+          "http_status": 200,
+          "body": "{\"status\":\"accepted\"}",
+          "elapsed_ms": 18.5
+        },
+        {
+          "http_status": 200,
+          "body": "{\"status\":\"accepted\"}",
+          "elapsed_ms": 33.3
+        }
+      ],
+      "opened_log_seen": true,
+      "chat_calls": 3,
+      "pending_after_three": "failed/1/UNAVAILABLE,failed/1/UNAVAILABLE,failed/1/UNAVAILABLE"
+    },
+    "circuit_open_fast_fail": {
+      "http_status": 200,
+      "body": "{\"status\":\"accepted\"}",
+      "elapsed_ms": 83.1,
+      "fast_fail_log_seen": true,
+      "chat_calls_before": 3,
+      "chat_calls_after": 3,
+      "extra_provider_calls": 0,
+      "pending_rows": "failed/1/UNAVAILABLE,failed/1/UNAVAILABLE,failed/1/UNAVAILABLE,failed/1/CIRCUIT_OPEN"
+    },
+    "health": {
+      "http_status": 200,
+      "elapsed_ms": 5.0
+    }
+  },
+  "health_seconds": 11.3,
+  "stub_counters": {
+    "chat": 3,
+    "embeddings": 4,
+    "other": 0
+  },
+  "log_lines": {
+    "circuit_opened": 1,
+    "circuit_closed": 0,
+    "fast_fail": 9,
+    "observation_embedding_failed": 1
+  },
+  "longcat_recheck": {
+    "http_status": 402,
+    "verdict": "EXHAUSTED",
+    "message": "AppId:**Q02U Usage limit reached.",
+    "elapsed_ms": 295,
+    "exit_code": 3,
+    "checked_at": "2026-11-05T03:09+08:00"
+  }
+}

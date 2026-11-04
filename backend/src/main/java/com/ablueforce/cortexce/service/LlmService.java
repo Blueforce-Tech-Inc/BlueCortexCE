@@ -259,6 +259,19 @@ public class LlmService {
             if (current instanceof java.net.ConnectException) {
                 return FailureKind.UNAVAILABLE;
             }
+            if (current instanceof java.io.IOException) {
+                // A transport-level failure means the provider answered nothing useful:
+                // a reset, a truncated response, an SSL failure. Observed as UNKNOWN
+                // before this branch, and UNKNOWN closes the circuit, so three real
+                // outages interleaved with a JDK client "header parser received no
+                // bytes" kept the circuit from staying OPEN. Timeout and connect
+                // subtypes are matched above and keep their narrower kinds; an
+                // IOException that only says "timed out" keeps TIMEOUT too.
+                String own = current.getMessage() == null
+                    ? "" : current.getMessage().toLowerCase(Locale.ROOT);
+                return own.contains("timed out") || own.contains("timeout")
+                    ? FailureKind.TIMEOUT : FailureKind.UNAVAILABLE;
+            }
             current = current.getCause();
         }
 

@@ -186,9 +186,11 @@ class SpringAiConfigProviderBranchTest {
         // embeddingModel takes no provider argument at all: the chat switch
         // (openai | anthropic) must not change where embeddings come from.
         assertInstanceOf(OpenAiEmbeddingModel.class,
-                config.embeddingModel(KEY, "https://api.siliconflow.cn", "BAAI/bge-m3", 1024, false));
+                config.embeddingModel(KEY, "https://api.siliconflow.cn", "BAAI/bge-m3", 1024, false,
+                        CONNECT_MS, READ_MS, ATTEMPTS, FIRST_BACKOFF_MS, MAX_BACKOFF_MS));
         assertInstanceOf(OpenAiEmbeddingModel.class,
-                config.embeddingModel(KEY, "https://api.siliconflow.cn", "BAAI/bge-m3", 1024, true));
+                config.embeddingModel(KEY, "https://api.siliconflow.cn", "BAAI/bge-m3", 1024, true,
+                        CONNECT_MS, READ_MS, ATTEMPTS, FIRST_BACKOFF_MS, MAX_BACKOFF_MS));
     }
 
     @Test

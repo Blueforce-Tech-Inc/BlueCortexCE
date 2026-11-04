@@ -13,7 +13,6 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.OpenAiEmbeddingModel;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
-import org.springframework.ai.retry.RetryUtils;
 import org.springframework.ai.retry.TransientAiException;
 import org.springframework.ai.document.MetadataMode;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -251,15 +250,33 @@ public class SpringAiConfig {
             @Value("${spring.ai.openai.embedding.base-url:https://api.siliconflow.cn}") String baseUrl,
             @Value("${spring.ai.openai.embedding.options.model:BAAI/bge-m3}") String model,
             @Value("${spring.ai.openai.embedding.options.dimensions:1024}") Integer dimensions,
-            @Value("${spring.ai.openai.embedding.send-dimensions:false}") boolean sendDimensions) {
+            @Value("${spring.ai.openai.embedding.send-dimensions:false}") boolean sendDimensions,
+            @Value("${claudemem.llm.connect-timeout-ms:5000}") int connectTimeoutMs,
+            @Value("${claudemem.embedding.read-timeout-ms:15000}") int readTimeoutMs,
+            @Value("${claudemem.embedding.retry-max-attempts:2}") int retryMaxAttempts,
+            @Value("${claudemem.embedding.retry-backoff-ms:1000}") long firstBackoffMs,
+            @Value("${claudemem.embedding.retry-max-backoff-ms:3000}") long maxBackoffMs) {
 
         log.info("Creating EmbeddingModel: baseUrl={}, model={}, dimensions={}, sendDimensions={}",
             baseUrl, model, dimensions, sendDimensions);
+
+        // Embedding calls sit on the synchronous request path (observation ingest,
+        // viewer search, context inject), so the ChatModel's read bound and retry
+        // bound have to apply here too. With Spring AI's default template these
+        // paths inherited ten attempts with backoff capped at three minutes, and a
+        // measured outage held one observation write for over 200 s. Embeddings are
+        // short calls, so the read bound is 15 s rather than the chat 120 s.
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(
+            HttpClient.newBuilder()
+                .connectTimeout(Duration.ofMillis(connectTimeoutMs))
+                .build());
+        requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
 
         OpenAiApi openAiApi = OpenAiApi.builder()
             .apiKey(apiKey)
             .baseUrl(baseUrl)
             .embeddingsPath("/v1/embeddings")
+            .restClientBuilder(RestClient.builder().requestFactory(requestFactory))
             .build();
 
         // `dimensions` is an OpenAI-specific request field. Several
@@ -280,6 +297,6 @@ public class SpringAiConfig {
             openAiApi,
             MetadataMode.EMBED,
             options,
-            RetryUtils.DEFAULT_RETRY_TEMPLATE);
+            openAiRetryTemplate(retryMaxAttempts, firstBackoffMs, maxBackoffMs));
     }
 }

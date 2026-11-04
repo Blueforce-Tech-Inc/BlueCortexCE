@@ -310,6 +310,15 @@ claudemem:
       enabled: ${CLAUDEMEM_LLM_CIRCUIT_BREAKER_ENABLED:true}
       failure-threshold: ${CLAUDEMEM_LLM_CIRCUIT_BREAKER_FAILURE_THRESHOLD:3}
       cooldown-ms: ${CLAUDEMEM_LLM_CIRCUIT_BREAKER_COOLDOWN_MS:60000}
+  # Embedding calls run on the synchronous request path (observation ingest, viewer
+  # search, context inject), so they get their own, much shorter read bound and their
+  # own retry budget: a hung provider must not hold a write or a search for minutes
+  # (measured: >200 s with Spring AI's default template of ten attempts).
+  embedding:
+    read-timeout-ms: ${CLAUDEMEM_EMBEDDING_READ_TIMEOUT_MS:15000}
+    retry-max-attempts: ${CLAUDEMEM_EMBEDDING_RETRY_MAX_ATTEMPTS:2}
+    retry-backoff-ms: ${CLAUDEMEM_EMBEDDING_RETRY_BACKOFF_MS:1000}
+    retry-max-backoff-ms: ${CLAUDEMEM_EMBEDDING_RETRY_MAX_BACKOFF_MS:3000}
   # Deterministic post-validation of extracted observations (no model call).
   # Disabling it bypasses every check and persists the parsed answer unchanged.
   extraction:

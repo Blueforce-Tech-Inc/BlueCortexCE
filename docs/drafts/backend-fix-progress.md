@@ -4,6 +4,24 @@
 > **Updated by**: 定时项目维护任务。
 > **Update rule**: 新修复追加到顶部；超过文档增长阈值时保留未完成项并将已完成历史归档。
 
+## 2026-11-05 | provider 全故障：两处缺陷被实测打出来并修掉
+
+**改了什么**：
+1. embedding 模型不再用 Spring AI 的默认重试模板（十次、退避上限 3 分钟），改为 `claudemem.embedding.*`（读超时 15 s、2 次尝试、退避 1→3 s）+ 带读超时的 JDK request factory。它在同步请求路径上（observation 写入、viewer 搜索、context 注入），原默认值能让一个写请求挂住数分钟。
+2. `LlmService.classify` 把 cause 链里的 `IOException` 判为 `UNAVAILABLE`（超时子类型仍保留 `TIMEOUT`）。此前 JDK 客户端的 `HTTP/1.1 header parser received no bytes` 被判 `UNKNOWN`，而 `UNKNOWN` 会**关闭**熔断，于是故障期间熔断开了又立刻关，每个作业都白付一次 provider 往返。
+
+**证据**（`scripts/provider-outage-e2e.py`，恒 500 stub、一次性库、真 jar；报告 `docs/archive/2026-11-05_provider-outage-behavior.md`）：
+- `POST /api/ingest/observation`：**>200 s（超时被杀）→ 1.39 s / 200**，行仍是 `embedding_state=failed`；
+- `GET /api/search`：**→ 1.09 s / 200**，`strategy=tsvector`、有结果、`fell_back=false`；
+- 3 个 tool-use 作业：provider 实际调用 **9 → 3**；熔断只开一次（`circuit_opened=1, circuit_closed=0`），第 4 个作业 **0 次外部调用**、日志命中 fast fail；
+- `mem_pending_messages`：`failed/1/UNAVAILABLE×3`、`failed/1/CIRCUIT_OPEN`，可读可重试；`/api/health` 全程 200。
+
+**没改的**：`fell_back=false`（未请求过 query 向量，语义是"有没有向量可用"而不是"语义检索是否失败"）；WebUI 不消费该字段，改语义会动契约，保留并记录。`embedding_error` 仍是异常类名（`TransientAiException`），稳定且不含请求文本。
+
+**LongCat**：`scripts/recheck-longcat-quota.py` 复核仍是 **HTTP 402 / EXHAUSTED**（exit 3），恢复后打印 `eval-model-quality.sh` 复核命令；不阻塞门禁。
+
+**门禁**：新增 `LlmServiceClassificationTest` 8 例；总数 580 → 588（基线在下一批统一同步）。
+
 ## 2026-11-05 | 响应体剔除内部向量：A/B 实测与下一个杠杆
 
 **改了什么**：`ObservationEntity` 的 `embedding_768/1024/1536` 改为 `@JsonIgnore`。WebUI 硬契约（`hasMore`/`updateFiles`/`CLAUDE_MEM_*`）与其余观察字段不变；导入仍由 `ImportService` 自己的 record 写入向量，不丢向量。`WebUiWireContractTest` 先把三个向量填满再序列化，断言单行与 `/api/search` 信封都不含向量。
