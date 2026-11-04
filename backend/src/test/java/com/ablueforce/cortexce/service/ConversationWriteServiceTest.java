@@ -87,7 +87,8 @@ class ConversationWriteServiceTest {
         when(pendingMessageRepository.countOpenObservationJobs(conversationId)).thenReturn(0L);
         when(pendingMessageRepository.findSummaryJob(
             conversationId, SummaryJobService.JOB_KEY_SESSION_SUMMARY)).thenReturn(Optional.of(summaryJob));
-        when(observationRepository.findDuplicateByContentHash(eq("digest"), anyLong(), any(UUID.class)))
+        when(observationRepository.findDuplicateByContentHash(
+            eq("digest"), anyLong(), any(UUID.class), eq(conversationId)))
             .thenReturn(Optional.empty());
         when(observationRepository.saveAndFlush(observation)).thenReturn(observation);
         when(pendingMessageRepository.completeProcessingObservation(
@@ -113,7 +114,8 @@ class ConversationWriteServiceTest {
         ObservationEntity observation = observation(conversationId);
 
         when(pendingMessageRepository.findById(pendingId)).thenReturn(Optional.of(observationJob));
-        when(observationRepository.findDuplicateByContentHash(eq("digest"), anyLong(), any(UUID.class)))
+        when(observationRepository.findDuplicateByContentHash(
+            eq("digest"), anyLong(), any(UUID.class), eq(conversationId)))
             .thenReturn(Optional.empty());
         when(observationRepository.saveAndFlush(observation)).thenReturn(observation);
         // The conditional UPDATE reports that the row is no longer ours.

@@ -439,14 +439,29 @@ actual duplicate suppression for captures is the `existsBySessionAndTool` check 
 detected (concurrent insert)" that appears to rely on it — but **that constraint
 does not exist in any deployed database**: `application.yml` sets
 `spring.jpa.hibernate.ddl-auto: none` and no Flyway migration creates it, so
-Hibernate never emits it. The only thing actually enforcing dedup is the
-application-level check, which is a non-atomic check-then-act; eight concurrent
-identical tool-use events were measured producing eight rows rather than one.
+Hibernate never emits it.
 See P2-29 in [`drafts/backend-review-findings.md`](drafts/backend-review-findings.md).
 Note also that
 `deepRefineProjectMemories` has no callers anywhere in the codebase, so only
 the `tryExecuteWithProjectLock` site is reachable. Structured extraction is
 event-driven only — see [Structured extraction is not scheduled](drafts/phase-3-design/23.md).
+
+Concurrency is nevertheless correct today: `enqueueToolUse` is `@Transactional`
+and takes a `PESSIMISTIC_WRITE` row lock on the Conversation
+(`lockSessionForUpdate`) before the count, so simultaneous identical tool-use
+events for one session serialise and admit exactly one job. Measured
+2026-11-04: ten concurrent identical hooks produced one pending row and one
+observation. The invariant is therefore "admission is serialised by the session
+lock", not "the database rejects duplicates"; any new admission path that skips
+the lock would regress it.
+
+**Observation content dedup is scoped per conversation.** `content_hash` plus a
+30-second window suppresses a repeat only when it belongs to the same
+Conversation; the memory scope is still part of the predicate so two projects
+can never suppress each other. The earlier scope-only filter let two sessions on
+one project hide identical observations from each other and returned the other
+session's row to the caller.
+
 
 #### Core Pipeline: Observation Creation
 

@@ -433,12 +433,22 @@ process.exit(0);
 `catch (DataIntegrityViolationException)` 看起来依赖它——但**该约束在任何已部署的
 数据库里都不存在**：`application.yml` 设的是 `spring.jpa.hibernate.ddl-auto: none`，
 且没有任何 Flyway 迁移创建它，故 Hibernate 永远不会生成。真正在执行去重的只有应用层
-那道检查，而它是**非原子的先查后写**：实测 8 个并发的相同 tool-use 事件落了 **8 行**
-而非 1 行。参见
-[P2-29](drafts/backend-review-findings.md)。另外注意
+那道检查。
+参见 [P2-29](drafts/backend-review-findings.md)。另外注意
 `deepRefineProjectMemories` 在整个代码库中没有任何调用方，因此只有
 `tryExecuteWithProjectLock` 那一处是可达的。结构化抽取**完全由事件驱动**，
 参见 [抽取并非定时执行](drafts/phase-3-design/23.md)。
+
+并发下当前行为仍然正确：`enqueueToolUse` 带 `@Transactional`，在计数之前对
+Conversation 行取 `PESSIMISTIC_WRITE` 锁（`lockSessionForUpdate`），所以同一 session
+上并发的相同 tool-use 事件会串行化，最终只准入 1 个任务。2026-11-04 实测：10 个并发
+相同 hook 只产生 1 条待处理任务和 1 条 observation。真正的约束是"准入由 session 行锁
+串行化"，而不是"数据库拒绝重复"；任何绕开该锁的新准入路径都会让这一保证回退。
+
+**Observation 内容去重按 Conversation 隔离。** `content_hash` + 30 秒窗口只在同一条
+Conversation 内抑制重复；memory scope 仍然参与条件，因此两个项目不会互相抑制。此前
+只按 scope 过滤，导致同一项目下两个 session 的相同内容互相吞掉，并把对方的行返回给
+调用方。
 
 #### 核心流程：观察创建
 

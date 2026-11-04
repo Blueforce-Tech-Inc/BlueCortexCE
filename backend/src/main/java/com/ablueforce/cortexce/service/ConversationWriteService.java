@@ -210,7 +210,8 @@ public class ConversationWriteService {
         }
 
         Optional<ObservationEntity> duplicate = observationRepository.findDuplicateByContentHash(
-            observation.getContentHash(), duplicateWindowStartEpoch, observation.getMemoryScopeId());
+            observation.getContentHash(), duplicateWindowStartEpoch,
+            observation.getMemoryScopeId(), conversationId);
         ObservationEntity saved = duplicate.orElseGet(() -> observationRepository.saveAndFlush(observation));
 
         if (pending != null) {

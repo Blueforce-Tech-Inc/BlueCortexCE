@@ -836,29 +836,35 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // ==========================================================================
 
     /**
-     * Find duplicate observation by content_hash within a time window.
-     * Aligns with TypeScript version's DEDUP_WINDOW_MS = 30000 (30 seconds).
+     * Find duplicate observation by content_hash within a time window, scoped to one
+     * conversation. Aligns with TypeScript version's DEDUP_WINDOW_MS = 30000 (30 seconds).
+     *
+     * <p>The conversation scope is required, not an optional refinement: two sessions
+     * running against the same project write into the same memory scope, so filtering on
+     * the scope alone would let one session's observation suppress an identical
+     * observation from another session and hand the caller a row it does not own. The
+     * scope filter stays as well, so identical content in two different projects can
+     * never suppress each other.
      *
      * @param contentHash SHA-256 hash of observation content (16 chars)
      * @param windowStart Epoch timestamp for the start of the dedup window
-     * @param memoryScopeId Resolved scope id scoping the search — required. The backing
-     *                    native query filters {@code memory_scope_id = :memoryScopeId}, so it
-     *                    is not an optional refinement: omitting it would widen the search
-     *                    across every scope on the instance. Two projects with the same
-     *                    content hash must not suppress each other.
-     * @return Existing observation if found within window, null otherwise
+     * @param memoryScopeId Resolved scope id scoping the search — required
+     * @param conversationId Conversation that owns the candidate duplicate
+     * @return Existing observation if found within the window, null otherwise
      */
     @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE content_hash = :contentHash
         AND created_at_epoch > :windowStart
         AND memory_scope_id = :memoryScopeId
+        AND conversation_id = :conversationId
         ORDER BY created_at_epoch DESC
         LIMIT 1
         """, nativeQuery = true)
     Optional<ObservationEntity> findDuplicateByContentHash(
         @Param("contentHash") String contentHash,
         @Param("windowStart") long windowStart,
-        @Param("memoryScopeId") UUID memoryScopeId
+        @Param("memoryScopeId") UUID memoryScopeId,
+        @Param("conversationId") UUID conversationId
     );
 
     // ==========================================================================
