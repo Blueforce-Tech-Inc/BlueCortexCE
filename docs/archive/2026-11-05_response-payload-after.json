@@ -1,0 +1,335 @@
+{
+  "dataset": {
+    "database": "cortexce_load",
+    "observations": 1000198,
+    "with_embedding_1024": 20195,
+    "project": "/tmp/cortexce-load-project",
+    "index": "idx_obs_embedding_1024"
+  },
+  "config": {
+    "limit": 20,
+    "repeats": 10
+  },
+  "sql": {
+    "avg_vector_text_bytes": 6021,
+    "max_vector_text_bytes": 6075
+  },
+  "summary": {
+    "search_zh": {
+      "requests": 10,
+      "mean_kb": 24.9,
+      "p50_ms": 64.81,
+      "p95_ms": 155.07,
+      "p99_ms": 155.07,
+      "max_ms": 155.07,
+      "mean_items": 20.0,
+      "vector_share_pct": 0.0,
+      "responses_with_vectors": 0
+    },
+    "search_en": {
+      "requests": 10,
+      "mean_kb": 24.9,
+      "p50_ms": 57.3,
+      "p95_ms": 123.12,
+      "p99_ms": 123.12,
+      "max_ms": 123.12,
+      "mean_items": 20.0,
+      "vector_share_pct": 0.0,
+      "responses_with_vectors": 0
+    },
+    "observations": {
+      "requests": 10,
+      "mean_kb": 24.5,
+      "p50_ms": 316.3,
+      "p95_ms": 398.08,
+      "p99_ms": 398.08,
+      "max_ms": 398.08,
+      "mean_items": 20.0,
+      "vector_share_pct": 0.0,
+      "responses_with_vectors": 0
+    },
+    "all": {
+      "requests": 30,
+      "mean_kb": 24.7,
+      "p50_ms": 85.43,
+      "p95_ms": 372.14,
+      "p99_ms": 398.08,
+      "max_ms": 398.08,
+      "mean_items": 20.0,
+      "vector_share_pct": 0.0,
+      "responses_with_vectors": 0
+    }
+  },
+  "samples": [
+    {
+      "kind": "search_zh",
+      "status": 200,
+      "bytes": 25470,
+      "latency_ms": 64.81,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_zh",
+      "status": 200,
+      "bytes": 25471,
+      "latency_ms": 80.14,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_zh",
+      "status": 200,
+      "bytes": 25468,
+      "latency_ms": 155.07,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_zh",
+      "status": 200,
+      "bytes": 25473,
+      "latency_ms": 59.81,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_zh",
+      "status": 200,
+      "bytes": 25474,
+      "latency_ms": 48.61,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_zh",
+      "status": 200,
+      "bytes": 25472,
+      "latency_ms": 93.83,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_zh",
+      "status": 200,
+      "bytes": 25471,
+      "latency_ms": 55.17,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_zh",
+      "status": 200,
+      "bytes": 25469,
+      "latency_ms": 85.43,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_zh",
+      "status": 200,
+      "bytes": 25475,
+      "latency_ms": 56.36,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_zh",
+      "status": 200,
+      "bytes": 25472,
+      "latency_ms": 42.97,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_en",
+      "status": 200,
+      "bytes": 25471,
+      "latency_ms": 39.99,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_en",
+      "status": 200,
+      "bytes": 25472,
+      "latency_ms": 57.3,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_en",
+      "status": 200,
+      "bytes": 25418,
+      "latency_ms": 88.33,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_en",
+      "status": 200,
+      "bytes": 25419,
+      "latency_ms": 44.96,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_en",
+      "status": 200,
+      "bytes": 25476,
+      "latency_ms": 50.26,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_en",
+      "status": 200,
+      "bytes": 25470,
+      "latency_ms": 67.6,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_en",
+      "status": 200,
+      "bytes": 25475,
+      "latency_ms": 84.44,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_en",
+      "status": 200,
+      "bytes": 25416,
+      "latency_ms": 35.01,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_en",
+      "status": 200,
+      "bytes": 25418,
+      "latency_ms": 37.86,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "search_en",
+      "status": 200,
+      "bytes": 25473,
+      "latency_ms": 123.12,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "observations",
+      "status": 200,
+      "bytes": 25119,
+      "latency_ms": 301.67,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "observations",
+      "status": 200,
+      "bytes": 25115,
+      "latency_ms": 347.66,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "observations",
+      "status": 200,
+      "bytes": 25113,
+      "latency_ms": 398.08,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "observations",
+      "status": 200,
+      "bytes": 25111,
+      "latency_ms": 369.66,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "observations",
+      "status": 200,
+      "bytes": 25048,
+      "latency_ms": 285.33,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "observations",
+      "status": 200,
+      "bytes": 25010,
+      "latency_ms": 248.4,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "observations",
+      "status": 200,
+      "bytes": 25021,
+      "latency_ms": 372.14,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "observations",
+      "status": 200,
+      "bytes": 25017,
+      "latency_ms": 287.25,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "observations",
+      "status": 200,
+      "bytes": 25002,
+      "latency_ms": 272.05,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    },
+    {
+      "kind": "observations",
+      "status": 200,
+      "bytes": 24967,
+      "latency_ms": 316.3,
+      "items": 20,
+      "vector_bytes": 0,
+      "vector_items": 0
+    }
+  ]
+}

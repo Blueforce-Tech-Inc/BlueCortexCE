@@ -2,6 +2,7 @@ package com.ablueforce.cortexce.controller;
 
 import com.ablueforce.cortexce.config.AppSettings;
 import com.ablueforce.cortexce.dto.ApiResponses;
+import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -162,6 +164,41 @@ class WebUiWireContractTest {
                 "CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS")) {
             assertInstanceOf(String.class, snapshot.get(key), key + " must be a string for the viewer");
         }
+    }
+
+    @Test
+    @DisplayName("observation payloads never carry the internal vector columns")
+    void observationPayloadsNeverCarryInternalVectors() throws Exception {
+        // The columns are internal: callers select rows by text, and 79% of a search
+        // page used to be three float arrays nobody reads. The vector fields are set
+        // here on purpose — without that, a regression that re-adds @JsonProperty
+        // would still serialize nulls and this test would be vacuous.
+        ObservationEntity observation = new ObservationEntity();
+        observation.setTitle("pinned");
+        observation.setEmbedding768(new float[768]);
+        observation.setEmbedding1024(new float[1024]);
+        observation.setEmbedding1536(new float[1536]);
+
+        assertArrayEquals(new float[1024], observation.getEmbedding1024(),
+            "positive control: the entity must still hold the vector in memory");
+
+        Set<String> forbidden = Set.of("embedding_768", "embedding_1024", "embedding_1536");
+        Map<String, Object> row = wire(observation);
+        assertTrue(java.util.Collections.disjoint(row.keySet(), forbidden),
+            "observation payload leaked an internal vector column: " + row.keySet());
+        // Field names the viewer and the export script read must survive the removal.
+        for (String kept : List.of("id", "content_hash", "platform_source", "memory_scope_type")) {
+            assertTrue(row.containsKey(kept), "removing vectors also dropped " + kept);
+        }
+
+        Map<String, Object> envelope = wire(new ApiResponses.SearchResponse(
+            List.of(observation), "vector", false, 1));
+        assertEquals(Set.of("observations", "strategy", "fell_back", "count"),
+            envelope.keySet(), "GET /api/search envelope changed");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> item = ((List<Map<String, Object>>) envelope.get("observations")).get(0);
+        assertTrue(java.util.Collections.disjoint(item.keySet(), forbidden),
+            "GET /api/search leaked an internal vector column: " + item.keySet());
     }
 
     @Test

@@ -175,6 +175,12 @@ def render(facts: dict, summary: dict, config: dict, sql_facts: dict, label: str
         "in the parsed response (compact separators) and dividing the average array",
         "bytes by the average raw body bytes.",
         "",
+        f"Latency here is sequential with {config['repeats']} samples per kind, so p95/p99",
+        "is effectively the slowest sample and moves with unrelated host load. The",
+        "before/after latency claim comes from the 180 s concurrent harness",
+        "(`scripts/read-load-mixed.py`), not from this table; the unambiguous part is",
+        "the body size and the vector share.",
+        "",
     ]
     return "\n".join(lines)
 
