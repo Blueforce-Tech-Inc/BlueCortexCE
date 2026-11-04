@@ -382,12 +382,18 @@ public class AppSettings {
         map.put("CLAUDE_MEM_PROVIDER", getProvider());
         map.put("CLAUDE_MEM_MODEL", getModel());
         map.put("CLAUDE_MEM_LOG_LEVEL", getLogLevel());
-        map.put("CLAUDE_MEM_CONTEXT_OBSERVATIONS", getContextObservationsInt());
-        map.put("CLAUDE_MEM_CONTEXT_FULL_COUNT", getContextFullCountInt());
+        // The viewer treats these as env-style strings and calls .trim() on them
+        // (useContextPreview.ts); returning numbers throws
+        // "CLAUDE_MEM_CONTEXT_OBSERVATIONS?.trim is not a function".
+        map.put("CLAUDE_MEM_CONTEXT_OBSERVATIONS", getContextObservations());
+        map.put("CLAUDE_MEM_CONTEXT_FULL_COUNT", getContextFullCount());
         map.put("CLAUDE_MEM_CONTEXT_FULL_FIELD", getContextFullField());
-        map.put("CLAUDE_MEM_CONTEXT_SESSION_COUNT", getContextSessionCountInt());
-        map.put("CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES", getContextObservationTypesList());
-        map.put("CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS", getContextObservationConceptsList());
+        map.put("CLAUDE_MEM_CONTEXT_SESSION_COUNT", getContextSessionCount());
+        // The viewer contract for these two is a comma-separated string that it
+        // calls .trim() on (useContextPreview.ts); returning List here throws
+        // "CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES?.trim is not a function".
+        map.put("CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES", getEnvOrDefault("CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES", contextObservationTypes));
+        map.put("CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS", getEnvOrDefault("CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS", contextObservationConcepts));
         map.put("CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS", getContextMaxObservationsInt());
         map.put("CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS", isContextShowReadTokens());
         map.put("CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS", isContextShowWorkTokens());

@@ -17,6 +17,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -150,6 +151,16 @@ class WebUiWireContractTest {
         for (String key : snapshot.keySet()) {
             assertTrue(key.startsWith("CLAUDE_MEM_"),
                 "GET /api/settings must only expose CLAUDE_MEM_* keys, found: " + key);
+        }
+        // useContextPreview.ts calls `.trim()` on these, so JSON numbers/arrays here
+        // throw "CLAUDE_MEM_CONTEXT_OBSERVATIONS?.trim is not a function" in the browser.
+        for (String key : List.of(
+                "CLAUDE_MEM_CONTEXT_OBSERVATIONS",
+                "CLAUDE_MEM_CONTEXT_FULL_COUNT",
+                "CLAUDE_MEM_CONTEXT_SESSION_COUNT",
+                "CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES",
+                "CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS")) {
+            assertInstanceOf(String.class, snapshot.get(key), key + " must be a string for the viewer");
         }
     }
 }
