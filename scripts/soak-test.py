@@ -169,10 +169,20 @@ def metric(body: str, name: str, tag: str | None = None) -> float:
     return float("nan") if total is None else total
 
 
-def sample(port: int, elapsed: float) -> dict:
+def sample(port: int, elapsed: float, pid: int, force_gc: bool) -> dict:
+    gc_ok = None
+    if force_gc:
+        # Heap *used* includes garbage that has not been collected yet, so a rising
+        # number on its own cannot distinguish a leak from a pending young-gen
+        # collection. Forcing a collection makes the sample the live set.
+        result = subprocess.run(["jcmd", str(pid), "GC.run"], capture_output=True,
+                                text=True, timeout=60)
+        gc_ok = result.returncode == 0
+        time.sleep(0.8)
     _, body, _ = call(port, "GET", "/actuator/prometheus", timeout=10)
     record = {
         "elapsed_s": round(elapsed, 1),
+        "gc_ok": gc_ok,
         "heap_used_bytes": metric(body, "jvm_memory_used_bytes", 'area="heap"'),
         "heap_max_bytes": metric(body, "jvm_memory_max_bytes", 'area="heap"'),
         "threads_live": metric(body, "jvm_threads_live_threads"),
@@ -205,10 +215,29 @@ def percentile(values: list[float], p: float) -> float:
     return ordered[min(len(ordered) - 1, int(round((p / 100) * (len(ordered) - 1))))]
 
 
+def slope_per_minute(points: list[tuple[float, float]]) -> float:
+    """Least-squares slope of (minutes, value); 0 when there are fewer than two points."""
+    if len(points) < 2:
+        return 0.0
+    mean_x = sum(x for x, _ in points) / len(points)
+    mean_y = sum(y for _, y in points) / len(points)
+    variance = sum((x - mean_x) ** 2 for x, _ in points)
+    if variance == 0:
+        return 0.0
+    return sum((x - mean_x) * (y - mean_y) for x, y in points) / variance
+
+
 def verdict(samples: list[dict], search_latencies: list[float],
-            ingest_failures: int, search_failures: int) -> dict:
-    heaps = [s["heap_used_bytes"] for s in samples if s["heap_used_bytes"] == s["heap_used_bytes"]]
-    threads = [s["threads_live"] for s in samples]
+            ingest_failures: int, search_failures: int, warmup: int) -> dict:
+    # The first samples are startup and JIT warmup: threads grow from 27 to 42 within
+    # the first five minutes and then stay flat for the rest of the hour. Comparing
+    # the last sample with t=0 reports that warmup as a leak, so the baseline is the
+    # first sample after the warmup window.
+    start = min(warmup, max(0, len(samples) - 1))
+    mature = samples[start:]
+    heaps = [s["heap_used_bytes"] for s in mature
+             if s["heap_used_bytes"] == s["heap_used_bytes"]]
+    threads = [s["threads_live"] for s in mature]
     active = [s["hikari_active"] for s in samples]
     pending_conn = [s["hikari_pending"] for s in samples]
     failed = [s["queue_failed"] for s in samples if s["queue_failed"] == s["queue_failed"]]
@@ -217,15 +246,22 @@ def verdict(samples: list[dict], search_latencies: list[float],
         "WHERE status = 'processing' AND started_processing_at_epoch < "
         f"{int(time.time() * 1000) - 600_000};") or 0)
     first_heap = heaps[0] if heaps else 0.0
-    growth = (heaps[-1] - first_heap) / first_heap if first_heap else 0.0
+    last_heap = heaps[-1] if heaps else 0.0
+    growth = (last_heap - first_heap) / first_heap if first_heap else 0.0
+    heap_slope = slope_per_minute(
+        [(s["elapsed_s"] / 60, s["heap_used_bytes"]) for s in mature
+         if s["heap_used_bytes"] == s["heap_used_bytes"]])
     monotonic = sum(1 for before, after in zip(heaps, heaps[1:]) if after > before)
+    first_threads = threads[0] if threads else 0
     return {
+        "warmup_samples": start,
         "heap_first": first_heap,
-        "heap_last": heaps[-1] if heaps else 0.0,
+        "heap_last": last_heap,
         "heap_growth_ratio": round(growth, 4),
+        "heap_slope_mb_per_min": round(heap_slope / 1e6, 3),
         "heap_monotonic_steps": monotonic,
         "heap_steps": max(0, len(heaps) - 1),
-        "threads_first": threads[0] if threads else 0,
+        "threads_first": first_threads,
         "threads_max": max(threads) if threads else 0,
         "hikari_active_max": max(active) if active else 0,
         "hikari_pending_max": max(pending_conn) if pending_conn else 0,
@@ -236,8 +272,10 @@ def verdict(samples: list[dict], search_latencies: list[float],
         "search_failures": search_failures,
         "search_p50_ms": round(percentile(search_latencies, 50) * 1000, 2),
         "search_p95_ms": round(percentile(search_latencies, 95) * 1000, 2),
-        "pass_memory": growth <= HEAP_GROWTH_LIMIT,
-        "pass_threads": (max(threads) - threads[0]) <= THREAD_GROWTH_LIMIT if threads else True,
+        # A leak has to keep climbing: a one-off warmup step inside the first samples
+        # cannot produce both a 15% rise and a positive slope over the mature window.
+        "pass_memory": not (growth > HEAP_GROWTH_LIMIT and heap_slope / 1e6 > 0.5),
+        "pass_threads": (max(threads) - first_threads) <= THREAD_GROWTH_LIMIT if threads else True,
         "pass_connections": max(pending_conn, default=0) == 0,
         "pass_failed": max(failed, default=0) == 0,
         "pass_stuck": stuck == 0,
@@ -255,6 +293,8 @@ def render(result: dict, parser_args) -> str:
         f"search every {parser_args.search_interval} s; sample every {parser_args.sample_interval} s",
         f"- Model: real provider (`{ENV.get('OPENAI_MODEL', '')}` "
         f"at `{ENV.get('OPENAI_BASE_URL', '')}`), real embeddings; database {DATABASE}",
+        f"- Heap sampling: {'forced GC before each sample (live set)' if parser_args.force_gc else 'used heap as-is'}",
+        f"- Leak baseline: first sample after {parser_args.warmup_samples} warmup sample(s)",
         f"- Verdict: {'PASS' if all(checks.values()) else 'FAIL'} "
         f"({sum(1 for value in checks.values() if value)}/{len(checks)} checks)",
         "",
@@ -278,9 +318,10 @@ def render(result: dict, parser_args) -> str:
     lines += [f"- {'PASS' if value else 'FAIL'} — {key[5:]}" for key, value in checks.items()]
     lines += [
         "",
-        f"- Heap: first {result['verdict']['heap_first'] / 1e6:.0f} MB, last "
+        f"- Heap (mature window): first {result['verdict']['heap_first'] / 1e6:.0f} MB, last "
         f"{result['verdict']['heap_last'] / 1e6:.0f} MB, growth "
-        f"{result['verdict']['heap_growth_ratio'] * 100:.1f}%, monotonic "
+        f"{result['verdict']['heap_growth_ratio'] * 100:.1f}%, slope "
+        f"{result['verdict']['heap_slope_mb_per_min']:+.2f} MB/min, monotonic "
         f"{result['verdict']['heap_monotonic_steps']}/{result['verdict']['heap_steps']} steps",
         f"- Threads: first {result['verdict']['threads_first']}, max {result['verdict']['threads_max']}",
         f"- Hikari: active max {result['verdict']['hikari_active_max']}, pending max "
@@ -305,6 +346,10 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=37779)
     parser.add_argument("--report", default="docs/archive/" + time.strftime("%Y-%m-%d") + "_soak-1h.md")
     parser.add_argument("--metrics-out", default="docs/archive/" + time.strftime("%Y-%m-%d") + "_soak-1h.json")
+    parser.add_argument("--warmup-samples", type=int, default=1,
+                        help="samples excluded from the leak baseline (startup + JIT)")
+    parser.add_argument("--no-force-gc", dest="force_gc", action="store_false",
+                        help="sample used heap without forcing a collection first")
     parser.add_argument("--keep-db", action="store_true")
     args = parser.parse_args()
 
@@ -332,7 +377,7 @@ def main() -> int:
         while time.time() - started < args.duration:
             now = time.time()
             if now >= next_sample:
-                samples.append(sample(args.port, now - started))
+                samples.append(sample(args.port, now - started, app.pid, args.force_gc))
                 next_sample += args.sample_interval
             if now >= next_ingest:
                 index = ingests
@@ -366,7 +411,7 @@ def main() -> int:
                     print(f"  search -> {status} {body[:120]}")
                 next_search += args.search_interval
             time.sleep(0.2)
-        samples.append(sample(args.port, time.time() - started))
+        samples.append(sample(args.port, time.time() - started, app.pid, args.force_gc))
     finally:
         app.terminate()
         try:
@@ -377,7 +422,8 @@ def main() -> int:
     result = {
         "samples": samples,
         "requests": {"searches": searches, "ingests": ingests},
-        "verdict": verdict(samples, search_latencies, ingest_failures, search_failures),
+        "verdict": verdict(samples, search_latencies, ingest_failures, search_failures,
+                           args.warmup_samples),
     }
     report_path = ROOT / args.report
     report_path.parent.mkdir(parents=True, exist_ok=True)
