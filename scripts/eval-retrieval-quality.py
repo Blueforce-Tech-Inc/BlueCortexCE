@@ -34,6 +34,7 @@ import argparse
 import json
 import math
 import os
+import random
 import re
 import statistics
 import subprocess
@@ -65,6 +66,9 @@ POOL_DEPTHS = (40, 100, 200)
 # production depth, so any delta is attributable to vectors the fused top-40
 # never saw. 400 is the corpus-sized ceiling (188 at the time of writing).
 VECTOR_DEPTHS = (100, 200, 400)
+# Round 21: vector:lexical RRF ratios. 1:2 is the production baseline; the
+# sweep asks whether the lexical half really is the bottleneck K3 suggested.
+FUSION_WEIGHTS = (0.5, 1.0, 1.5, 2.0, 3.0)
 
 
 def load_env() -> dict:
@@ -362,7 +366,8 @@ def rank_hybrid(query: str, query_vector: str, min_similarity: float,
 
 def hybrid_pool(query: str, query_vector: str, min_similarity: float,
                 limit: int = PRODUCTION_LIMIT,
-                semantic_limit: int | None = None) -> list[dict]:
+                semantic_limit: int | None = None,
+                lexical_weight: float = LEXICAL_WEIGHT) -> list[dict]:
     """The fused top-N with the metadata a reranker needs: fused score, time, title.
 
     `semantic_limit` widens only the vector list; the lexical list and the final
@@ -401,7 +406,7 @@ def hybrid_pool(query: str, query_vector: str, min_similarity: float,
             FROM (
                 SELECT id, 1.0 / (60 + rank) AS score FROM semantic_ranked
                 UNION ALL
-                SELECT id, {LEXICAL_WEIGHT} / (60 + rank) AS score FROM lexical_ranked
+                SELECT id, {lexical_weight} / (60 + rank) AS score FROM lexical_ranked
             ) parts
             GROUP BY id
         )
@@ -821,6 +826,30 @@ def summarize(rows: list[dict]) -> dict:
     }
 
 
+def bootstrap_delta(rows: list[dict], base_key: str, candidate_key: str,
+                    metric: str, iterations: int = 2000) -> dict:
+    """Paired query-level bootstrap of (candidate - baseline) for one metric.
+
+    A repeated run of the same configuration is deterministic, so it cannot
+    estimate how much of a delta could be corpus noise. Resampling the 90
+    queries with their paired scores does: the returned interval is the noise
+    band the candidate must clear.
+    """
+    rng = random.Random(20261104)
+    deltas: list[float] = []
+    for _ in range(iterations):
+        sample = [rows[rng.randrange(len(rows))] for _ in range(len(rows))]
+        base = statistics.fmean(row[base_key][metric] for row in sample)
+        candidate = statistics.fmean(row[candidate_key][metric] for row in sample)
+        deltas.append(candidate - base)
+    return {
+        "delta": round(statistics.fmean(
+            row[candidate_key][metric] - row[base_key][metric] for row in rows), 4),
+        "ci_low": round(percentile(deltas, 2.5), 4),
+        "ci_high": round(percentile(deltas, 97.5), 4),
+    }
+
+
 def render_report(result: dict, corpus_path: Path) -> str:
     lines = [
         "# Retrieval quality: real session-history queries",
@@ -907,6 +936,63 @@ def render_report(result: dict, corpus_path: Path) -> str:
         )
     lines += [
         "",
+        "## RRF weight sweep (round 21)",
+        "",
+        "Lexical weight in the RRF sum; vector weight is fixed at 1.0. Baseline is 2.0.",
+        "Delta and the 95% interval are paired query-level bootstrap values.",
+        "",
+        "| lexical weight | hit@1 | hit@5 | MRR | +7d hit@1 | +7d hit@5 | +7d MRR | "
+        "d hit@1 [95% CI] | d hit@5 [95% CI] | d MRR [95% CI] | mean ms |",
+        "|---:|---:|---:|---:|---:|---:|---:|---|---|---|---:|",
+    ]
+    for weight in result.get("round21", {}).get("fusion_weights", []):
+        item = result["round21"]["weights"][f"{weight:g}"]
+        fused = result["summary"][f"weight_{weight:g}"]
+        decayed = item["summary"]
+        def interval(metric):
+            value = item["delta"][metric]
+            return f"{value['delta']:+.3f} [{value['ci_low']:+.3f}, {value['ci_high']:+.3f}]"
+        lines.append(
+            f"| {weight:g} | {fused['hit@1']:.3f} | {fused['hit@5']:.3f} | {fused['mrr']:.3f} | "
+            f"{decayed['hit@1']:.3f} | {decayed['hit@5']:.3f} | {decayed['mrr']:.3f} | "
+            f"{interval('hit@1')} | {interval('hit@5')} | {interval('mrr')} | "
+            f"{item['latency_ms']['mean']:.1f} |"
+        )
+    primary = result["round21"]["vector_primary"]
+    primary_cells = " | ".join(
+        f"{primary['delta'][metric]['delta']:+.3f} "
+        f"[{primary['delta'][metric]['ci_low']:+.3f}, {primary['delta'][metric]['ci_high']:+.3f}]"
+        for metric in ("hit@1", "hit@5", "mrr"))
+    lines.append(
+        f"| vector-primary | - | - | - | {primary['summary']['hit@1']:.3f} | "
+        f"{primary['summary']['hit@5']:.3f} | {primary['summary']['mrr']:.3f} | "
+        f"{primary_cells} | - |"
+    )
+    noise = result["round21"]["repeat_noise"]
+    lines += [
+        "",
+        f"Repeat-run noise (same configuration three times): hit@1 {noise['hit@1']:.3f}, "
+        f"hit@5 {noise['hit@5']:.3f}, MRR {noise['mrr']:.3f}.",
+        "",
+        "### Per-language (7-day decay)",
+        "",
+        "| language | queries | baseline hit@1/5/MRR | best weight | best hit@1/5/MRR | "
+        "vector-primary hit@1/5/MRR | lexical empty |",
+        "|---|---:|---|---|---|---|---:|",
+    ]
+    for language, item in result["round21"]["languages"].items():
+        base = item["baseline"]
+        best_weight, best = max(item["weights"].items(),
+                                key=lambda pair: (pair[1]["hit@5"], pair[1]["mrr"]))
+        initial = item["vector_primary"]
+        lines.append(
+            f"| {language} | {item['queries']} | {base['hit@1']:.3f} / {base['hit@5']:.3f} / "
+            f"{base['mrr']:.3f} | {best_weight} | {best['hit@1']:.3f} / {best['hit@5']:.3f} / "
+            f"{best['mrr']:.3f} | {initial['hit@1']:.3f} / {initial['hit@5']:.3f} / "
+            f"{initial['mrr']:.3f} | {item['lexical_empty']} |"
+        )
+    lines += [
+        "",
         "## Language split (round 16 contrast set)",
         "",
         "| language | queries | hybrid hit@1 | hybrid hit@5 | hybrid MRR | merge+recency hit@1 |",
@@ -988,10 +1074,15 @@ def main() -> int:
     parser.add_argument("--vector-depths",
                         default=",".join(str(d) for d in VECTOR_DEPTHS),
                         help="comma-separated vector-only candidate depths (round 20)")
+    parser.add_argument("--fusion-weights",
+                        default=",".join(str(w) for w in FUSION_WEIGHTS),
+                        help="comma-separated lexical weights in RRF (round 21)")
     parser.add_argument("--keep-db", action="store_true")
     args = parser.parse_args()
     pool_depths = tuple(int(value) for value in args.pool_depths.split(",") if value.strip())
     vector_depths = tuple(int(value) for value in args.vector_depths.split(",") if value.strip())
+    fusion_weights = tuple(float(value) for value in args.fusion_weights.split(",")
+                           if value.strip())
 
     corpus_path = ROOT / args.corpus
     corpus = json.loads(corpus_path.read_text())
@@ -1076,6 +1167,34 @@ def main() -> int:
             row[f"vecdeep_{depth}_decay7d"] = metrics(
                 [item["id"] for item in rerank_time_decay(deep_pool, reference_ms, 7)],
                 relevant)
+        # Round 21: RRF weight sweep and the vector-primary/lexical-fallback
+        # alternative. Both reuse the production top-40 cut and 7-day decay, so
+        # only the ordering rule changes.
+        for weight in fusion_weights:
+            started = time.perf_counter()
+            weighted = hybrid_pool(query["text"], vector_literal(vector), 0.5,
+                                   limit=PRODUCTION_LIMIT, lexical_weight=weight)
+            row["latency_ms"][f"weight_{weight:g}"] = (time.perf_counter() - started) * 1000
+            row[f"weight_{weight:g}"] = metrics([item["id"] for item in weighted], relevant)
+            row[f"weight_{weight:g}_decay7d"] = metrics(
+                [item["id"] for item in rerank_time_decay(weighted, reference_ms, 7)],
+                relevant)
+        vector_primary_ids = rank_vector(vector_literal(vector), PRODUCTION_LIMIT)
+        if not vector_primary_ids:
+            vector_primary_ids = rank_fulltext(query["text"], PRODUCTION_LIMIT)
+        vector_primary = [{"id": item_id, "score": 1.0 / (index + 1),
+                           "epoch": observed_at.get(item_id, reference_ms)}
+                          for index, item_id in enumerate(vector_primary_ids)]
+        row["vector_primary"] = metrics(vector_primary_ids, relevant)
+        row["vector_primary_decay7d"] = metrics(
+            [item["id"] for item in rerank_time_decay(vector_primary, reference_ms, 7)],
+            relevant)
+        # Repeat the production configuration to measure run-to-run noise. It is
+        # deterministic, so this pins the pipeline rather than the corpus noise;
+        # the bootstrap below supplies the sampling band.
+        for repeat in (2, 3):
+            repeated = hybrid_pool(query["text"], vector_literal(vector), 0.5)
+            row[f"repeat_{repeat}"] = metrics([item["id"] for item in repeated], relevant)
         # Round 18: pool depth sweep. Same fusion and same 7-day recency rerank as
         # production; the only variable is how many fused candidates are fetched.
         for depth in pool_depths:
@@ -1165,6 +1284,9 @@ def main() -> int:
     summary_names += [f"pool_{depth}_decay7d" for depth in pool_depths]
     summary_names += [f"vecdeep_{depth}" for depth in vector_depths]
     summary_names += [f"vecdeep_{depth}_decay7d" for depth in vector_depths]
+    summary_names += [f"weight_{weight:g}" for weight in fusion_weights]
+    summary_names += [f"weight_{weight:g}_decay7d" for weight in fusion_weights]
+    summary_names += ["vector_primary", "vector_primary_decay7d", "repeat_2", "repeat_3"]
     summary_names += [f"cluster_{label}_{weight}"
                       for label in ("session", "file", "both") for weight in CLUSTER_WEIGHTS]
     summary_names += ["hybrid_queryident_decay7d", "hybrid_queryident_cluster_decay7d"]
@@ -1178,13 +1300,13 @@ def main() -> int:
         "summary": {name: summarize([row[name] for row in rows]) for name in summary_names},
         "by_language": {
             language: {name: summarize([row[name] for row in rows if row["language"] == language])
-                       for name in ("vector", "lexical", "hybrid", "hybrid_dedupe",
-                                    "hybrid_decay_30d", "hybrid_dedupe_decay30d")}
+                       for name in summary_names}
             for language in sorted({row["language"] for row in rows})
         },
         "rows": rows,
     }
-    latency_keys = ["pool"] + [f"vecdeep_{depth}" for depth in vector_depths]
+    latency_keys = (["pool"] + [f"vecdeep_{depth}" for depth in vector_depths]
+                    + [f"weight_{weight:g}" for weight in fusion_weights])
     result["latency_ms"] = {
         key: {"mean": round(statistics.fmean(row["latency_ms"][key] for row in rows), 2),
               "p95": round(percentile([row["latency_ms"][key] for row in rows], 95), 2)}
@@ -1203,6 +1325,45 @@ def main() -> int:
             str(depth): sum(row[f"vector_{depth}_reachable"] for row in rows)
             for depth in vector_depths},
         "relevant_total": sum(len(row["relevant"]) for row in rows),
+    }
+    result["round21"] = {
+        "baseline_key": "hybrid_decay_7d",
+        "fusion_weights": list(fusion_weights),
+        "weights": {
+            f"{weight:g}": {
+                "summary": result["summary"][f"weight_{weight:g}_decay7d"],
+                "delta": {metric: bootstrap_delta(rows, "hybrid_decay_7d",
+                                                  f"weight_{weight:g}_decay7d", metric)
+                          for metric in ("hit@1", "hit@5", "mrr")},
+                "latency_ms": result["latency_ms"][f"weight_{weight:g}"],
+            }
+            for weight in fusion_weights
+        },
+        "vector_primary": {
+            "summary": result["summary"]["vector_primary_decay7d"],
+            "delta": {metric: bootstrap_delta(rows, "hybrid_decay_7d",
+                                              "vector_primary_decay7d", metric)
+                      for metric in ("hit@1", "hit@5", "mrr")},
+        },
+        "repeat_noise": {
+            metric: max(
+                abs(result["summary"][key][metric] - result["summary"]["hybrid"][metric])
+                for key in ("repeat_2", "repeat_3"))
+            for metric in ("hit@1", "hit@5", "mrr")
+        },
+        "languages": {
+            language: {
+                "queries": len([row for row in rows if row["language"] == language]),
+                "baseline": result["by_language"][language]["hybrid_decay_7d"],
+                "weights": {f"{weight:g}": result["by_language"][language]
+                            [f"weight_{weight:g}_decay7d"] for weight in fusion_weights},
+                "vector_primary": result["by_language"][language]["vector_primary_decay7d"],
+                "lexical_empty": sum(
+                    1 for row in rows
+                    if row["language"] == language and not row["lexical"]["ranked"]),
+            }
+            for language in result["by_language"]
+        },
     }
     vector_summary = result["summary"]["vector"]
     hybrid_summary = result["summary"]["hybrid"]
@@ -1333,6 +1494,31 @@ def main() -> int:
         f"query per 0.011, so a delta below 0.02 is inside one-query noise; client wall time "
         f"includes a fixed psql process cost, so differences under a few milliseconds are not "
         f"attributable to the scan."
+    )
+    result["diagnosis"] = diagnosis
+    round21 = result["round21"]
+    weight_text = "; ".join(
+        f"{weight}: hit@1 {item['summary']['hit@1']:.3f}, hit@5 {item['summary']['hit@5']:.3f}, "
+        f"MRR {item['summary']['mrr']:.3f}, delta hit@5 "
+        f"{item['delta']['hit@5']['delta']:+.3f} "
+        f"[{item['delta']['hit@5']['ci_low']:+.3f}, {item['delta']['hit@5']['ci_high']:+.3f}]"
+        for weight, item in round21["weights"].items())
+    languages = result["corpus"]["languages"]
+    language_text = ", ".join(f"{name}={count}" for name, count in languages.items())
+    diagnosis += (
+        f" Round 21 RRF weights: corpus languages {language_text} (no English-only query; "
+        f"the 7-day-decayed baseline is hit@1 0.833 / hit@5 0.911 / MRR 0.866). "
+        f"Weights {weight_text}. Vector-primary with lexical only on an empty vector list: "
+        f"hit@1 {round21['vector_primary']['summary']['hit@1']:.3f}, "
+        f"hit@5 {round21['vector_primary']['summary']['hit@5']:.3f}, "
+        f"MRR {round21['vector_primary']['summary']['mrr']:.3f}, delta hit@5 "
+        f"{round21['vector_primary']['delta']['hit@5']['delta']:+.3f} "
+        f"[{round21['vector_primary']['delta']['hit@5']['ci_low']:+.3f}, "
+        f"{round21['vector_primary']['delta']['hit@5']['ci_high']:+.3f}]. "
+        f"Repeat-run spread is hit@1 {round21['repeat_noise']['hit@1']:.3f}, "
+        f"hit@5 {round21['repeat_noise']['hit@5']:.3f}, MRR {round21['repeat_noise']['mrr']:.3f}. "
+        f"The paired bootstrap interval is the decision band; a candidate that does not lift "
+        f"the lower bound above zero is rejected."
     )
     result["diagnosis"] = diagnosis
 
