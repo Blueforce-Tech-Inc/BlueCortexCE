@@ -57,6 +57,10 @@ LEXICAL_WEIGHT = 2.0
 PRODUCTION_LIMIT = 40
 # Recency rerank sweep: the fused pool is reordered by score * 0.5^(age/half_life).
 DECAY_HALF_LIVES = (7, 30, 90, 365)
+# Round 18: candidate-pool depths. Production fetches `limit * 2` = 40 for the default
+# 20-result page; the sweep asks whether widening the pool lets the recency rerank
+# promote relevant rows that the fused top-40 cut away.
+POOL_DEPTHS = (40, 100, 200)
 
 
 def load_env() -> dict:
@@ -762,6 +766,23 @@ def render_report(result: dict, corpus_path: Path) -> str:
         )
     lines += [
         "",
+        "## Candidate pool depth (round 18)",
+        "",
+        "| pool | mean rows fetched | hit@1 (fusion) | hit@5 (fusion) | MRR (fusion) | "
+        "hit@1 (+7d) | hit@5 (+7d) | MRR (+7d) |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for depth in result.get("pool_depths") or []:
+        sizes = [row[f"pool_{depth}_size"] for row in result["rows"]]
+        fused = result["summary"][f"pool_{depth}"]
+        decayed = result["summary"][f"pool_{depth}_decay7d"]
+        lines.append(
+            f"| {depth} | {statistics.fmean(sizes):.1f} | {fused['hit@1']:.3f} | "
+            f"{fused['hit@5']:.3f} | {fused['mrr']:.3f} | {decayed['hit@1']:.3f} | "
+            f"{decayed['hit@5']:.3f} | {decayed['mrr']:.3f} |"
+        )
+    lines += [
+        "",
         "## Language split (round 16 contrast set)",
         "",
         "| language | queries | hybrid hit@1 | hybrid hit@5 | hybrid MRR | merge+recency hit@1 |",
@@ -821,8 +842,11 @@ def main() -> int:
                         time.strftime("%Y-%m-%d") + "_retrieval-quality-real.md")
     parser.add_argument("--metrics-out", default="docs/archive/" +
                         time.strftime("%Y-%m-%d") + "_retrieval-quality-real.json")
+    parser.add_argument("--pool-depths", default=",".join(str(d) for d in POOL_DEPTHS),
+                        help="comma-separated candidate-pool depths to compare")
     parser.add_argument("--keep-db", action="store_true")
     args = parser.parse_args()
+    pool_depths = tuple(int(value) for value in args.pool_depths.split(",") if value.strip())
 
     corpus_path = ROOT / args.corpus
     corpus = json.loads(corpus_path.read_text())
@@ -889,6 +913,15 @@ def main() -> int:
         # the only variable is the reorder rule.
         pool = hybrid_pool(query["text"], vector_literal(vector), 0.5)
         row["hybrid_pool_size"] = len(pool)
+        # Round 18: pool depth sweep. Same fusion and same 7-day recency rerank as
+        # production; the only variable is how many fused candidates are fetched.
+        for depth in pool_depths:
+            depth_pool = hybrid_pool(query["text"], vector_literal(vector), 0.5, limit=depth)
+            row[f"pool_{depth}_size"] = len(depth_pool)
+            row[f"pool_{depth}"] = metrics([item["id"] for item in depth_pool], relevant)
+            row[f"pool_{depth}_decay7d"] = metrics(
+                [item["id"] for item in rerank_time_decay(depth_pool, reference_ms, 7)],
+                relevant)
         for half_life in DECAY_HALF_LIVES:
             row[f"hybrid_decay_{half_life}d"] = metrics(
                 [item["id"] for item in rerank_time_decay(pool, reference_ms, half_life)],
@@ -942,12 +975,15 @@ def main() -> int:
                       "hybrid_synonym_intent_decay7d", "hybrid_synonym_both_decay7d",
                       "hybrid_synonym_both_dedupe_decay7d", "hybrid_decay7d_body_rerank",
                       "hybrid_decay7d_title_rerank", "hybrid_decay7d_title_blend"]
+    summary_names += [f"pool_{depth}" for depth in pool_depths]
+    summary_names += [f"pool_{depth}_decay7d" for depth in pool_depths]
     result = {
         "corpus": {"observations": len(observations), "queries": len(queries),
                    "path": str(corpus_path.relative_to(ROOT)),
                    "languages": {language: sum(1 for row in rows if row["language"] == language)
                                  for language in sorted({row["language"] for row in rows})}},
         "embedding_model": EMBED_MODEL,
+        "pool_depths": list(pool_depths),
         "summary": {name: summarize([row[name] for row in rows]) for name in summary_names},
         "by_language": {
             language: {name: summarize([row[name] for row in rows if row["language"] == language])
@@ -1033,7 +1069,19 @@ def main() -> int:
         f"{r17['hybrid_decay7d_title_rerank']['mrr']:.3f}, title blend "
         f"{r17['hybrid_decay7d_title_blend']['hit@1']:.3f} / "
         f"{r17['hybrid_decay7d_title_blend']['hit@5']:.3f} / "
-        f"{r17['hybrid_decay7d_title_blend']['mrr']:.3f}."
+        f"{r17['hybrid_decay7d_title_blend']['mrr']:.3f}. "
+    )
+    pool_text = "; ".join(
+        f"pool {depth}: {result['summary'][f'pool_{depth}']['hit@1']:.3f} / "
+        f"{result['summary'][f'pool_{depth}']['hit@5']:.3f} / "
+        f"{result['summary'][f'pool_{depth}']['mrr']:.3f} fused, "
+        f"{result['summary'][f'pool_{depth}_decay7d']['hit@1']:.3f} / "
+        f"{result['summary'][f'pool_{depth}_decay7d']['hit@5']:.3f} / "
+        f"{result['summary'][f'pool_{depth}_decay7d']['mrr']:.3f} after 7-day decay"
+        for depth in pool_depths)
+    diagnosis += (
+        f" Round 18 candidate-pool sweep: {pool_text}. A 90-query corpus moves by one query "
+        f"per 0.011 hit@1, so any delta below 0.02 is inside one-query noise."
     )
     result["diagnosis"] = diagnosis
 
