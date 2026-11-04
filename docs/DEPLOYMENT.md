@@ -1189,6 +1189,66 @@ echo "Backup completed: backup_$DATE.sql.gz"
 0 2 * * * /path/to/backup.sh >> /var/log/claude-mem-backup.log 2>&1
 ```
 
+#### Backup Verification Drill (Scheduled)
+
+`scripts/backup-restore-drill.sh` turns the manual dump/restore check into an
+unattended inspection. One run performs the whole loop:
+
+1. `pg_dump -Fc` the live database.
+2. SHA-256 the dump, prove `pg_restore --list` can read the archive, confirm it
+   contains `TABLE DATA public mem_observations`, and re-hash before restoring.
+3. Restore into a throwaway database.
+4. Compare row counts for `mem_sessions`, `mem_observations`, `mem_user_prompts`,
+   `mem_summaries`, `mem_pending_messages` and `mem_memory_scopes`.
+5. Replay one lexical retrieval query (`ZH_QUERY`, default `检索`) on the copy and
+   compare both the hit count and the top hit's title.
+6. Write a JSON report, drop the throwaway database and delete the dump (unless
+   `KEEP_DUMP=1`).
+
+**How often**: weekly as a pure inspection (`VALIDATE_FLYWAY=0`, no jar needed),
+plus once immediately before and after any schema migration, and after any
+storage/container incident. A nightly run with `KEEP_DUMP=1` doubles as the real
+backup: the dump it keeps is the dump it just proved restorable.
+
+**Where**: reports go to `${HOME}/.claude-mem/backup-drill/reports/backup-drill-<stamp>.json`
+and the newest 30 are kept (`REPORT_DIR`, `REPORT_KEEP`). Dumps go to `DUMP_DIR`;
+with `KEEP_DUMP=1`, dumps older than `DUMP_KEEP_DAYS` (default 30) are pruned.
+
+```bash
+# Nightly at 02:10 — produce the backup, verify it, keep the dump.
+10 2 * * * cd /opt/cortexce && SOURCE_DB=claude_mem DUMP_DIR=/backups/cortexce KEEP_DUMP=1 \
+  ./scripts/backup-restore-drill.sh >> /var/log/cortexce-backup.log 2>&1
+
+# Weekly at 03:15 — inspection only, dump discarded.
+15 3 * * 1 cd /opt/cortexce && SOURCE_DB=claude_mem \
+  ./scripts/backup-restore-drill.sh >> /var/log/cortexce-backup-drill.log 2>&1
+```
+
+Exit codes are stage-specific, so a scheduler or alerting hook can tell
+"container down" from "restore produced a bad copy":
+
+| Exit | Stage | Action |
+|------|-------|--------|
+| 0 | pass | Nothing. Check the report for the bytes and timings. |
+| 2 | precondition | Container not reachable, source DB missing, or `VALIDATE_FLYWAY=1` without a jar. Fix the environment; no backup was taken. |
+| 3 | dump | `pg_dump` failed — disk full, permissions, or a concurrent schema change. Free space / fix credentials, rerun. |
+| 4 | checksum / archive | The dump is unreadable or changed on disk. Treat as a storage failure; do not overwrite the previous good backup. |
+| 5 | restore | The dump is readable but cannot be rebuilt — usually a Postgres version mismatch or an incomplete archive. |
+| 6 | row-count parity | A table's row count differs. Keep the dump (`KEEP=1` also keeps the copy) and compare manually before trusting it. |
+| 7 | retrieval | The lexical query disagrees (hit count or probe title). With a stable source this points at a dump/restore problem, not at the data. |
+| 8 | Flyway validation | The restored schema does not validate. Do not deploy this database copy. |
+| 9 | unexpected | Anything unhandled; the log above names the command. |
+
+On any non-zero exit, keep the dump and the report, and do **not** delete the last
+known-good backup. `KEEP=1` retains the throwaway database for inspection; rerun
+with `KEEP_DUMP=1` if the dump was already deleted. If the same exit repeats on
+consecutive runs, restore the newest dump into a scratch database by hand and
+compare — the report already contains the expected counts.
+
+Measured on 2026-11-04 against a 100,000-observation database (158 MB): dump
+3.5 MB in 0.5 s, checksum 0.3 s, restore 4.7–6.3 s, counts 0.6–1.0 s, retrieval
+0.4–0.5 s — 8–10 s end to end. `VALIDATE_FLYWAY=1` adds about 3.2 s (jar boot).
+
 ### 8.2 Data Recovery
 
 #### Full Recovery

@@ -1134,6 +1134,51 @@ echo "Backup completed: backup_$DATE.sql.gz"
 0 2 * * * /path/to/backup.sh >> /var/log/claude-mem-backup.log 2>&1
 ```
 
+#### 备份校验巡检（可定时）
+
+`scripts/backup-restore-drill.sh` 把原来的手工 dump/恢复验证包成无人值守巡检，一次运行完成整条闭环：
+
+1. `pg_dump -Fc` 导出在线数据库。
+2. 对 dump 计算 SHA-256，用 `pg_restore --list` 证明归档可读、确认包含
+   `TABLE DATA public mem_observations`，恢复前再次计算哈希比对。
+3. 恢复到一次性临时库。
+4. 逐表比对行数：`mem_sessions`、`mem_observations`、`mem_user_prompts`、
+   `mem_summaries`、`mem_pending_messages`、`mem_memory_scopes`。
+5. 在副本上重放一次词法检索（`ZH_QUERY`，默认 `检索`），比对命中数与首条命中标题。
+6. 输出 JSON 报告，删除临时库；保留 dump 需 `KEEP_DUMP=1`。
+
+**多久跑一次**：每周一次纯巡检（`VALIDATE_FLYWAY=0`，不依赖 jar）；每次 schema 迁移前后各跑一次；存储或容器故障之后立刻跑一次。夜间运行加 `KEEP_DUMP=1` 时，它同时就是真实备份——留下的 dump 正是刚刚被验证可恢复的那一份。
+
+**放在哪里**：报告写到 `${HOME}/.claude-mem/backup-drill/reports/backup-drill-<时间戳>.json`，只保留最近 30 份（`REPORT_DIR`、`REPORT_KEEP`）。dump 写到 `DUMP_DIR`；`KEEP_DUMP=1` 时超过 `DUMP_KEEP_DAYS`（默认 30 天）的旧 dump 会被清理。
+
+```bash
+# 每天 02:10 —— 产出备份、验证备份、保留 dump
+10 2 * * * cd /opt/cortexce && SOURCE_DB=claude_mem DUMP_DIR=/backups/cortexce KEEP_DUMP=1 \
+  ./scripts/backup-restore-drill.sh >> /var/log/cortexce-backup.log 2>&1
+
+# 每周一 03:15 —— 纯巡检，dump 用完即删
+15 3 * * 1 cd /opt/cortexce && SOURCE_DB=claude_mem \
+  ./scripts/backup-restore-drill.sh >> /var/log/cortexce-backup-drill.log 2>&1
+```
+
+退出码按阶段区分，调度器或告警钩子可据此区分「容器没起来」和「备份恢复出来是坏的」：
+
+| 退出码 | 阶段 | 处置 |
+|--------|------|------|
+| 0 | 通过 | 无需操作；看报告里的体积与耗时。 |
+| 2 | 前置检查 | 容器不可达、源库不存在，或 `VALIDATE_FLYWAY=1` 但没有 jar。修环境；本次没有产生备份。 |
+| 3 | dump | `pg_dump` 失败——磁盘满、权限、或并发建表。清空间/修凭据后重跑。 |
+| 4 | checksum / 归档 | dump 读不出或落盘后发生变化。按存储故障处理，**不要**覆盖上一份可用的备份。 |
+| 5 | 恢复 | dump 可读但重建失败——通常是 Postgres 版本不一致或归档不完整。 |
+| 6 | 行数比对 | 某张表行数不一致。保留 dump（`KEEP=1` 连临时库一起留）并人工比对后再信任它。 |
+| 7 | 检索比对 | 词法检索结果不一致（命中数或探针标题）。源库稳定时说明问题在 dump/恢复链路，不在数据本身。 |
+| 8 | Flyway 校验 | 恢复出来的 schema 校验不通过，不要用这份库做部署。 |
+| 9 | 未预期 | 其余错误；上方日志会指出具体命令。 |
+
+任何非 0 退出都要保留 dump 和报告，且**不要**删除上一份已知可用的备份。`KEEP=1` 会保留临时库便于排查；如果 dump 已被删除，用 `KEEP_DUMP=1` 重跑。若同一退出码连续出现，把最新的 dump 手工恢复到临时库逐项比对——报告里已经写好了期望的行数。
+
+2026-11-04 实测（10 万条 observation，158 MB 库）：dump 3.5 MB / 0.5 s，checksum 0.3 s，恢复 4.7–6.3 s，行数比对 0.6–1.0 s，检索 0.4–0.5 s，端到端 8–10 s；`VALIDATE_FLYWAY=1` 额外约 3.2 s（启动 jar）。
+
 ### 8.2 数据恢复
 
 #### 完整恢复
