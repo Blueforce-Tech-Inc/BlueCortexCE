@@ -4,6 +4,16 @@
 > **Updated by**: 定时项目维护任务。
 > **Update rule**: 新修复追加到顶部；超过文档增长阈值时保留未完成项并将已完成历史归档。
 
+## 2026-11-05 | 响应体剔除内部向量：A/B 实测与下一个杠杆
+
+**改了什么**：`ObservationEntity` 的 `embedding_768/1024/1536` 改为 `@JsonIgnore`。WebUI 硬契约（`hasMore`/`updateFiles`/`CLAUDE_MEM_*`）与其余观察字段不变；导入仍由 `ImportService` 自己的 record 写入向量，不丢向量。`WebUiWireContractTest` 先把三个向量填满再序列化，断言单行与 `/api/search` 信封都不含向量。
+
+**证据**：顺序探针 **125.2 → 24.7 KB（−80.3%）**，向量占响应体 **79.3% → 0.0%**。同库同小时交替执行的 7 次 A/B（每次 120s，50 search + 20 inject；旧 jar 由 `12f9ec8` 重建，harness 新增 `--jar`）：`/api/search` p50 **−7.2% / −7.3%**、p95 **−9.9% / −10.9%**，总吞吐 **532.5 → 563.5 req/s（+5.8%）**；不带向量的 `/api/context/inject` p50 +0.5%、p95 +3.4% 持平，作为对照组排除了主机漂移。报告：`docs/archive/2026-11-05_retrieval-concurrent-read-after.md`。
+
+**没修掉的与下一步**：p95 仍在 **250 ms** 量级；服务端 `SearchService` 计时（不含 embedding 与序列化）p95 **201–224 ms**，说明尾部在 JPA/Hibernate 仍选择并水合三列向量。下一批首选候选：列表/搜索读路径改为投影或 DTO，停止 SELECT 向量列（每页 20 行约 120 KB 向量读取量）。本批未做：会改动 repository 读路径与实体契约面，先记录不改。
+
+**门禁**：用例 **579 → 580**，0 跳过。
+
 ## 2026-10-02 01:57 | 构建修复第二轮 — docker-e2e 构建上下文 + byte-buddy 方案更正
 
 **docker-e2e-test.sh**：build context 指向 `$PROJECT_ROOT/..`（父目录），而 Dockerfile 的 `COPY backend/src` 等路径相对仓库根 —— 从本检出位置构建必然失败（`"/backend/src": not found`）。修复为 `build_context="$PROJECT_ROOT"`。

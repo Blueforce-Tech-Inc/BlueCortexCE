@@ -218,7 +218,12 @@ def start_stub(vectors: list[list[float]], port: int) -> ThreadingHTTPServer:
 # Service process
 # ---------------------------------------------------------------------------
 
-def jar_path() -> Path:
+def jar_path(override: str = "") -> Path:
+    if override:
+        path = Path(override).resolve()
+        if not path.is_file():
+            raise SystemExit(f"--jar {override} does not exist")
+        return path
     jars = sorted((ROOT / "backend" / "target").glob("cortex-ce-*.jar"))
     jars = [jar for jar in jars if not jar.name.endswith("-sources.jar")]
     if not jars:
@@ -226,7 +231,8 @@ def jar_path() -> Path:
     return jars[-1]
 
 
-def start_app(db: str, port: int, stub_port: int, pool_size: int | None) -> subprocess.Popen:
+def start_app(db: str, port: int, stub_port: int, pool_size: int | None,
+              jar: str = "") -> subprocess.Popen:
     env = dict(os.environ)
     env.update({
         "SERVER_PORT": str(port),
@@ -255,7 +261,7 @@ def start_app(db: str, port: int, stub_port: int, pool_size: int | None) -> subp
         extra = [f"-Dspring.datasource.hikari.maximum-pool-size={pool_size}"]
     log = open(f"/tmp/read-load-app-{port}.log", "w")
     return subprocess.Popen(
-        ["java", "-Xmx1g", *extra, "-jar", str(jar_path())],
+        ["java", "-Xmx1g", *extra, "-jar", str(jar_path(jar))],
         cwd=str(ROOT), env=env, stdout=log, stderr=subprocess.STDOUT,
     )
 
@@ -551,6 +557,7 @@ def render_report(facts: dict, summary: dict, sampling: dict, prometheus: list[d
         f"{config['inject']} concurrent inject for {config['duration']:.0f}s, "
         f"client timeout {config['timeout']:.0f}s",
         f"- Hikari pool: {config['pool'] or 'application default (25)'}",
+        f"- Jar: `{config.get('jar') or 'backend/target (default build)'}`",
         "",
         "Queries alternate Chinese and English; the corpus is English-only, so a Chinese",
         "query exercises the vector half plus an empty lexical half, while an English query",
@@ -667,6 +674,8 @@ def main() -> int:
     parser.add_argument("--stub-port", type=int, default=8799)
     parser.add_argument("--pool", type=int, default=0, help="Hikari max pool size override")
     parser.add_argument("--warmup", type=float, default=20.0)
+    parser.add_argument("--jar", default="",
+                        help="jar to run instead of backend/target (A/B controls)")
     parser.add_argument("--report", default="docs/archive/" +
                         time.strftime("%Y-%m-%d") + "_retrieval-concurrent-read.md")
     parser.add_argument("--metrics-out", default="")
@@ -687,7 +696,7 @@ def main() -> int:
     vectors = sample_vectors(source)
     print(f"sampled {len(vectors)} real vectors for the embedding stub")
     stub = start_stub(vectors, args.stub_port)
-    app = start_app(source, args.port, args.stub_port, args.pool or None)
+    app = start_app(source, args.port, args.stub_port, args.pool or None, args.jar)
     try:
         wait_health(args.port, app)
         base = f"http://127.0.0.1:{args.port}"
@@ -712,7 +721,7 @@ def main() -> int:
         server = search_timer_percentiles(sampler.prometheus)
         config = {"search": args.search, "inject": args.inject,
                   "duration": args.duration, "timeout": args.timeout,
-                  "pool": args.pool, "limit": args.limit}
+                  "pool": args.pool, "limit": args.limit, "jar": args.jar}
         payload = {"dataset": facts, "config": config, "summary": summary,
                    "sampling": sampling, "prometheus": sampler.prometheus,
                    "samples": sampler.samples, "server": server}
