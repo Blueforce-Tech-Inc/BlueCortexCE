@@ -37,8 +37,10 @@ public final class ErrorResponses {
     public static final String FORBIDDEN = "forbidden";
     public static final String NOT_FOUND = "not_found";
     public static final String CONFLICT = "conflict";
+    public static final String PAYLOAD_TOO_LARGE = "payload_too_large";
     public static final String RATE_LIMITED = "rate_limited";
     public static final String INTERNAL_ERROR = "internal_error";
+    public static final String SERVICE_UNAVAILABLE = "service_unavailable";
 
     private ErrorResponses() {
     }
@@ -68,7 +70,9 @@ public final class ErrorResponses {
             case 403 -> FORBIDDEN;
             case 404 -> NOT_FOUND;
             case 409 -> CONFLICT;
+            case 413 -> PAYLOAD_TOO_LARGE;
             case 429 -> RATE_LIMITED;
+            case 503 -> SERVICE_UNAVAILABLE;
             default -> status >= 400 && status < 500 ? INVALID_REQUEST : INTERNAL_ERROR;
         };
     }

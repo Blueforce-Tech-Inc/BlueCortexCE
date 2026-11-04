@@ -56,8 +56,12 @@ public final class Constants {
     // SSE
     // ==========================================================================
 
-    /** Maximum number of concurrent SSE connections */
-    public static final int MAX_SSE_CONNECTIONS = 100;
+    /**
+     * Maximum number of concurrent SSE connections. Default 200 after the H1 load test
+     * (50 and 200 clients held for ten minutes on a 768 MB heap); configurable at runtime
+     * via {@code claudemem.sse.max-connections}.
+     */
+    public static final int MAX_SSE_CONNECTIONS = 200;
 
     // ==========================================================================
     // Timeouts

@@ -29,8 +29,10 @@ class ErrorResponsesTest {
         assertEquals("unauthorized", ErrorResponses.codeForStatus(401));
         assertEquals("forbidden", ErrorResponses.codeForStatus(403));
         assertEquals("invalid_request", ErrorResponses.codeForStatus(415));
+        assertEquals("payload_too_large", ErrorResponses.codeForStatus(413));
+        assertEquals("rate_limited", ErrorResponses.codeForStatus(429));
         assertEquals("internal_error", ErrorResponses.codeForStatus(500));
-        assertEquals("internal_error", ErrorResponses.codeForStatus(503));
+        assertEquals("service_unavailable", ErrorResponses.codeForStatus(503));
         assertTrue(((Map<?, ?>) body.get("error")).containsKey("code"));
     }
 }

@@ -69,8 +69,15 @@ public class StreamController {
         });
         emitter.onTimeout(removeCallback);
 
-        // Register with broadcaster
-        sseBroadcaster.add(emitter);
+        // Register with broadcaster. At the cap the refusal is a 503 in the standard error
+        // envelope, not a 500: the caller should retry after some streams close.
+        try {
+            sseBroadcaster.add(emitter);
+        } catch (IllegalStateException e) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                "SSE connection limit reached (" + sseBroadcaster.getMaxConnections() + ")");
+        }
 
         // Send initial load event with type field
         // NOTE: Use unnamed events (just data, no event name) to match TS version

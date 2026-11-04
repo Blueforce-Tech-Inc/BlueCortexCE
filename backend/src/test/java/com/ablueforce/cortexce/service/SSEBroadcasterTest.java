@@ -207,4 +207,37 @@ class SSEBroadcasterTest {
         assertThatThrownBy(() -> broadcaster.add(new SseEmitter(60_000L)))
             .isInstanceOf(IllegalStateException.class);
     }
+
+    // ===== heartbeat() tests =====
+
+    @Test
+    void heartbeat_removesCompletedEmitter() {
+        SseEmitter live = new SseEmitter(60_000L);
+        SseEmitter closed = new SseEmitter(60_000L);
+        broadcaster.add(live);
+        broadcaster.add(closed);
+        closed.complete(); // simulates a client that disconnected without a broadcast
+
+        broadcaster.heartbeat();
+
+        assertThat(broadcaster.getClientCount()).isEqualTo(1);
+        broadcaster.heartbeat();
+        assertThat(broadcaster.getClientCount()).isEqualTo(1);
+    }
+
+    @Test
+    void heartbeat_keepsLiveEmitters() {
+        SseEmitter live = new SseEmitter(60_000L);
+        broadcaster.add(live);
+
+        broadcaster.heartbeat();
+
+        assertThat(broadcaster.getClientCount()).isEqualTo(1);
+    }
+
+    @Test
+    void heartbeat_withNoClients_isNoOp() {
+        broadcaster.heartbeat();
+        assertThat(broadcaster.getClientCount()).isEqualTo(0);
+    }
 }
