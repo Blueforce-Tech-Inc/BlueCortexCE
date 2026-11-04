@@ -285,8 +285,21 @@ public class AgentService implements LogHelper {
     /**
      * Process a pending message by its ID.
      * Called by PendingMessageEventListener (via Spring Event).
+     *
+     * <p>The duration histogram covers the whole job (claim, model calls, persistence),
+     * because that is what decides worker occupancy and therefore queue dwell time.</p>
      */
     public void processPendingMessage(UUID pendingMessageId) {
+        long startedNanos = System.nanoTime();
+        try {
+            processPendingMessageInternal(pendingMessageId);
+        } finally {
+            com.ablueforce.cortexce.config.CortexMetrics.workerCompleted(
+                System.nanoTime() - startedNanos);
+        }
+    }
+
+    private void processPendingMessageInternal(UUID pendingMessageId) {
         PendingMessageEntity pending = conversationWriteService.claimObservationJob(pendingMessageId).orElse(null);
         if (pending == null) {
             log.debug("Pending Observation job {} is missing, closed, or already claimed", pendingMessageId);

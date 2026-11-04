@@ -79,8 +79,27 @@ public class SearchService {
 
     /**
      * Main search entry point.
+     *
+     * <p>Latency is recorded per resolved path, so a regression in one branch cannot
+     * hide behind a healthy average over the others. {@code tsvector} is exported as
+     * {@code lexical}; this service has no pure vector path because the vector and
+     * lexical halves are fused into {@code hybrid}.</p>
      */
     public SearchResult search(SearchRequest request) {
+        long startedNanos = System.nanoTime();
+        String path = "unknown";
+        try {
+            SearchResult result = searchInternal(request);
+            path = result.strategy();
+            return result;
+        } finally {
+            com.ablueforce.cortexce.config.CortexMetrics.searchCompleted(
+                "tsvector".equals(path) ? "lexical" : path,
+                System.nanoTime() - startedNanos);
+        }
+    }
+
+    private SearchResult searchInternal(SearchRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("searchRequest must not be null");
         }

@@ -22,6 +22,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.retry.RetryCallback;
+import org.springframework.retry.RetryContext;
+import org.springframework.retry.RetryListener;
 import org.springframework.retry.backoff.ExponentialBackOffPolicy;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.web.client.ResourceAccessException;
@@ -137,7 +140,36 @@ public class SpringAiConfig {
             .retryOn(TransientAiException.class)
             .retryOn(ResourceAccessException.class)
             .retryOn(IOException.class)
+            .withListener(new RetryMetricsListener(maxAttempts))
             .build();
+    }
+
+    /**
+     * Counts the retries the provider retry template schedules.
+     *
+     * <p>Spring Retry increments the context's retry count before calling this
+     * listener, so {@code count < maxAttempts} is exactly "this failure will be
+     * repeated" (the last failure is not a retry). The counter carries the same
+     * classification the application uses for the final outcome, so retries and
+     * failures can be correlated by {@code failure_kind}.</p>
+     */
+    static final class RetryMetricsListener implements RetryListener {
+
+        private final int maxAttempts;
+
+        RetryMetricsListener(int maxAttempts) {
+            this.maxAttempts = Math.max(1, maxAttempts);
+        }
+
+        @Override
+        public <T, E extends Throwable> void onError(RetryContext context,
+                                                     RetryCallback<T, E> callback,
+                                                     Throwable throwable) {
+            if (context.getRetryCount() < maxAttempts) {
+                CortexMetrics.llmRetry(
+                    com.ablueforce.cortexce.service.LlmService.classify(throwable).name());
+            }
+        }
     }
 
     /** The 2s / 5s sequence the retry template sleeps between provider attempts. */

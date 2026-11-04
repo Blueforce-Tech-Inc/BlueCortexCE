@@ -70,6 +70,7 @@ class BackendTransportEndpointSurfaceTest {
             "GET /actuator/health",
             "GET /actuator/info",
             "GET /actuator/metrics",
+            "GET /actuator/prometheus",
             "GET /sse",
             "POST /mcp/message"
     );
@@ -114,12 +115,12 @@ class BackendTransportEndpointSurfaceTest {
     @Test
     @DisplayName("the pinned transport surface is not vacuous")
     void pinnedSurfaceIsNotVacuous() {
-        assertEquals(6, EXPECTED_TRANSPORT_OPERATIONS.size(),
-                "the pinned transport surface is expected to hold 6 operations");
-        assertEquals(6, distinctPathCount(),
-                "the pinned transport surface is expected to span 6 distinct paths");
-        assertEquals(6, deriveFromConfiguration().size(),
-                "the configuration must still describe six transport operations");
+        assertEquals(7, EXPECTED_TRANSPORT_OPERATIONS.size(),
+                "the pinned transport surface is expected to hold 7 operations");
+        assertEquals(7, distinctPathCount(),
+                "the pinned transport surface is expected to span 7 distinct paths");
+        assertEquals(7, deriveFromConfiguration().size(),
+                "the configuration must still describe seven transport operations");
     }
 
     private int distinctPathCount() {

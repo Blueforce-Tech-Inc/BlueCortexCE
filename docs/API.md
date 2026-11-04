@@ -15,11 +15,11 @@ This document describes the REST API for Cortex Community Edition backend.
 > The Chinese version uses that path-style H4 throughout. The difference is deliberate — a
 > path-style heading is the more natural form in Chinese, and both versions expose the same HTTP
 > method and path for every endpoint. The endpoint sets are verified identical (the REST layer's
-> **74** operations across **68** paths, plus the **6** transport operations in
-> [Transport Endpoints](#transport-endpoints) — **80** operations across **74** paths in all, measured
-> 2026-11-02 — count the `get`/`put`/`post`/`delete`/`patch` keys under each entry of `paths` in
+> **74** operations across **68** paths, plus the **7** transport operations in
+> [Transport Endpoints](#transport-endpoints) — **81** operations across **75** paths in all, measured
+> 2026-11-04 — count the `get`/`put`/`post`/`delete`/`patch` keys under each entry of `paths` in
 > `/v3/api-docs` for the REST layer; the same 74 are the controllers' `@*Mapping` annotations, minus
-> the one route commented out in place at `ViewerController.java:294`; the six transport operations are
+> the one route commented out in place at `ViewerController.java:294`; the seven transport operations are
 > the MCP transport and the Spring Boot actuator, which springdoc does not publish), so this is a
 > presentation choice, not a content gap. The comparison is no longer a promise: both files are
 > checked against the running server by `scripts/check-api-doc-surface.py` on every regression run. Do not "fix" one side to match the other. Every endpoint heading in this
@@ -2617,11 +2617,37 @@ GET /actuator/metrics
 
 The Spring Boot actuator metrics endpoint.
 
+### Actuator Prometheus
+
+```
+GET /actuator/prometheus
+```
+
+The Prometheus scrape endpoint, added in round 17 so the queue and the model
+edge are observable over time instead of only as a point-in-time JSON snapshot.
+It publishes (with Prometheus names):
+
+| Meter | Type | Labels |
+|-------|------|--------|
+| `cortexce_queue_depth` | gauge | `status` = `pending` / `processing` / `failed` |
+| `cortexce_queue_stale` | gauge | — |
+| `cortexce_embedding_backlog` | gauge | — |
+| `cortexce_worker_processing_seconds` | histogram | `provider` |
+| `cortexce_llm_calls_total` | counter | `outcome`, `failure_kind` |
+| `cortexce_llm_retries_total` | counter | `failure_kind` |
+| `cortexce_search_requests_total` | counter | `path` = `hybrid` / `lexical` / `filter` / `recent` |
+| `cortexce_search_duration_seconds` | histogram | `path` |
+
+The queue gauges are read from the shared database at scrape time, so every
+instance reports the same numbers. A failed database read yields `NaN` for that
+series instead of failing the whole scrape.
+
 **Configuration**: the MCP transport is configured under `spring.ai.mcp.server`
 in `backend/src/main/resources/application.yml` (`protocol: SSE`,
 `sse-endpoint: /sse`, `sse-message-endpoint: /mcp/message`), and the actuator
 exposure under `management.endpoints.web.exposure.include` (`health`, `metrics`,
-`info`). The streamable-HTTP endpoint `/mcp` configured beside them is **not
+`info`, `prometheus`). `env`, `beans` and `configprops` stay closed. The
+streamable-HTTP endpoint `/mcp` configured beside them is **not
 served** while the protocol is `SSE`. Measured 2026-10-21 against a running
 instance; `scripts/check-api-doc-surface.py` compares this section with the
 running server on every regression run.
@@ -2631,8 +2657,8 @@ running server on every regression run.
 ### HTTP Status Codes
 
 Verified against a live backend (`GET /v3/api-docs`, 71 operations across 66 paths, plus the
-6 transport operations in [Transport Endpoints](#transport-endpoints) — 77 operations across
-72 paths, measured 2026-10-21; `scripts/check-api-doc-surface.py` re-checks the whole set on
+7 transport operations in [Transport Endpoints](#transport-endpoints) — 78 operations across
+73 paths, measured 2026-11-04; `scripts/check-api-doc-surface.py` re-checks the whole set on
 every regression run) and against the
 source. Codes the application never emits are marked as such rather than listed as
 if they were reachable.

@@ -164,10 +164,20 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,metrics,info
+        # Deliberately narrow: only the three operator-facing endpoints. env,
+        # beans, configprops and heapdump stay closed, so the scrape surface
+        # cannot be used to read credentials or internals.
+        include: health,metrics,info,prometheus
   endpoint:
     health:
       show-details: always
+  metrics:
+    distribution:
+      # Histogram buckets for the two latency timers, so Grafana can compute
+      # p50/p95 from _bucket series instead of only a mean.
+      percentiles-histogram:
+        cortexce.worker.processing: true
+        cortexce.search.duration: true
 
 logging:
   level:

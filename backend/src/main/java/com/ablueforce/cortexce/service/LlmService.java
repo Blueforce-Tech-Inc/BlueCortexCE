@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.service;
 
+import com.ablueforce.cortexce.config.CortexMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -191,6 +192,7 @@ public class LlmService {
                 log.warn("Unable to get token usage from LLM response, usage will be estimated");
             }
 
+            CortexMetrics.llmSuccess();
             return new LlmResponse(content, totalTokens);
         } catch (Exception e) {
             FailureKind kind = classify(e);
@@ -201,6 +203,7 @@ public class LlmService {
     }
 
     private static LlmResponse failure(FailureKind kind, String detail) {
+        CortexMetrics.llmFailure(kind.name());
         return new LlmResponse("", 0, kind, detail);
     }
 
@@ -208,7 +211,7 @@ public class LlmService {
      * Classifies a provider exception by walking the cause chain, so a wrapper added by
      * the HTTP layer does not hide the status code underneath.
      */
-    static FailureKind classify(Throwable failure) {
+    public static FailureKind classify(Throwable failure) {
         StringBuilder messages = new StringBuilder();
         Set<String> classNames = new LinkedHashSet<>();
         Throwable current = failure;

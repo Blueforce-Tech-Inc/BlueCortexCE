@@ -9,10 +9,10 @@
 > **文档结构说明（中英差异）**：中文版用路径式 H4 标题标注端点（如 ``#### GET `/api/observations` ``），
 > 英文版用描述式 H3 标题（如 `### List Observations`）并在标题下方用代码块给出请求行。这是**有意保留**
 > 的差异——路径式标题在中文语境下更自然，且两版对每个端点都给出了相同的 HTTP 方法与路径。端点集合已核验
-> 完全一致（REST 层的 **74** 个生效操作、**68** 条路径，加上[传输层端点](#传输层端点)一节的 **6** 个传输层操作
-> ——合计 **80** 个操作、**74** 条路径，2026-11-02 实测：REST 层数 `/v3/api-docs` 里 `paths` 每个条目下的
+> 完全一致（REST 层的 **74** 个生效操作、**68** 条路径，加上[传输层端点](#传输层端点)一节的 **7** 个传输层操作
+> ——合计 **81** 个操作、**75** 条路径，2026-11-04 实测：REST 层数 `/v3/api-docs` 里 `paths` 每个条目下的
 > `get`/`put`/`post`/`delete`/`patch` 键；与 Controller 里 74 个 `@*Mapping` 注解一致，需排除
-> `ViewerController.java:294` 那个就地注释掉的路由；那 6 个传输层操作是 MCP 传输与 Spring Boot actuator，
+> `ViewerController.java:294` 那个就地注释掉的路由；那 7 个传输层操作是 MCP 传输与 Spring Boot actuator，
 > springdoc 不发布它们），因此这只是呈现方式差异，
 > 不存在内容缺失。请勿为了"对齐"而单方面修改某一版本。
 >
@@ -2577,9 +2577,29 @@ Spring Boot actuator 的健康端点。产品自己的健康端点是 `GET /api/
 
 Spring Boot actuator 的指标端点。
 
+#### GET `/actuator/prometheus`
+
+Prometheus 抓取端点，第 17 轮加入——队列与模型边界由此可以按时间观察，而不只是一次性 JSON 快照。
+它发布（用 Prometheus 名称）：
+
+| 指标 | 类型 | 标签 |
+|------|------|------|
+| `cortexce_queue_depth` | gauge | `status` = `pending` / `processing` / `failed` |
+| `cortexce_queue_stale` | gauge | 无 |
+| `cortexce_embedding_backlog` | gauge | 无 |
+| `cortexce_worker_processing_seconds` | histogram | `provider` |
+| `cortexce_llm_calls_total` | counter | `outcome`、`failure_kind` |
+| `cortexce_llm_retries_total` | counter | `failure_kind` |
+| `cortexce_search_requests_total` | counter | `path` = `hybrid` / `lexical` / `filter` / `recent` |
+| `cortexce_search_duration_seconds` | histogram | `path` |
+
+队列类 gauge 在抓取时读共享数据库，因此多实例看到的是同一组数字；某次数据库读取失败只会让该条序列为
+`NaN`，不会让整个抓取失败。
+
 **配置**：MCP 传输在 `backend/src/main/resources/application.yml` 的 `spring.ai.mcp.server`
 下配置（`protocol: SSE`、`sse-endpoint: /sse`、`sse-message-endpoint: /mcp/message`），
-actuator 的暴露范围在 `management.endpoints.web.exposure.include`（`health`、`metrics`、`info`）。
+actuator 的暴露范围在 `management.endpoints.web.exposure.include`（`health`、`metrics`、`info`、`prometheus`）；
+`env`、`beans`、`configprops` 保持关闭。
 与它们并列配置的 streamable-HTTP 端点 `/mcp` 在协议为 `SSE` 时**不被提供**。
 2026-10-21 对运行实例实测；`scripts/check-api-doc-surface.py` 每次跑回归都会把本节与运行中的服务器对上。
 
@@ -2588,7 +2608,7 @@ actuator 的暴露范围在 `management.endpoints.web.exposure.include`（`healt
 ### HTTP 状态码
 
 下表已对活体后端（`GET /v3/api-docs`，71 个操作、66 条路径，加上[传输层端点](#传输层端点)一节的
-6 个传输层操作——合计 77 个操作、72 条路径，2026-10-21 实测；`scripts/check-api-doc-surface.py`
+7 个传输层操作——合计 78 个操作、73 条路径，2026-11-04 实测；`scripts/check-api-doc-surface.py`
 每次跑回归都会把整个集合重核一遍）与源码逐条核对。
 **应用自身从不返回**的状态码已如实标注，不再按「可达」列出。
 
