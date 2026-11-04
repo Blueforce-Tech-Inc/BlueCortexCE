@@ -98,22 +98,32 @@ public class ObservationEntity {
     @JsonProperty("step_number")
     private Integer stepNumber;
 
+    /**
+     * Internal embedding columns are never serialised.
+     *
+     * <p>Every controller that returns an observation hands this entity straight to
+     * Jackson, and a 1024-float array is ~99% of a 6 KB row: the read-load harness
+     * measured 79% of a page body and a 243 ms p95 spent on vectors the callers never
+     * read. {@code @JsonIgnore} keeps them out of the wire payload and out of the
+     * generated OpenAPI schema, while import keeps working because
+     * {@code ImportService} deserialises its own record and sets these fields directly.
+     */
     @JdbcTypeCode(SqlTypes.VECTOR)
     @Array(length = 768)
     @Column(name = "embedding_768", columnDefinition = "vector(768)")
-    @JsonProperty("embedding_768")
+    @JsonIgnore
     private float[] embedding768;
 
     @JdbcTypeCode(SqlTypes.VECTOR)
     @Array(length = 1024)
     @Column(name = "embedding_1024", columnDefinition = "vector(1024)")
-    @JsonProperty("embedding_1024")
+    @JsonIgnore
     private float[] embedding1024;
 
     @JdbcTypeCode(SqlTypes.VECTOR)
     @Array(length = 1536)
     @Column(name = "embedding_1536", columnDefinition = "vector(1536)")
-    @JsonProperty("embedding_1536")
+    @JsonIgnore
     private float[] embedding1536;
 
     @Column(name = "embedding_model_id")
