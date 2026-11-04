@@ -164,7 +164,7 @@ public class SessionManagementService implements LogHelper {
         Instant now = Instant.now();
         OffsetDateTime startedAt = OffsetDateTime.ofInstant(now, ZoneOffset.UTC);
         sessionRepository.insertIfIdentityAbsent(ref.contentSessionId(), effectiveProjectPath(projectPath),
-            userPrompt, startedAt, now.toEpochMilli(), null, null, "active", ref.platformSource());
+            userPrompt, null, startedAt, now.toEpochMilli(), null, null, "active", ref.platformSource());
         return find(ref).orElseThrow(() -> new IllegalStateException(
             "conversation insert did not produce the requested identity: " + ref.logKey()));
     }
@@ -175,7 +175,8 @@ public class SessionManagementService implements LogHelper {
      */
     @Transactional
     public SessionEntity createImported(ExternalSessionRef ref, String projectPath,
-                                        String userPrompt, Long startedAtEpoch,
+                                        String userPrompt, String lastAssistantMessage,
+                                        Long startedAtEpoch,
                                         Long completedAtEpoch, String status) {
         Optional<SessionEntity> existing = find(ref);
         if (existing.isPresent()) {
@@ -185,7 +186,7 @@ public class SessionManagementService implements LogHelper {
         OffsetDateTime completedAt = completedAtEpoch == null ? null
             : OffsetDateTime.ofInstant(Instant.ofEpochMilli(completedAtEpoch), ZoneOffset.UTC);
         sessionRepository.insertIfIdentityAbsent(ref.contentSessionId(), effectiveProjectPath(projectPath),
-            userPrompt, OffsetDateTime.ofInstant(started, ZoneOffset.UTC), started.toEpochMilli(),
+            userPrompt, lastAssistantMessage, OffsetDateTime.ofInstant(started, ZoneOffset.UTC), started.toEpochMilli(),
             completedAt, completedAtEpoch,
             status != null && !status.isBlank() ? status : "active", ref.platformSource());
         return find(ref).orElseThrow(() -> new IllegalStateException(

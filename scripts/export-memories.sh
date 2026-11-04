@@ -7,7 +7,7 @@
 #   --query QUERY    Search query (default: *)
 #   --project PROJECT Filter by project path
 #   --output FILE    Output file (default: memories-export.json)
-#   --limit N        Max results (default: 1000)
+#   --limit N        Max results per table (default: 1000)
 #   --help          Show this help message
 #
 
@@ -46,7 +46,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --query QUERY    Search query (default: *)"
             echo "  --project PROJECT Filter by project path"
             echo "  --output FILE    Output file (default: memories-export.json)"
-            echo "  --limit N        Max results (default: 1000)"
+            echo "  --limit N        Max results per table (default: 1000)"
             echo ""
             echo "Examples:"
             echo "  $0 --query 'feature implementation'"
@@ -69,117 +69,143 @@ echo "Project: ${PROJECT:-all}"
 echo "Output: $OUTPUT_FILE"
 echo ""
 
+TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/cortexce-export.XXXXXX")
+trap 'rm -rf "$TMP_DIR"' EXIT
+
+# Fetch every page of a paged viewer endpoint until `max_total` rows are
+# collected. The controller clamps `limit` to 100, so a single request cannot
+# return a large database; without this loop the export silently stopped at
+# the first page (100 rows) and a backup of 100k memories lost 99.9% of it.
+#
+# Pages are appended to a JSONL file instead of being accumulated in a shell
+# variable: a 100k-row export does not fit in argv or a single `jq --argjson`.
+#
+# $1 base URL, $2 response item key, $3 max rows, $4 project filter (optional),
+# $5 query (optional; only /api/search uses it), $6 output JSONL file.
+fetch_paged_items() {
+    local base_url="$1" item_key="$2" max_total="$3" project_filter="$4" query_filter="$5" out_file="$6"
+    local page_size=100
+    local offset=0
+    local total=0
+    : > "$out_file"
+    while [ "$total" -lt "$max_total" ]; do
+        local remaining=$((max_total - total))
+        local page=$page_size
+        if [ "$remaining" -lt "$page_size" ]; then page=$remaining; fi
+        local curl_args=()
+        if [ -n "$project_filter" ]; then curl_args+=(--data-urlencode "project=$project_filter"); fi
+        if [ -n "$query_filter" ]; then curl_args+=(--data-urlencode "query=$query_filter"); fi
+        local response
+        response=$(curl -s -G "$base_url" "${curl_args[@]}" \
+            --data-urlencode "offset=$offset" --data-urlencode "limit=$page")
+        local count
+        count=$(printf '%s' "$response" | jq -r --arg key "$item_key" '.[$key] // [] | length' 2>/dev/null || echo 0)
+        if [ "$count" -le 0 ]; then
+            break
+        fi
+        printf '%s' "$response" | jq -c --arg key "$item_key" '.[$key][]?' >> "$out_file"
+        total=$((total + count))
+        if [ "$count" -lt "$page" ]; then
+            break
+        fi
+        offset=$((offset + count))
+    done
+}
+
+count_lines() {
+    if [ -f "$1" ]; then wc -l < "$1" | tr -d ' '; else echo 0; fi
+}
+
 # Step 1: Search for observations
 echo "Step 1: Searching observations..."
-
-if [ -n "$PROJECT" ]; then
-    # Use search API with project filter
-    SEARCH_URL="$API_URL/api/search?query=$(echo "$QUERY" | jq -r . | sed 's/ /%20/g')&project=$(echo "$PROJECT" | jq -r . | sed 's/ /%20/g')&limit=$LIMIT"
-    SEARCH_RESPONSE=$(curl -s "$SEARCH_URL")
-
-    # Check if search returned results
-    if ! echo "$SEARCH_RESPONSE" | jq -e '.observations' > /dev/null 2>&1; then
-        echo "No observations found for query: $QUERY"
-        exit 0
-    fi
+OBS_FILE="$TMP_DIR/observations.jsonl"
+if [ -n "$PROJECT" ] && [ "$QUERY" != "*" ]; then
+    fetch_paged_items "$API_URL/api/search" observations "$LIMIT" "$PROJECT" "$QUERY" "$OBS_FILE"
 else
-    # No project specified - get observations from all projects (limited to LIMIT)
-    echo "No project specified - fetching observations (limit: $LIMIT)..."
-    OBS_RESPONSE=$(curl -s "$API_URL/api/observations?offset=0&limit=$LIMIT")
-    OBSERVATIONS=$(echo "$OBS_RESPONSE" | jq '.items // []')
-    SEARCH_RESPONSE="{\"observations\": $OBSERVATIONS}"
+    # Listing endpoint. `*` means "every observation", not a text query.
+    fetch_paged_items "$API_URL/api/observations" items "$LIMIT" "$PROJECT" "" "$OBS_FILE"
 fi
-
-OBSERVATIONS=$(echo "$SEARCH_RESPONSE" | jq '.observations')
-OBS_COUNT=$(echo "$OBSERVATIONS" | jq 'length')
-
+OBS_COUNT=$(count_lines "$OBS_FILE")
 echo "Found $OBS_COUNT observations"
 
-# Step 2: Extract real Conversation references, excluding standalone rows.
-echo "Step 2: Extracting Conversation references..."
-SESSION_REFS=$(echo "$OBSERVATIONS" | jq '[.[] | select((has("conversation_id") | not) or .conversation_id != null) | select(.content_session_id != null and .content_session_id != "") | {contentSessionId: .content_session_id, platformSource: (.platform_source // "claude")}] | unique_by([.platformSource, .contentSessionId])' 2>/dev/null || echo "[]")
-CONTENT_SESSION_IDS=$(echo "$SESSION_REFS" | jq '[.[].contentSessionId] | unique' 2>/dev/null || echo "[]")
+# Step 2: Get summaries
+echo "Step 2: Fetching summaries..."
+SUMMARIES_FILE="$TMP_DIR/summaries.jsonl"
+fetch_paged_items "$API_URL/api/summaries" items "$LIMIT" "$PROJECT" "" "$SUMMARIES_FILE"
+SUMMARIES_COUNT=$(count_lines "$SUMMARIES_FILE")
+echo "Found $SUMMARIES_COUNT summaries"
 
-if [ "$SESSION_REFS" = "[]" ] || [ "$SESSION_REFS" = "null" ]; then
+# Step 3: Get prompts
+echo "Step 3: Fetching prompts..."
+PROMPTS_FILE="$TMP_DIR/prompts.jsonl"
+fetch_paged_items "$API_URL/api/prompts" items "$LIMIT" "$PROJECT" "" "$PROMPTS_FILE"
+PROMPTS_COUNT=$(count_lines "$PROMPTS_FILE")
+echo "Found $PROMPTS_COUNT prompts"
+
+# Step 4: Extract real Conversation references. Standalone rows (manual /
+# extraction / dlq) are exported as observations but never produce a session
+# ref. Summaries and prompts also reference their conversation, so they are
+# folded in — a conversation with a summary but no observation must still
+# round-trip. The session catalog is also folded in so a conversation with no
+# child rows is not dropped from the backup.
+echo "Step 4: Extracting Conversation references..."
+CATALOG_FILE="$TMP_DIR/session-catalog.jsonl"
+fetch_paged_items "$API_URL/api/sessions" sessions "$LIMIT" "$PROJECT" "" "$CATALOG_FILE"
+SESSION_REFS_FILE="$TMP_DIR/session-refs.json"
+jq -n \
+    --slurpfile obs "$OBS_FILE" \
+    --slurpfile sums "$SUMMARIES_FILE" \
+    --slurpfile prompts "$PROMPTS_FILE" \
+    --slurpfile catalog "$CATALOG_FILE" '
+    [
+      ($obs[] | select((has("conversation_id") | not) or .conversation_id != null)
+              | select(.content_session_id != null and .content_session_id != "")
+              | {contentSessionId: .content_session_id, platformSource: (.platform_source // "claude")}),
+      ($sums[] | select(.session_id != null and .session_id != "")
+               | {contentSessionId: .session_id, platformSource: (.platform_source // "claude")}),
+      ($prompts[] | select(.content_session_id != null and .content_session_id != "")
+                 | {contentSessionId: .content_session_id, platformSource: (.platform_source // "claude")}),
+      ($catalog[] | select(.content_session_id != null and .content_session_id != "")
+                  | {contentSessionId: .content_session_id, platformSource: (.platform_source // "claude")})
+    ] | unique_by([.platformSource, .contentSessionId])' > "$SESSION_REFS_FILE" 2>/dev/null \
+    || echo "[]" > "$SESSION_REFS_FILE"
+
+SESSIONS_FILE="$TMP_DIR/sessions.jsonl"
+: > "$SESSIONS_FILE"
+REFS_COUNT=$(jq 'length' "$SESSION_REFS_FILE" 2>/dev/null || echo 0)
+if [ "$REFS_COUNT" -eq 0 ]; then
     echo "No sessions found"
-    SESSIONS="[]"
     SESSIONS_COUNT=0
 else
-    # Step 3: Batch query sessions
-    echo "Step 3: Fetching session metadata..."
-    # Create JSON payload properly
-    JSON_PAYLOAD=$(jq -n --argjson refs "$SESSION_REFS" --argjson ids "$CONTENT_SESSION_IDS" '{sessionRefs: $refs, contentSessionIds: $ids}')
+    # Step 5: Batch query sessions
+    echo "Step 5: Fetching session metadata..."
+    jq -n --slurpfile refs "$SESSION_REFS_FILE" '{sessionRefs: ($refs[0] // [])}' > "$TMP_DIR/sessions-batch.json"
     SESSIONS_RESPONSE=$(curl -s -X POST "$API_URL/api/sdk-sessions/batch" \
         -H "Content-Type: application/json" \
-        -d "$JSON_PAYLOAD")
-
-    SESSIONS=$(echo "$SESSIONS_RESPONSE" | jq '. ' 2>/dev/null || echo "[]")
-    SESSIONS_COUNT=$(echo "$SESSIONS" | jq 'length' 2>/dev/null || echo "0")
+        -d @"$TMP_DIR/sessions-batch.json")
+    printf '%s' "$SESSIONS_RESPONSE" | jq -c 'if type == "array" then .[] else empty end' > "$SESSIONS_FILE" 2>/dev/null || true
+    SESSIONS_COUNT=$(count_lines "$SESSIONS_FILE")
     echo "Found $SESSIONS_COUNT sessions"
 fi
 
-# Step 4: Get summaries
-echo "Step 4: Fetching summaries..."
-if [ -n "$PROJECT" ]; then
-    SUMMARIES_RESPONSE=$(curl -s "$API_URL/api/summaries?project=$(echo "$PROJECT" | jq -r . | sed 's/ /%20/g')&limit=$LIMIT")
-else
-    SUMMARIES_RESPONSE=$(curl -s "$API_URL/api/summaries?limit=$LIMIT")
-fi
-if echo "$SUMMARIES_RESPONSE" | jq -e '.items' > /dev/null 2>&1; then
-    SUMMARIES=$(echo "$SUMMARIES_RESPONSE" | jq '.items')
-    SUMMARIES_COUNT=$(echo "$SUMMARIES" | jq 'length')
-else
-    SUMMARIES="[]"
-    SUMMARIES_COUNT=0
-fi
-echo "Found $SUMMARIES_COUNT summaries"
-
-# Step 5: Get prompts
-echo "Step 5: Fetching prompts..."
-if [ -n "$PROJECT" ]; then
-    PROMPTS_RESPONSE=$(curl -s "$API_URL/api/prompts?project=$(echo "$PROJECT" | jq -r . | sed 's/ /%20/g')&limit=$LIMIT")
-else
-    PROMPTS_RESPONSE=$(curl -s "$API_URL/api/prompts?limit=$LIMIT")
-fi
-if echo "$PROMPTS_RESPONSE" | jq -e '.items' > /dev/null 2>&1; then
-    PROMPTS=$(echo "$PROMPTS_RESPONSE" | jq '.items')
-    PROMPTS_COUNT=$(echo "$PROMPTS" | jq 'length')
-else
-    PROMPTS="[]"
-    PROMPTS_COUNT=0
-fi
-echo "Found $PROMPTS_COUNT prompts"
-
 # Step 6: Build export JSON
 echo "Step 6: Building export file..."
-
-# Debug: Check each variable for validity
-echo "$OBSERVATIONS" | jq '.' > /dev/null 2>&1 || { echo "ERROR: OBSERVATIONS is invalid JSON"; OBSERVATIONS="[]"; }
-echo "$SESSIONS" | jq '.' > /dev/null 2>&1 || { echo "ERROR: SESSIONS is invalid JSON"; SESSIONS="[]"; }
-echo "$SUMMARIES" | jq '.' > /dev/null 2>&1 || { echo "ERROR: SUMMARIES is invalid JSON"; SUMMARIES="[]"; }
-echo "$PROMPTS" | jq '.' > /dev/null 2>&1 || { echo "ERROR: PROMPTS is invalid JSON"; PROMPTS="[]"; }
-
-# Use printf to create JSON to avoid jq --argjson issues with special chars
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)
 EPOCH=$(date +%s)000
 
-# Escape strings for JSON
-QUERY_ESCAPED=$(printf '%s' "$QUERY" | jq -Rs .)
-PROJECT_ESCAPED=$(printf '%s' "$PROJECT" | jq -Rs .)
-
-EXPORT_JSON=$(jq -n \
+jq -cn \
     --arg exportedAt "$TIMESTAMP" \
     --argjson exportedAtEpoch "$EPOCH" \
-    --argjson query "$QUERY_ESCAPED" \
-    --argjson project "$PROJECT_ESCAPED" \
+    --arg query "$QUERY" \
+    --arg project "$PROJECT" \
     --argjson totalObservations "$OBS_COUNT" \
     --argjson totalSessions "$SESSIONS_COUNT" \
     --argjson totalSummaries "$SUMMARIES_COUNT" \
     --argjson totalPrompts "$PROMPTS_COUNT" \
-    --argjson observations "$OBSERVATIONS" \
-    --argjson sessions "$SESSIONS" \
-    --argjson summaries "$SUMMARIES" \
-    --argjson prompts "$PROMPTS" \
+    --slurpfile observations "$OBS_FILE" \
+    --slurpfile sessions "$SESSIONS_FILE" \
+    --slurpfile summaries "$SUMMARIES_FILE" \
+    --slurpfile prompts "$PROMPTS_FILE" \
     '{
         exportedAt: $exportedAt,
         exportedAtEpoch: $exportedAtEpoch,
@@ -193,17 +219,9 @@ EXPORT_JSON=$(jq -n \
         sessions: $sessions,
         summaries: $summaries,
         prompts: $prompts
-    }')
-
-# Write to file
-echo "$EXPORT_JSON" > "$OUTPUT_FILE"
+    }' > "$OUTPUT_FILE"
 
 echo ""
-echo "========================================"
-echo "Export complete!"
-echo "========================================"
+echo "Export completed successfully!"
 echo "Output file: $OUTPUT_FILE"
-echo "Observations: $OBS_COUNT"
-echo "Sessions: $SESSIONS_COUNT"
-echo "Summaries: $SUMMARIES_COUNT"
-echo "Prompts: $PROMPTS_COUNT"
+echo "File size: $(du -h "$OUTPUT_FILE" | cut -f1)"

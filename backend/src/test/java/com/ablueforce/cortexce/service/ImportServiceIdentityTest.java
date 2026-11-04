@@ -88,6 +88,42 @@ class ImportServiceIdentityTest {
     }
 
     @Test
+    void truncateContentCapsOversizedNarrative() {
+        assertThat(ImportService.truncateContent(null)).isNull();
+        assertThat(ImportService.truncateContent("short")).isEqualTo("short");
+        String oversized = "x".repeat(ImportService.MAX_IMPORT_CONTENT_CHARS + 1);
+        String truncated = ImportService.truncateContent(oversized);
+        assertThat(truncated).hasSize(ImportService.MAX_IMPORT_CONTENT_CHARS);
+    }
+
+    @Test
+    void bulkObservationImportSkipsMalformedVectorAndKeepsValidRows() {
+        UUID conversationId = UUID.randomUUID();
+        UUID scopeId = UUID.randomUUID();
+        SessionEntity parent = session(conversationId, "claude");
+        when(sessionRepository.findByPlatformSourceAndContentSessionId("claude", "vector-id"))
+            .thenReturn(Optional.of(parent));
+        when(observationRepository.findByConversationIdIn(anyList())).thenReturn(List.of());
+        when(memoryScopeService.resolveProjectScope("/repo")).thenReturn(scopeId);
+        when(observationRepository.saveAll(anyList())).thenAnswer(invocation -> {
+            List<ObservationEntity> rows = invocation.getArgument(0);
+            rows.forEach(row -> row.setId(UUID.randomUUID()));
+            return rows;
+        });
+
+        var result = service.importObservations(List.of(
+            observationData("claude", "vector-id"),
+            observationDataWith1024("claude", "vector-id", "bad vector", List.of(0.1, 0.2, 0.3))));
+
+        assertThat(result.imported()).isEqualTo(1);
+        assertThat(result.duplicates()).isZero();
+        assertThat(result.errors()).isEqualTo(1);
+        ArgumentCaptor<List<ObservationEntity>> rowsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(observationRepository).saveAll(rowsCaptor.capture());
+        assertThat(rowsCaptor.getValue()).hasSize(1);
+    }
+
+    @Test
     void bulkObservationImportDeduplicatesAgainstConversationUuid() {
         UUID conversationId = UUID.randomUUID();
         SessionEntity parent = session(conversationId, "claude");
@@ -247,6 +283,7 @@ class ImportServiceIdentityTest {
                 "content_session_id":"conversation-1",
                 "project":"/repo",
                 "user_prompt":"request",
+                "last_assistant_message":"done",
                 "started_at_epoch":100,
                 "completed_at_epoch":200,
                 "status":"completed"
@@ -268,6 +305,10 @@ class ImportServiceIdentityTest {
                 "standalone_kind":"manual",
                 "memory_scope_type":"manual_default",
                 "source":"manual",
+                "embedding_768":[0.25,0.5,0.75],
+                "embedding_1024":[1.0,2.0],
+                "embedding_1536":[3.0],
+                "embedding_model_id":"text-embedding-3-large",
                 "extractedData":{"origin":"export"}
               }],
               "summaries":[{
@@ -281,6 +322,7 @@ class ImportServiceIdentityTest {
                 "platform_source":"claude",
                 "prompt_number":1,
                 "prompt_text":"request",
+                "project_path":"/repo",
                 "created_at_epoch":100
               }]
             }
@@ -292,6 +334,7 @@ class ImportServiceIdentityTest {
         assertThat(imported.sessions()).singleElement().satisfies(session -> {
             assertThat(session.contentSessionId()).isEqualTo("conversation-1");
             assertThat(session.projectPath()).isEqualTo("/repo");
+            assertThat(session.lastAssistantMessage()).isEqualTo("done");
         });
         assertThat(imported.observations()).singleElement().satisfies(observation -> {
             assertThat(observation.sessionId()).isEqualTo("manual-memories");
@@ -301,6 +344,10 @@ class ImportServiceIdentityTest {
             assertThat(observation.standaloneKind()).isEqualTo("manual");
             assertThat(observation.memoryScopeType()).isEqualTo("manual_default");
             assertThat(observation.source()).isEqualTo("manual");
+            assertThat(observation.embedding768()).containsExactly(0.25, 0.5, 0.75);
+            assertThat(observation.embedding1024()).containsExactly(1.0, 2.0);
+            assertThat(observation.embedding1536()).containsExactly(3.0);
+            assertThat(observation.embeddingModelId()).isEqualTo("text-embedding-3-large");
             assertThat(observation.extractedData()).containsEntry("origin", "export");
         });
         assertThat(imported.summaries()).singleElement().satisfies(summary -> {
@@ -310,6 +357,7 @@ class ImportServiceIdentityTest {
         assertThat(imported.prompts()).singleElement().satisfies(prompt -> {
             assertThat(prompt.sessionId()).isEqualTo("conversation-1");
             assertThat(prompt.promptText()).isEqualTo("request");
+            assertThat(prompt.projectPath()).isEqualTo("/repo");
         });
     }
 
@@ -328,6 +376,15 @@ class ImportServiceIdentityTest {
             externalId, platform, "/repo", "discovery", "same title", null, "content",
             null, null, null, null, 1, 42L, 0,
             null, null, null, null, null, null, null, null);
+    }
+
+    private ImportService.ObservationImportData observationDataWith1024(String platform, String externalId,
+                                                                         String title,
+                                                                         List<Double> embedding1024) {
+        return new ImportService.ObservationImportData(
+            externalId, platform, "/repo", "discovery", title, null, "content",
+            null, null, null, null, 1, 43L, 0,
+            null, embedding1024, null, null, null, null, null, null);
     }
 
     private ImportService.ObservationImportData standaloneData(String correlationKey, String type,

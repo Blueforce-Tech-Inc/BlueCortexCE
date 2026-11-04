@@ -159,6 +159,7 @@ public class ImportService implements LogHelper {
         @JsonAlias("project")
         String projectPath,
         String userPrompt,
+        String lastAssistantMessage,
         Long startedAtEpoch,
         Long completedAtEpoch,
         String status,
@@ -190,9 +191,16 @@ public class ImportService implements LogHelper {
         Integer promptNumber,
         Long createdAtEpoch,
         Integer discoveryTokens, // token count for discovery
-        // Embedding vectors (as JSON arrays)
+        // Embedding vectors (as JSON arrays). The export entity emits
+        // embedding_768/embedding_1024/embedding_1536 (Jackson's SNAKE_CASE
+        // strategy does not split the digit from the name), so accept those
+        // wire names explicitly. Without this alias a round-trip silently
+        // dropped every vector and semantic search degraded to full-text.
+        @JsonAlias("embedding_768")
         List<Double> embedding768,
+        @JsonAlias("embedding_1024")
         List<Double> embedding1024,
+        @JsonAlias("embedding_1536")
         List<Double> embedding1536,
         String embeddingModelId,
         @JsonAlias("standalone_kind")
@@ -233,7 +241,9 @@ public class ImportService implements LogHelper {
         String platformSource,
         Integer promptNumber,
         String promptText,
-        Long createdAtEpoch
+        Long createdAtEpoch,
+        @JsonAlias("project")
+        String projectPath
     ) {}
 
     private record ObservationImportKey(UUID conversationId, UUID memoryScopeId, String standaloneKind,
@@ -339,7 +349,7 @@ public class ImportService implements LogHelper {
         }
 
         SessionEntity session = sessionManagementService.createImported(
-            ref, data.projectPath(), data.userPrompt(), data.startedAtEpoch(),
+            ref, data.projectPath(), data.userPrompt(), data.lastAssistantMessage(), data.startedAtEpoch(),
             data.completedAtEpoch(), data.status());
         logSuccess("Imported session: {} -> {}", data.contentSessionId(), session.getId());
 
@@ -353,6 +363,10 @@ public class ImportService implements LogHelper {
         }
         if (data.title() == null || data.title().isBlank()) {
             return ImportResult.error("title is required");
+        }
+        String dimensionError = embeddingDimensionError(data);
+        if (dimensionError != null) {
+            return ImportResult.error(dimensionError);
         }
 
         long createdAtEpoch = data.createdAtEpoch() != null ? data.createdAtEpoch() : System.currentTimeMillis();
@@ -481,6 +495,11 @@ public class ImportService implements LogHelper {
                     result = result.addError("title is required");
                     continue;
                 }
+                String dimensionError = embeddingDimensionError(data);
+                if (dimensionError != null) {
+                    result = result.addError(dimensionError);
+                    continue;
+                }
 
                 ExternalSessionRef ref = ExternalSessionRef.of(data.platformSource(), data.sessionId());
                 boolean standalone = data.standaloneKind() != null;
@@ -601,7 +620,7 @@ public class ImportService implements LogHelper {
         observation.setType(data.type() != null ? data.type() : "unknown");
         observation.setTitle(data.title());
         observation.setSubtitle(data.subtitle());
-        observation.setContent(data.content());
+        observation.setContent(truncateContent(data.content()));
         observation.setFacts(parseJsonArray(data.factsJson()));
         observation.setConcepts(parseJsonArray(data.conceptsJson()));
         observation.setFilesRead(parseJsonArray(data.filesReadJson()));
@@ -617,6 +636,35 @@ public class ImportService implements LogHelper {
         observation.setCreatedAtEpoch(createdAtEpoch);
         observation.setCreatedAt(epochToOffsetDateTime(createdAtEpoch));
         return observation;
+    }
+
+    /**
+     * Cap imported narrative length. `mem_observations.search_tokens` is a
+     * generated tsvector over title + content, and PostgreSQL rejects a tsvector
+     * above ~1 MB. A multi-megabyte observation therefore failed the whole
+     * INSERT (and the batch) after import logged success. Truncate instead of
+     * letting one oversized row crash the import.
+     */
+    static final int MAX_IMPORT_CONTENT_CHARS = 20_000;
+
+    static String truncateContent(String content) {
+        if (content == null || content.length() <= MAX_IMPORT_CONTENT_CHARS) {
+            return content;
+        }
+        return content.substring(0, MAX_IMPORT_CONTENT_CHARS);
+    }
+
+    private static String embeddingDimensionError(ObservationImportData data) {
+        if (data.embedding768() != null && data.embedding768().size() != 768) {
+            return "embedding768 must have 768 dimensions (got " + data.embedding768().size() + ")";
+        }
+        if (data.embedding1024() != null && data.embedding1024().size() != 1024) {
+            return "embedding1024 must have 1024 dimensions (got " + data.embedding1024().size() + ")";
+        }
+        if (data.embedding1536() != null && data.embedding1536().size() != 1536) {
+            return "embedding1536 must have 1536 dimensions (got " + data.embedding1536().size() + ")";
+        }
+        return null;
     }
 
     private static String sourceForStandaloneKind(String kind) {
@@ -807,6 +855,8 @@ public class ImportService implements LogHelper {
                 prompt.setContentSessionId(data.sessionId());
                 prompt.setPromptNumber(data.promptNumber());
                 prompt.setPromptText(data.promptText());
+                prompt.setProjectPath(data.projectPath() != null && !data.projectPath().isBlank()
+                    ? data.projectPath() : parent.getProjectPath());
                 prompt.setCreatedAtEpoch(createdAtEpoch);
                 prompt.setCreatedAt(epochToOffsetDateTime(createdAtEpoch));
 

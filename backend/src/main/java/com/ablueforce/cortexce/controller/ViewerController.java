@@ -860,6 +860,8 @@ public class ViewerController {
         map.put("platform_source", s.getPlatformSource());
         map.put("project", s.getProjectPath() != null ? s.getProjectPath() : "");
         map.put("user_prompt", s.getUserPrompt() != null ? s.getUserPrompt() : "");
+        map.put("last_assistant_message",
+            s.getLastAssistantMessage() != null ? s.getLastAssistantMessage() : "");
         map.put("started_at_epoch", s.getStartedAtEpoch());
         map.put("completed_at_epoch", s.getCompletedAtEpoch() != null ? s.getCompletedAtEpoch() : 0);
         map.put("status", s.getStatus() != null ? s.getStatus() : "");

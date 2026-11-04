@@ -224,7 +224,7 @@ class ImportServiceDatabaseTest {
 
     private SessionEntity createSession(String platform, String externalId, String projectPath) {
         SessionEntity session = sessionManagementService.createImported(
-            ExternalSessionRef.of(platform, externalId), projectPath, "import test", CREATED_AT,
+            ExternalSessionRef.of(platform, externalId), projectPath, "import test", null, CREATED_AT,
             null, "completed");
         createdConversationIds.add(session.getId());
         return session;

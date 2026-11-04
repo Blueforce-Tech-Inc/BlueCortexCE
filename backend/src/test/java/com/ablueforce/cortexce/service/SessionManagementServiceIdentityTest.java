@@ -33,14 +33,14 @@ class SessionManagementServiceIdentityTest {
         winner.setContentSessionId("same-id");
         when(sessions.findByPlatformSourceAndContentSessionId("codex", "same-id"))
             .thenReturn(Optional.empty(), Optional.of(winner));
-        when(sessions.insertIfIdentityAbsent(eq("same-id"), eq("/repo"), anyString(),
+        when(sessions.insertIfIdentityAbsent(eq("same-id"), eq("/repo"), anyString(), isNull(),
             any(OffsetDateTime.class), anyLong(), isNull(), isNull(), eq("active"), eq("codex")))
             .thenReturn(0);
 
         SessionEntity actual = service.getOrCreate(ref, "/repo", "prompt");
 
         assertThat(actual.getId()).isEqualTo(winner.getId());
-        verify(sessions).insertIfIdentityAbsent(eq("same-id"), eq("/repo"), eq("prompt"),
+        verify(sessions).insertIfIdentityAbsent(eq("same-id"), eq("/repo"), eq("prompt"), isNull(),
             any(OffsetDateTime.class), anyLong(), isNull(), isNull(), eq("active"), eq("codex"));
         verify(sessions, never()).saveAndFlush(any());
     }

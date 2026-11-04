@@ -53,10 +53,12 @@ public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
     @Modifying
     @Query(value = """
         INSERT INTO mem_sessions (
-            content_session_id, project_path, user_prompt, started_at, started_at_epoch,
+            content_session_id, project_path, user_prompt, last_assistant_message,
+            started_at, started_at_epoch,
             completed_at, completed_at_epoch, status, platform_source
         ) VALUES (
-            :contentSessionId, :projectPath, :userPrompt, :startedAt, :startedAtEpoch,
+            :contentSessionId, :projectPath, :userPrompt, :lastAssistantMessage,
+            :startedAt, :startedAtEpoch,
             :completedAt, :completedAtEpoch, :status, :platformSource
         )
         ON CONFLICT (platform_source COLLATE "C", content_session_id COLLATE "C") DO NOTHING
@@ -65,6 +67,7 @@ public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
         @Param("contentSessionId") String contentSessionId,
         @Param("projectPath") String projectPath,
         @Param("userPrompt") String userPrompt,
+        @Param("lastAssistantMessage") String lastAssistantMessage,
         @Param("startedAt") OffsetDateTime startedAt,
         @Param("startedAtEpoch") long startedAtEpoch,
         @Param("completedAt") OffsetDateTime completedAt,
