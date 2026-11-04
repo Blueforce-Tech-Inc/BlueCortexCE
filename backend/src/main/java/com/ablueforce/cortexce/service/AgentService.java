@@ -86,6 +86,7 @@ public class AgentService implements LogHelper {
     private final ContextCacheService contextCacheService;
     private final ExtractionValidationService extractionValidationService;
     private final ProcessingHeartbeat processingHeartbeat;
+    private final GracefulShutdownCoordinator shutdownCoordinator;
 
     @Value("${claudemem.max-retries:3}")
     private int maxRetries;
@@ -109,7 +110,8 @@ public class AgentService implements LogHelper {
                         TokenService tokenService,
                         ContextCacheService contextCacheService,
                         ExtractionValidationService extractionValidationService,
-                        ProcessingHeartbeat processingHeartbeat) {
+                        ProcessingHeartbeat processingHeartbeat,
+                        GracefulShutdownCoordinator shutdownCoordinator) {
         this.sessionManagementService = sessionManagementService;
         this.templateService = templateService;
         this.pendingMessageRepository = pendingMessageRepository;
@@ -122,6 +124,7 @@ public class AgentService implements LogHelper {
         this.contextCacheService = contextCacheService;
         this.extractionValidationService = extractionValidationService;
         this.processingHeartbeat = processingHeartbeat;
+        this.shutdownCoordinator = shutdownCoordinator;
     }
 
     // ========================================================================
@@ -300,6 +303,12 @@ public class AgentService implements LogHelper {
     }
 
     private void processPendingMessageInternal(UUID pendingMessageId) {
+        // A job claimed after SIGTERM would only have to be requeued by the drain.
+        // Leave the row pending so the next process claims it with a full budget.
+        if (shutdownCoordinator.isShuttingDown()) {
+            log.info("Shutdown in progress, leaving pending message {} unclaimed", pendingMessageId);
+            return;
+        }
         PendingMessageEntity pending = conversationWriteService.claimObservationJob(pendingMessageId).orElse(null);
         if (pending == null) {
             log.debug("Pending Observation job {} is missing, closed, or already claimed", pendingMessageId);

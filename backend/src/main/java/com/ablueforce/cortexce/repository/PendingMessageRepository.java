@@ -301,6 +301,30 @@ public interface PendingMessageRepository extends JpaRepository<PendingMessageEn
         @Param("now") long now);
 
     /**
+     * Put jobs this instance still owns back into the queue on shutdown.
+     *
+     * <p>Called only after a bounded wait, with ids taken from this instance's own
+     * in-flight set — never a scan of every {@code processing} row, which could
+     * requeue another instance's live work. Clearing {@code started_processing_at_epoch}
+     * removes the lease so the next instance can claim the row immediately; the
+     * {@code processing} guard means a job that finished during the wait is untouched.
+     *
+     * <p>{@code retry_count} is deliberately left alone: a shutdown is not an
+     * attempt, and a crash-looping deployment must not exhaust the retry budget
+     * before the provider is ever reachable.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE mem_pending_messages
+        SET status = 'pending',
+            started_processing_at_epoch = NULL
+        WHERE message_type = 'observation'
+          AND status = 'processing'
+          AND id IN (:ids)
+        """, nativeQuery = true)
+    int requeueProcessing(@Param("ids") java.util.Collection<UUID> ids);
+
+    /**
      * Get retry count for a message
      */
     @Query("SELECT p.retryCount FROM PendingMessageEntity p WHERE p.id = :id")

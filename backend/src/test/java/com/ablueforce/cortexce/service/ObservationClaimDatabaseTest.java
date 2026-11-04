@@ -300,6 +300,52 @@ class ObservationClaimDatabaseTest {
     }
 
     // ------------------------------------------------------------------
+    // Shutdown requeue
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("shutdown requeue returns owned rows to pending without spending a retry")
+    void shutdownRequeueReturnsOwnedRowsToPending() {
+        UUID pendingId = enqueueOne();
+        assertThat(writer.claimObservationJob(pendingId)).isPresent();
+        jdbc.update("UPDATE mem_pending_messages SET started_processing_at_epoch = ? WHERE id = ?",
+            System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(1), pendingId);
+
+        int requeued = transactionTemplate.execute(status ->
+            pendingMessageRepository.requeueProcessing(List.of(pendingId)));
+
+        assertThat(requeued).isEqualTo(1);
+        assertThat(rowStatus(pendingId)).isEqualTo("pending");
+        assertThat(jdbc.queryForObject(
+            "SELECT started_processing_at_epoch FROM mem_pending_messages WHERE id = ?",
+            Long.class, pendingId)).isNull();
+        assertThat(jdbc.queryForObject(
+            "SELECT retry_count FROM mem_pending_messages WHERE id = ?",
+            Integer.class, pendingId)).as("a shutdown is not an attempt").isZero();
+        assertThat(jdbc.queryForObject(
+            "SELECT failed_at_epoch FROM mem_pending_messages WHERE id = ?",
+            Long.class, pendingId)).isNull();
+
+        // The row is claimable again immediately, which is the whole point of the requeue.
+        assertThat(writer.claimObservationJob(pendingId)).isPresent();
+    }
+
+    @Test
+    @DisplayName("shutdown requeue never rewrites a row that already finished")
+    void shutdownRequeueLeavesFinishedRowsAlone() {
+        UUID pendingId = enqueueOne();
+        assertThat(writer.claimObservationJob(pendingId)).isPresent();
+        writer.markObservationSkipped(pendingId, conversationIdOf(pendingId));
+        assertThat(rowStatus(pendingId)).isEqualTo("skipped");
+
+        int requeued = transactionTemplate.execute(status ->
+            pendingMessageRepository.requeueProcessing(List.of(pendingId)));
+
+        assertThat(requeued).isZero();
+        assertThat(rowStatus(pendingId)).isEqualTo("skipped");
+    }
+
+    // ------------------------------------------------------------------
     // Retry budget: one increment per attempt, terminal at the bound
     // ------------------------------------------------------------------
 

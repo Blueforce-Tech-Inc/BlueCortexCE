@@ -35,10 +35,11 @@ import java.util.concurrent.Executor;
  * a policy (cancel, or let the thread finish and discard the result) and is a
  * design decision, not a config toggle. See P2-67.
  *
- * <p>The four {@code claudemem.async.*} properties below are read with
- * {@code @Value} defaults, but {@code application.yml} defines no
- * {@code claudemem.async} block, so the defaults are always what applies unless a
- * deployment supplies the variables externally.
+ * <p>{@code application.yml} sets only {@code claudemem.async.await-termination-seconds}
+ * (5 s, so SIGTERM does not wait a second full window after
+ * {@code GracefulShutdownCoordinator} already drained the queue). The pool-size
+ * properties still rely on the {@code @Value} defaults below because no other
+ * {@code claudemem.async} key is configured.
  */
 @Configuration
 @EnableAsync(proxyTargetClass = true)
@@ -47,8 +48,8 @@ public class AsyncConfig implements AsyncConfigurer {
 
     private static final Logger log = LoggerFactory.getLogger(AsyncConfig.class);
 
-    // P2: Thread pool configuration. NOTE: no `claudemem.async` block exists in
-    // application.yml, so these @Value defaults are what actually applies.
+    // P2: Thread pool configuration. application.yml only sets
+    // await-termination-seconds, so the pool-size defaults below are what applies.
     @Value("${claudemem.async.core-pool-size:10}")
     private int corePoolSize;
 

@@ -52,7 +52,7 @@ class PendingMessageEventListenerTest {
     void setUp() {
         // Create a no-op AgentService subclass that doesn't do anything
         noopAgentService = new com.ablueforce.cortexce.service.AgentService(
-            null, null, null, null, null, null, null, null, null, null, null, null
+            null, null, null, null, null, null, null, null, null, null, null, null, null
         ) {
             @Override
             public void processPendingMessage(UUID pendingMessageId) {
@@ -68,7 +68,8 @@ class PendingMessageEventListenerTest {
             }
         };
         listener = new PendingMessageEventListener(
-            noopAgentService, pendingMessageRepository, noopSummaryService, conversationWriteService);
+            noopAgentService, pendingMessageRepository, noopSummaryService, conversationWriteService,
+            new com.ablueforce.cortexce.service.GracefulShutdownCoordinator(null, null, null));
         ReflectionTestUtils.setField(listener, "maxRetries", CONFIGURED_MAX_RETRIES);
         messageId = UUID.randomUUID();
     }
@@ -186,7 +187,7 @@ class PendingMessageEventListenerTest {
     private PendingMessageEventListener listenerWithAgentFailingWith(RuntimeException failure) {
         com.ablueforce.cortexce.service.AgentService failingAgent =
             new com.ablueforce.cortexce.service.AgentService(
-                null, null, null, null, null, null, null, null, null, null, null, null
+                null, null, null, null, null, null, null, null, null, null, null, null, null
             ) {
                 @Override
                 public void processPendingMessage(UUID pendingMessageId) {
@@ -194,7 +195,8 @@ class PendingMessageEventListenerTest {
                 }
             };
         PendingMessageEventListener retryListener = new PendingMessageEventListener(
-            failingAgent, pendingMessageRepository, noopSummaryService, conversationWriteService);
+            failingAgent, pendingMessageRepository, noopSummaryService, conversationWriteService,
+            new com.ablueforce.cortexce.service.GracefulShutdownCoordinator(null, null, null));
         ReflectionTestUtils.setField(retryListener, "maxRetries", CONFIGURED_MAX_RETRIES);
         return retryListener;
     }

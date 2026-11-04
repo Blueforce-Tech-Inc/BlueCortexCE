@@ -1,6 +1,11 @@
 server:
   port: ${SERVER_PORT:37777}
   address: ${SERVER_ADDRESS:127.0.0.1}
+  # SIGTERM stops the connector and lets requests already being handled finish
+  # (bounded by spring.lifecycle.timeout-per-shutdown-phase). Without this,
+  # Tomcat answers 503 or drops the socket, which a hook caller sees as a lost
+  # write. GracefulShutdownCoordinator stops queue claims before this phase.
+  shutdown: graceful
   tomcat:
     # A request body over cortexce.http.max-body-bytes is refused before it is read.
     # Tomcat discards the unread remainder so the client can still receive the 413;
@@ -146,6 +151,12 @@ spring:
   application:
     name: claude-mem-java
 
+  lifecycle:
+    # Per-phase ceiling for SmartLifecycle stop callbacks. The queue drain uses
+    # claudemem.shutdown.in-flight-timeout-ms (30 s), so this must stay above it;
+    # the same value bounds the web server's graceful shutdown.
+    timeout-per-shutdown-phase: ${SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE:45s}
+
   autoconfigure:
     exclude:
       - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
@@ -290,6 +301,15 @@ claudemem:
     retry-max-attempts: ${CLAUDEMEM_LLM_RETRY_MAX_ATTEMPTS:3}
     retry-backoff-ms: ${CLAUDEMEM_LLM_RETRY_BACKOFF_MS:2000}
     retry-max-backoff-ms: ${CLAUDEMEM_LLM_RETRY_MAX_BACKOFF_MS:5000}
+    # Circuit breaker (round I2). Only TIMEOUT and UNAVAILABLE count as "provider
+    # unreachable"; a 401/429/blank answer means the provider answered and resets
+    # the streak. An open circuit returns a failure without a request, so the job
+    # reaches its retry bound in milliseconds instead of 3 x 120 s. One probe is
+    # allowed after the cooldown; any answer closes the circuit.
+    circuit-breaker:
+      enabled: ${CLAUDEMEM_LLM_CIRCUIT_BREAKER_ENABLED:true}
+      failure-threshold: ${CLAUDEMEM_LLM_CIRCUIT_BREAKER_FAILURE_THRESHOLD:3}
+      cooldown-ms: ${CLAUDEMEM_LLM_CIRCUIT_BREAKER_COOLDOWN_MS:60000}
   # Deterministic post-validation of extracted observations (no model call).
   # Disabling it bypasses every check and persists the parsed answer unchanged.
   extraction:
@@ -317,6 +337,20 @@ claudemem:
     # Comment frame cadence. Keeps idle streams alive through proxies and discovers a
     # silently closed client within one interval instead of at the 30-minute timeout.
     heartbeat-ms: ${CLAUDEMEM_SSE_HEARTBEAT_MS:15000}
+  # SIGTERM drain (round I1). On shutdown the worker stops claiming new jobs,
+  # waits for the ones it already claimed, then returns whatever is still
+  # `processing` to `pending` so the next process picks it up immediately
+  # instead of waiting for the 10-minute stale sweep.
+  shutdown:
+    # Time the in-flight Observation jobs get to finish before they are requeued.
+    in-flight-timeout-ms: ${CLAUDEMEM_SHUTDOWN_IN_FLIGHT_TIMEOUT_MS:30000}
+    poll-interval-ms: ${CLAUDEMEM_SHUTDOWN_POLL_INTERVAL_MS:500}
+  # Async executor. await-termination-seconds bounds shutdown only (there is no
+  # per-task timeout); the queue drain above already gave running jobs their
+  # window, so this stays short and the remaining work is interrupted and
+  # reclaimed by stale recovery.
+  async:
+    await-termination-seconds: ${CLAUDEMEM_ASYNC_AWAIT_TERMINATION_SECONDS:5}
   # Stale message recovery settings
   stale-message:
     # Minutes after which a processing message is considered stale

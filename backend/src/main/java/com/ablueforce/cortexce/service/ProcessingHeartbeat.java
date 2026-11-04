@@ -58,6 +58,16 @@ public class ProcessingHeartbeat {
         inFlight.remove(pendingMessageId);
     }
 
+    /** Snapshot of the jobs this instance currently owns, safe to iterate. */
+    public Set<UUID> inFlightIds() {
+        return Set.copyOf(inFlight);
+    }
+
+    /** Number of jobs this instance currently owns. */
+    public int inFlightCount() {
+        return inFlight.size();
+    }
+
     /**
      * Refresh every lease this instance still holds. Runs independently on each
      * instance; there is no cross-instance state and no coordination needed.

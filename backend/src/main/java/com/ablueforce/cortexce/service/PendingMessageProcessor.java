@@ -29,6 +29,7 @@ public class PendingMessageProcessor {
 
     private final PendingMessageRepository pendingMessageRepository;
     private final PendingMessageEventPublisher eventPublisher;
+    private final GracefulShutdownCoordinator shutdownCoordinator;
     private final AtomicBoolean processing = new AtomicBoolean(false);
 
     @Value("${app.pending-message.enabled:true}")
@@ -38,9 +39,11 @@ public class PendingMessageProcessor {
     private long summaryJobStaleMs;
 
     public PendingMessageProcessor(PendingMessageRepository pendingMessageRepository,
-                                   PendingMessageEventPublisher eventPublisher) {
+                                   PendingMessageEventPublisher eventPublisher,
+                                   GracefulShutdownCoordinator shutdownCoordinator) {
         this.pendingMessageRepository = pendingMessageRepository;
         this.eventPublisher = eventPublisher;
+        this.shutdownCoordinator = shutdownCoordinator;
     }
 
     /**
@@ -64,6 +67,13 @@ public class PendingMessageProcessor {
     public void processPendingMessages() {
         if (!enabled) {
             log.debug("Pending message processing is disabled");
+            return;
+        }
+
+        // Stop claiming after SIGTERM. Rows stay pending and the next process
+        // picks them up; publishing an event now would only race the shutdown.
+        if (shutdownCoordinator.isShuttingDown()) {
+            log.info("Shutdown in progress, not publishing new pending messages");
             return;
         }
 

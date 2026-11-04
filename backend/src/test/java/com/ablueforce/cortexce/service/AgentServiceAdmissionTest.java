@@ -35,7 +35,7 @@ class AgentServiceAdmissionTest {
     @BeforeEach
     void setUp() {
         service = new AgentService(null, null, pendingMessageRepository, sessionRepository,
-            null, null, null, null, null, null, null, null);
+            null, null, null, null, null, null, null, null, null);
         conversationId = UUID.randomUUID();
         session = new SessionEntity();
         session.setId(conversationId);

@@ -3,6 +3,7 @@ package com.ablueforce.cortexce.event;
 import com.ablueforce.cortexce.repository.PendingMessageRepository;
 import com.ablueforce.cortexce.service.AgentService;
 import com.ablueforce.cortexce.service.ConversationWriteService;
+import com.ablueforce.cortexce.service.GracefulShutdownCoordinator;
 import com.ablueforce.cortexce.service.RetryPolicy;
 import com.ablueforce.cortexce.service.SummaryGenerationService;
 import org.slf4j.Logger;
@@ -29,6 +30,7 @@ public class PendingMessageEventListener {
     private final PendingMessageRepository pendingMessageRepository;
     private final SummaryGenerationService summaryGenerationService;
     private final ConversationWriteService conversationWriteService;
+    private final GracefulShutdownCoordinator shutdownCoordinator;
 
     @Value("${claudemem.max-retries:3}")
     private int maxRetries;
@@ -36,11 +38,13 @@ public class PendingMessageEventListener {
     public PendingMessageEventListener(AgentService agentService,
                                        PendingMessageRepository pendingMessageRepository,
                                        SummaryGenerationService summaryGenerationService,
-                                       ConversationWriteService conversationWriteService) {
+                                       ConversationWriteService conversationWriteService,
+                                       GracefulShutdownCoordinator shutdownCoordinator) {
         this.agentService = agentService;
         this.pendingMessageRepository = pendingMessageRepository;
         this.summaryGenerationService = summaryGenerationService;
         this.conversationWriteService = conversationWriteService;
+        this.shutdownCoordinator = shutdownCoordinator;
     }
 
     /**
@@ -57,6 +61,14 @@ public class PendingMessageEventListener {
     @EventListener
     public void handlePendingMessageEvent(PendingMessageEvent event) {
         log.info("Received PendingMessageEvent: {}", event);
+
+        // Events already sitting in the executor still arrive after SIGTERM.
+        // Skipping them leaves the row pending, which the next process claims;
+        // claiming now would only hand the job to the shutdown drain.
+        if (shutdownCoordinator.isShuttingDown()) {
+            log.info("Shutdown in progress, leaving pending message {} unclaimed", event.getPendingMessageId());
+            return;
+        }
 
         try {
             if ("observation".equals(event.getMessageType())) {
