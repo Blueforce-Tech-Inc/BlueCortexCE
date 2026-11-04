@@ -573,6 +573,35 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 | `MEMORY_REFINE_ENABLED` | No | `true` | Enable memory refinement (self-evolution) |
 | `JAVA_OPTS` | No | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` | JVM options |
 
+#### Data Retention (Round 20)
+
+`RetentionService` ages out user prompts, observations, summaries and rolled log
+files. Every switch defaults to the safe side: the job is **disabled**, a run is
+**dry-run**, and every window is `0` (**keep forever**). No row or file is removed
+until an operator opts in.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `CORTEXCE_RETENTION_ENABLED` | No | `false` | Master switch for the scheduled cleanup |
+| `CORTEXCE_RETENTION_CRON` | No | `0 0 3 * * *` | When the job runs (only used when enabled) |
+| `CORTEXCE_RETENTION_DRY_RUN` | No | `true` | Count and log what would be deleted; no writes |
+| `CORTEXCE_RETENTION_PROMPTS_DAYS` | No | `0` | Prompt retention; `0` keeps forever |
+| `CORTEXCE_RETENTION_OBSERVATIONS_DAYS` | No | `0` | Observation retention; `0` keeps forever |
+| `CORTEXCE_RETENTION_SUMMARIES_DAYS` | No | `0` | Summary retention; `0` keeps forever |
+| `CORTEXCE_RETENTION_LOGS_DAYS` | No | `0` | Rolled log file retention; `0` keeps forever |
+| `CORTEXCE_RETENTION_PROJECT` | No | *(empty)* | Exact `project_path` scope; empty means every project |
+| `CORTEXCE_RETENTION_LOG_DIR` | No | `LOG_DIR` or `~/.claude-mem/logs` | Where rolled log files live |
+| `CORTEXCE_RETENTION_LOG_PREFIX` | No | `claude-mem` | Only files whose name starts with this prefix are eligible |
+
+Rollout is two steps: enable with `DRY_RUN=true` and read the
+`Retention dry run: would delete prompts=… observations=… summaries=… logFiles=…`
+line, then set `DRY_RUN=false`. Rows are selected by `created_at_epoch < cutoff`,
+so a row exactly on the boundary is kept. When `PROJECT` is set the predicate is
+part of both the count and the `DELETE`, so a scoped run cannot reach another
+project's rows. Log cleanup never deletes the active file (its mtime is newer
+than the cutoff) and ignores files outside the configured directory or prefix.
+Filesystem cleanup only applies to rolled files, not the database.
+
 #### Evo-Memory and Structured Extraction Tuning
 
 `MEMORY_REFINE_ENABLED` switches refinement on, but not what it does — the three

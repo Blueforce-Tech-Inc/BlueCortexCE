@@ -15,6 +15,28 @@ cortexce:
     # (`error.code = unauthorized`). Comparison is constant-time.
     api-token: ${CORTEXCE_API_TOKEN:}
 
+  # ==========================================================================
+  # Age-based retention (round 20)
+  # ==========================================================================
+  retention:
+    # The job and every window default off, and a run defaults to dry-run,
+    # so nothing is deleted until an operator opts in. Recommended rollout:
+    # enable with dry-run=true, read the counts in the log, then set
+    # CORTEXCE_RETENTION_DRY_RUN=false.
+    enabled: ${CORTEXCE_RETENTION_ENABLED:false}
+    cron: ${CORTEXCE_RETENTION_CRON:0 0 3 * * *}
+    dry-run: ${CORTEXCE_RETENTION_DRY_RUN:true}
+    # Retention windows in days. 0 means "keep forever" for that table.
+    prompts-days: ${CORTEXCE_RETENTION_PROMPTS_DAYS:0}
+    observations-days: ${CORTEXCE_RETENTION_OBSERVATIONS_DAYS:0}
+    summaries-days: ${CORTEXCE_RETENTION_SUMMARIES_DAYS:0}
+    logs-days: ${CORTEXCE_RETENTION_LOGS_DAYS:0}
+    # Blank = every project. Set it to limit a run to one project_path.
+    project: ${CORTEXCE_RETENTION_PROJECT:}
+    # Rolled log files live here; blank falls back to LOG_DIR or ~/.claude-mem/logs.
+    log-dir: ${CORTEXCE_RETENTION_LOG_DIR:}
+    log-file-prefix: ${CORTEXCE_RETENTION_LOG_PREFIX:claude-mem}
+
 # ============================================================================
 # Evo-Memory Feature Flags (Section 6.1.1)
 # ============================================================================

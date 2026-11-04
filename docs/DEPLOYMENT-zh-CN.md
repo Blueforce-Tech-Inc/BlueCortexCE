@@ -553,6 +553,32 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 | `MEMORY_REFINE_ENABLED` | 否 | `true` | 启用记忆精炼（自我进化） |
 | `JAVA_OPTS` | 否 | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` | JVM 参数 |
 
+#### 数据保留（第 20 轮）
+
+`RetentionService` 按天清理用户提示词、observation、summary 与滚动日志文件。
+所有开关都默认在安全一侧：**作业关闭**、运行是 **dry-run**、每个窗口都是 `0`
+（**永久保留**）。运维显式开启之前，不会删除任何行或文件。
+
+| 变量 | 必填 | 默认 | 说明 |
+|------|------|------|------|
+| `CORTEXCE_RETENTION_ENABLED` | 否 | `false` | 定时清理总开关 |
+| `CORTEXCE_RETENTION_CRON` | 否 | `0 0 3 * * *` | 运行时间（仅启用时生效） |
+| `CORTEXCE_RETENTION_DRY_RUN` | 否 | `true` | 只统计并打印将要删除的数量，不写库、不删文件 |
+| `CORTEXCE_RETENTION_PROMPTS_DAYS` | 否 | `0` | 提示词保留天数；`0` 永久保留 |
+| `CORTEXCE_RETENTION_OBSERVATIONS_DAYS` | 否 | `0` | observation 保留天数；`0` 永久保留 |
+| `CORTEXCE_RETENTION_SUMMARIES_DAYS` | 否 | `0` | summary 保留天数；`0` 永久保留 |
+| `CORTEXCE_RETENTION_LOGS_DAYS` | 否 | `0` | 滚动日志保留天数；`0` 永久保留 |
+| `CORTEXCE_RETENTION_PROJECT` | 否 | 空 | 精确匹配 `project_path` 的 scope；空表示所有项目 |
+| `CORTEXCE_RETENTION_LOG_DIR` | 否 | `LOG_DIR` 或 `~/.claude-mem/logs` | 滚动日志目录 |
+| `CORTEXCE_RETENTION_LOG_PREFIX` | 否 | `claude-mem` | 只有以该前缀开头的文件才参与清理 |
+
+上线分两步：先启用并保持 `DRY_RUN=true`，读取日志里的
+`Retention dry run: would delete prompts=… observations=… summaries=… logFiles=…`，
+确认数量后再设 `DRY_RUN=false`。行按 `created_at_epoch < cutoff` 选取，恰好落在
+边界上的行会保留；设置 `PROJECT` 后，计数与 `DELETE` 都带 `project_path` 条件，
+因此限定 scope 的运行不会碰到其他项目的行。日志清理不会删除正在写入的活动日志
+（其 mtime 晚于 cutoff），也不会触碰目录之外或前缀不匹配的文件。
+
 #### Evo-Memory 与结构化抽取调参
 
 `MEMORY_REFINE_ENABLED` 决定精炼开关，但**不决定精炼做什么**——下面三个 `MEMORY_REFINE_*`
