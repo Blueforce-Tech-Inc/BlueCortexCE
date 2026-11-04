@@ -78,18 +78,45 @@ experiment, so the relevant comparison is the direction of change, and it is
 negative: exact-title hits fell by 16 points and trace-contract hits by 16 points
 while subject and identifier coverage both dropped.
 
-## Second attempt (aborted, no data)
+## Second version: examples kept, prose compressed
 
-A follow-up variant that restored the `<candidate_identifiers>` pointer plus the
-category examples was prepared (1505 words, still ~40% below baseline) and the
-evaluation was started. It was stopped at 32/113 calls when this round switched
-to small-batch execution, so **no report exists and no data from it is used
-here**. If the title section is revisited later, that variant is the starting
-point and needs its own full run.
+The first version lost because it removed the examples. The second version kept
+every rule, the 3 GOOD / 3 BAD examples, all 10 category examples and the
+`<candidate_identifiers>` bullet verbatim, and compressed only repetitive
+explanations, duplicated prohibitions and redundant wording: 2531 → 1805 words
+(-28.7%). It was evaluated in full (113 calls, 0 failures, 1829 s), not aborted.
+
+| metric | before | v1 (examples removed) | v2 (examples kept) |
+|---|---|---|---|
+| tokens p50 | 5013 | 3289 | **4055 (-19.1%)** |
+| tokens p95 | 6094 | 4695 | **5077 (-16.7%)** |
+| title exact | 52% | 36% | 55% |
+| title normalized | 55% | 40% | 60% |
+| A6a title action | 92% | 91% | **87%** |
+| A6b trace-visible subject | 93% | 79% | **89%** |
+| A6c title identifiers | 95% | 88% | 97% |
+| A6 title contract | 83% | 67% | **76%** |
+| facts precision / recall | 77% / 93% | 79% / 95% | 76% / 90% |
+| concepts precision / recall | 84% / 83% | 85% / 81% | 83% / 79% |
+| actionable rate | 92% | 79% | 84% |
+| type / auditable type | 88% / 85% | 90% / 88% | 91% / 89% |
+| skip accuracy (TP/FP/FN/TN) | 99% (19/0/1/67) | 100% (20/0/0/67) | 100% (20/0/0/67) |
+| latency p50 / p95 (ms) | 11367 / 38218 | 13857 / 40439 | 12412 / 34666 |
+
+Restoring the examples recovered exact and normalized title hits above the
+baseline (52→55, 55→60) but did not recover the contract dimensions: A6 fell
+83→76, action class 92→87, trace-visible subject 93→89, and actionable
+92→84. Tokens stopped short of the bar: -19.1% p50 and -16.7% p95 against the
+required -20%.
+
+Verdict for v2: **rejected** on both counts — it missed the token bar and lost
+quality. This replaces the earlier aborted attempt, which produced no data.
 
 ## Decision and rollback
 
-Rejected per the pre-committed rule: tokens met the bar, quality did not.
+Rejected per the pre-committed rule. Neither version met both bars: v1 hit
+tokens (-34%) but lost title quality, v2 kept the examples yet missed the token
+bar (-19.1%) and still lost quality.
 
 - `backend/src/main/resources/prompts/init.txt` and `continuation.txt` are
   restored to the pre-experiment content (2531 / 2131 words); `git status` shows
