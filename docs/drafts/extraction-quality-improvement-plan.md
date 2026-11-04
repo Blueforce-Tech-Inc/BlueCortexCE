@@ -2062,3 +2062,17 @@ database: **508** tests (L1 494 / L2 7 / L3 6 / L4 1), 0 failures, 0 skipped; bo
 proxy E2E 0 skipped. Artifacts: `2026-11-04_retrieval-quality-real.md` / `.json`,
 `2026-11-04_load-test-100k.md`, `scripts/degraded-search-e2e-test.sh`,
 `V24__chinese_lexical_search.sql`, `SpringAiConfigProviderBranchTest`.
+
+## 14. Round 16: multi-node, recoverable, operable
+
+| item | outcome |
+|---|---|
+| type_filter knee | scope predicate rewritten as OR-of-scalars so the planner can use `idx_observations_scope_type_created`; p95 29.38 → **6.58 ms** at 100k |
+| V24 on existing rows | `ADD COLUMN ... GENERATED ... STORED` 4337 ms under `ACCESS EXCLUSIVE`; plain GIN 731 ms blocked a write for 209 ms; CONCURRENTLY 909 ms / phased 0.89 ms longest lock |
+| two instances | 60 shared jobs drained 50/10, 0 duplicate hashes, 0 stuck, 0 stale recoveries; heartbeat keeps a 70 s call leased under a 1-minute threshold |
+| backup/restore | 137 MB / 100k rows: dump 478 ms (4.0 MiB), restore 5744 ms, Flyway validate 2176 ms; counts + Chinese query + probe row identical |
+| retrieval | 90 queries (83 mixed, 7 zh), time-sliced candidates; hybrid 0.778 / 0.900 / 0.821; 7-day recency **0.833 / 0.911 / 0.866** (shipped); dedupe rejected (hid a relevant row for 76/90) |
+
+Reports: `docs/archive/2026-11-04_multi-instance-queue.md`,
+`docs/archive/2026-11-04_backup-restore-drill.md`,
+`docs/archive/2026-11-04_retrieval-quality-round16.md`.

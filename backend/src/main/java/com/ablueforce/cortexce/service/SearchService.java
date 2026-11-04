@@ -63,6 +63,14 @@ public class SearchService {
     @Value("${cortexce.search.lexical-weight:2.0}")
     private double lexicalWeight = 2.0;
 
+    /**
+     * Half-life of the recency weighting applied to the fused score.
+     * Round-16 measurement on 90 real queries: 7 days gave hit@1 0.833 / MRR 0.866,
+     * 30 days 0.811 / 0.849, no decay 0.778 / 0.821.
+     */
+    @Value("${cortexce.search.recency-half-life-days:7}")
+    private double recencyHalfLifeDays = 7.0;
+
     private final ObservationRepository observationRepository;
 
     public SearchService(ObservationRepository observationRepository) {
@@ -101,7 +109,8 @@ public class SearchService {
                 try {
                     log.debug("Using hybrid search (pgvector + tsvector) for project={}", project);
                     List<Object[]> rows = observationRepository.hybridSearchScored(
-                        project, query, vectorStr, minEpoch, minSimilarity, lexicalWeight, limit * 2
+                        project, query, vectorStr, minEpoch, minSimilarity, lexicalWeight,
+                        recencyHalfLifeDays, limit * 2
                     );
                     List<ObservationEntity> results = loadScored(rows, true);
                     List<ObservationEntity> filtered = applyPostFilters(results, request, limit);

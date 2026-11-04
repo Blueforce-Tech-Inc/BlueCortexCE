@@ -554,6 +554,13 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      *
      * <p>Both halves are cut at {@code :limit}, so a row only enters the fusion through the
      * best {@code :limit} of at least one strategy.
+     *
+     * <p>The fused score is multiplied by {@code 0.5^(age_days / :recencyHalfLifeDays)} so the
+     * hybrid prefers the recent copy of a memory. Round-16 measurement on 90 real queries:
+     * the plain fusion scored hit@1 0.778 / MRR 0.821; a 7-day half-life lifted it to
+     * 0.833 / 0.866, and the 30-day variant to 0.811 / 0.849. A near-duplicate merge
+     * (newest title wins) was measured and rejected: it hid a relevant row for 76 of the
+     * 90 queries. See {@code docs/archive/2026-11-04_retrieval-quality-round16.md}.
      */
     @Query(value = """
         WITH qb AS (
@@ -597,11 +604,15 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
             GROUP BY id
         )
         SELECT f.id,
-               f.score AS fused_score,
+               f.score * power(0.5::double precision,
+                   greatest(extract(epoch from now()) * 1000 - o.created_at_epoch, 0)::double precision
+                   / 86400000.0
+                   / cast(:recencyHalfLifeDays as double precision)) AS fused_score,
                coalesce(t.matched, 0)::double precision / (SELECT n FROM qtotal) AS text_score
         FROM fused f
+        JOIN mem_observations o ON o.id = f.id
         LEFT JOIN text_cov t ON t.id = f.id
-        ORDER BY f.score DESC, f.id
+        ORDER BY fused_score DESC, f.id
         LIMIT :limit
         """, nativeQuery = true)
     List<Object[]> hybridSearchScored(
@@ -611,6 +622,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("minEpoch") long minEpoch,
         @Param("minSimilarity") double minSimilarity,
         @Param("lexicalWeight") double lexicalWeight,
+        @Param("recencyHalfLifeDays") double recencyHalfLifeDays,
         @Param("limit") int limit
     );
 

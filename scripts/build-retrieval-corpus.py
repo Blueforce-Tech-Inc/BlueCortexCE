@@ -27,6 +27,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import os
 import re
@@ -43,6 +44,34 @@ SKIP_PREFIXES = (
     "[Request interrupted", "<system-reminder>", "<task-notification>",
     "A session-scoped Stop hook", "<summary>", "[SYSTEM NOTIFICATION",
 )
+
+
+CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
+LATIN_WORD = re.compile(r"[A-Za-z]{2,}")
+
+
+def query_language(text: str) -> str:
+    """Label the query so the evaluation can report Chinese vs English/mixed.
+
+    A request is `zh` when it is written in Chinese, `en` when it has no CJK
+    characters, and `mixed` when it carries both a Chinese sentence and Latin
+    identifiers (the common shape in this history: Chinese instruction, English
+    file or class names).
+    """
+    cjk = len(CJK.findall(text))
+    latin = LATIN_WORD.findall(text)
+    if cjk == 0:
+        return "en" if len(latin) >= 3 else "unknown"
+    return "mixed" if len(latin) >= 3 else "zh"
+
+
+def parse_epoch(timestamp: str | None) -> int | None:
+    if not timestamp:
+        return None
+    try:
+        return int(dt.datetime.fromisoformat(timestamp.replace("Z", "+00:00")).timestamp() * 1000)
+    except ValueError:
+        return None
 
 
 def clean(text: str, limit: int) -> str:
@@ -73,7 +102,8 @@ def is_user_prompt(entry: dict) -> str | None:
     return clean(text, 300)
 
 
-def observation_from_tool(tool: dict, session: str, turn: int, index: int, project: str) -> dict | None:
+def observation_from_tool(tool: dict, session: str, turn: int, index: int, project: str,
+                          observed_at: int | None) -> dict | None:
     payload = tool.get("input") or {}
     path = payload.get("file_path") or payload.get("notebook_path") or payload.get("path")
     if not path:
@@ -101,6 +131,9 @@ def observation_from_tool(tool: dict, session: str, turn: int, index: int, proje
         "session": session,
         "project": project,
         "file": str(path),
+        # Real transcript time, so recency reranking is measured on real ages
+        # instead of row order.
+        "observed_at": observed_at,
     }
 
 
@@ -111,10 +144,12 @@ def read_session(path: Path) -> tuple[list[dict], list[dict]]:
     queries: list[dict] = []
     turn = 0
     pending_prompt: str | None = None
+    pending_prompt_at: int | None = None
+    last_timestamp: int | None = None
     seen_observation = 0
 
     def close_turn() -> None:
-        nonlocal pending_prompt, seen_observation
+        nonlocal pending_prompt, pending_prompt_at, seen_observation
         if not pending_prompt:
             return
         turn_observations = [obs for obs in observations if obs["turn_start"] == turn]
@@ -122,6 +157,11 @@ def read_session(path: Path) -> tuple[list[dict], list[dict]]:
             queries.append({
                 "id": f"q-{session[:8]}-{turn}",
                 "text": pending_prompt,
+                "language": query_language(pending_prompt),
+                # When the request was made. The evaluation uses it as its clock:
+                # observations created after the answer did not exist yet, and
+                # recency is measured relative to this moment.
+                "asked_at": pending_prompt_at,
                 "relevant": [obs["id"] for obs in turn_observations],
                 "rationale": (
                     "Temporal attribution: these observations were produced by the "
@@ -132,17 +172,22 @@ def read_session(path: Path) -> tuple[list[dict], list[dict]]:
                 "turn": turn,
             })
         pending_prompt = None
+        pending_prompt_at = None
 
     for line in path.open(errors="replace"):
         try:
             entry = json.loads(line)
         except json.JSONDecodeError:
             continue
+        timestamp = parse_epoch(entry.get("timestamp")) or last_timestamp
+        if timestamp:
+            last_timestamp = timestamp
         prompt = is_user_prompt(entry)
         if prompt:
             close_turn()
             turn += 1
             pending_prompt = prompt
+            pending_prompt_at = timestamp
             continue
         if not pending_prompt:
             continue
@@ -158,7 +203,8 @@ def read_session(path: Path) -> tuple[list[dict], list[dict]]:
             if block.get("name") not in EDIT_TOOLS:
                 continue
             project = entry.get("cwd") or ""
-            observation = observation_from_tool(block, session, turn, seen_observation, project)
+            observation = observation_from_tool(
+                block, session, turn, seen_observation, project, timestamp)
             if observation:
                 seen_observation += 1
                 observation["turn_start"] = turn
@@ -177,6 +223,9 @@ def main() -> int:
         default="backend/src/test/resources/eval/retrieval-corpus-real.json",
     )
     parser.add_argument("--max-queries", type=int, default=60)
+    parser.add_argument(
+        "--english-queries", type=int, default=30,
+        help="Extra queries labelled en/mixed, spread across projects (round 16 contrast set)")
     args = parser.parse_args()
 
     if not TRANSCRIPT_ROOT.exists():
@@ -216,7 +265,34 @@ def main() -> int:
                 selected.append(bucket.pop(0))
         by_project = {key: value for key, value in by_project.items() if value}
 
+    # Contrast set: requests written in English or in Chinese with English
+    # identifiers. Round 15's corpus was almost all Chinese/mixed, so the two
+    # halves of the fused path were never compared on the same query shape.
+    selected_ids = {query["id"] for query in selected}
+    extras: list[dict] = []
+    if args.english_queries > 0:
+        extras_by_project: dict[str, list[dict]] = {}
+        for query in valid:
+            if query["id"] in selected_ids or query["language"] == "zh":
+                continue
+            project = next(
+                (all_observations[obs]["project"] for obs in query["relevant"]), "unknown")
+            extras_by_project.setdefault(project, []).append(query)
+        while len(extras) < args.english_queries and any(extras_by_project.values()):
+            for project in sorted(extras_by_project):
+                bucket = extras_by_project[project]
+                if bucket and len(extras) < args.english_queries:
+                    extras.append(bucket.pop(0))
+            extras_by_project = {key: value for key, value in extras_by_project.items() if value}
+        if len(extras) < args.english_queries:
+            print(f"warning: only {len(extras)} en/mixed queries available, "
+                  f"asked for {args.english_queries}")
+        selected.extend(extras)
+
     selected_ids = {obs for query in selected for obs in query["relevant"]}
+    languages: dict[str, int] = {}
+    for query in selected:
+        languages[query["language"]] = languages.get(query["language"], 0) + 1
     corpus = {
         "version": "retrieval-real-2026-11-04",
         "note": (
@@ -224,12 +300,15 @@ def main() -> int:
             "transcripts. Relevance is temporal: the observations were produced while the "
             "assistant answered the query. A review pass dropped system-generated turns "
             "(task notifications, hook banners) and transcript wrappers; every query keeps "
-            "its rationale so the attribution can be re-checked."
+            "its rationale so the attribution can be re-checked. Each query carries a "
+            "language label (zh / en / mixed) and each observation its real transcript "
+            "timestamp, so quality and recency reranking can be reported per dimension."
         ),
         "source": str(TRANSCRIPT_ROOT),
         "observations": [all_observations[obs] for obs in sorted(selected_ids)],
         "queries": selected,
     }
+    print(f"query languages: {dict(sorted(languages.items()))}")
 
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)

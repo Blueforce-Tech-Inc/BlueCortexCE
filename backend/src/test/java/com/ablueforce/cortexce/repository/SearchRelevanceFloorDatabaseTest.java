@@ -53,6 +53,8 @@ class SearchRelevanceFloorDatabaseTest {
     private static final int DIMENSIONS = 1024;
     /** Production default weight of the lexical half (`cortexce.search.lexical-weight`). */
     private static final double LEXICAL_WEIGHT = 2.0;
+    /** Production default recency half-life (`cortexce.search.recency-half-life-days`). */
+    private static final double RECENCY_HALF_LIFE_DAYS = 7.0;
 
     @Autowired private ObservationRepository repository;
     @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
@@ -102,11 +104,13 @@ class SearchRelevanceFloorDatabaseTest {
     @DisplayName("semantic floor drops the unrelated vector and keeps the related one")
     void semanticFloorFiltersUnrelatedRows() {
         List<Object[]> unrelated = repository.hybridSearchScored(
-            projectPath, "quantum", vector(1), 0L, 0.5, LEXICAL_WEIGHT, 20);
+            projectPath, "quantum", vector(1), 0L, 0.5, LEXICAL_WEIGHT,
+            RECENCY_HALF_LIFE_DAYS, 20);
         assertThat(unrelated).as("cosine 0.0 must not pass the 0.5 floor").isEmpty();
 
         List<Object[]> related = repository.hybridSearchScored(
-            projectPath, "quantum", vector(0), 0L, 0.5, LEXICAL_WEIGHT, 20);
+            projectPath, "quantum", vector(0), 0L, 0.5, LEXICAL_WEIGHT,
+            RECENCY_HALF_LIFE_DAYS, 20);
         assertThat(ids(related)).containsExactly(relatedId);
         assertThat(((Number) related.get(0)[1]).doubleValue())
             .as("the fused rank score is returned").isGreaterThan(0.0);
@@ -154,7 +158,8 @@ class SearchRelevanceFloorDatabaseTest {
     @DisplayName("hybrid and lexical agree on relevance for the same text query")
     void strategiesAgreeForTextQuery() {
         List<Object[]> hybrid = repository.hybridSearchScored(
-            projectPath, "pagination", vector(1), 0L, 0.5, LEXICAL_WEIGHT, 20);
+            projectPath, "pagination", vector(1), 0L, 0.5, LEXICAL_WEIGHT,
+            RECENCY_HALF_LIFE_DAYS, 20);
         List<Object[]> text = repository.fullTextSearchScored(projectPath, "pagination", 20);
 
         assertThat(ids(hybrid)).as("the text half still contributes a lexically relevant row")
@@ -198,6 +203,32 @@ class SearchRelevanceFloorDatabaseTest {
             .doesNotContain("Seq Scan");
     }
 
+    @Test
+    @DisplayName("the recency weighting ranks the newer duplicate ahead of the older copy")
+    void recencyWeightingRanksNewerDuplicateFirst() {
+        long now = System.currentTimeMillis();
+        UUID olderId = insert("retention window tuning", vector(3), now - 30L * 86_400_000L);
+        UUID newerId = insert("retention window tuning", vector(3), now);
+
+        List<Object[]> rows = repository.hybridSearchScored(
+            projectPath, "retention window tuning", vector(3), 0L, 0.5, LEXICAL_WEIGHT,
+            RECENCY_HALF_LIFE_DAYS, 20);
+
+        assertThat(ids(rows)).as("the newest copy wins the tie")
+            .containsExactly(newerId, olderId);
+        assertThat(score(rows, newerId))
+            .as("30 days of age at a 7-day half-life must cost the older copy its rank")
+            .isGreaterThan(score(rows, olderId));
+    }
+
+    private static double score(List<Object[]> rows, UUID id) {
+        return rows.stream()
+            .filter(row -> id.equals(row[0]))
+            .map(row -> ((Number) row[1]).doubleValue())
+            .findFirst()
+            .orElseThrow();
+    }
+
     /**
      * Run {@code EXPLAIN} with sequential scans disabled so the assertion is about
      * "an index can serve this predicate", not about the planner's cost choice on a
@@ -224,6 +255,11 @@ class SearchRelevanceFloorDatabaseTest {
 
     /** Insert a row with text and a zero vector at {@code index} (semantic tests). */
     private UUID insert(String title, String embedding) {
+        return insert(title, embedding, System.currentTimeMillis());
+    }
+
+    /** Insert a row observed at {@code epoch}; recency reranking reads that timestamp. */
+    private UUID insert(String title, String embedding, long epoch) {
         UUID id = jdbc.queryForObject("""
             INSERT INTO mem_observations (
                 content_session_id, platform_source, project_path, type, title, content,
@@ -231,7 +267,7 @@ class SearchRelevanceFloorDatabaseTest {
                 embedding_1024, embedding_state
             ) VALUES (
                 'search-floor', 'claude', :projectPath, 'discovery', :title, :content,
-                'manual', 1, :scopeId, NULL, 'manual',
+                'manual', :epoch, :scopeId, NULL, 'manual',
                 cast(:embedding as vector), 'ready'
             ) RETURNING id
             """, new MapSqlParameterSource()
@@ -239,6 +275,7 @@ class SearchRelevanceFloorDatabaseTest {
                 .addValue("title", title)
                 .addValue("content", title)
                 .addValue("scopeId", projectScope)
+                .addValue("epoch", epoch)
                 .addValue("embedding", embedding), UUID.class);
         observationIds.add(id);
         return id;
@@ -253,12 +290,13 @@ class SearchRelevanceFloorDatabaseTest {
                 embedding_state
             ) VALUES (
                 'search-floor', 'claude', :projectPath, 'discovery', :title, :content,
-                'manual', 1, :scopeId, NULL, 'manual', 'skipped'
+                'manual', :epoch, :scopeId, NULL, 'manual', 'skipped'
             ) RETURNING id
             """, new MapSqlParameterSource()
                 .addValue("projectPath", projectPath)
                 .addValue("title", title)
                 .addValue("content", content)
+                .addValue("epoch", System.currentTimeMillis())
                 .addValue("scopeId", projectScope), UUID.class);
         observationIds.add(id);
         return id;

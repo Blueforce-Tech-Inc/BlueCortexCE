@@ -95,7 +95,7 @@ class SearchServiceLimitTest {
                 .map(entity -> new Object[]{entity.getId(), 0.61, 0.0})
                 .toList();
         when(repository.hybridSearchScored(anyString(), anyString(), anyString(), anyLong(),
-                anyDouble(), anyDouble(), anyInt())).thenReturn(scored);
+                anyDouble(), anyDouble(), anyDouble(), anyInt())).thenReturn(scored);
         when(repository.findAllById(any())).thenReturn(entities);
     }
 
@@ -338,7 +338,7 @@ class SearchServiceLimitTest {
     void hybridPath_textOnlyRowUsesTsRank() {
         List<ObservationEntity> entities = rows(1, null, null);
         when(repository.hybridSearchScored(anyString(), anyString(), anyString(), anyLong(),
-                anyDouble(), anyDouble(), anyInt())).thenReturn(List.<Object[]>of(
+                anyDouble(), anyDouble(), anyDouble(), anyInt())).thenReturn(List.<Object[]>of(
                 new Object[]{entities.get(0).getId(), 0.0, 0.37}));
         when(repository.findAllById(any())).thenReturn(entities);
 

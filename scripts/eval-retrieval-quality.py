@@ -15,8 +15,13 @@ in production SQL:
 
 Diagnostics keep a claim explainable rather than guessed: the old English
 tsvector path (kept to document what V24 replaced), ts_rank over the same tokens,
-and a sweep of the fusion weight. The production SQL is copied verbatim from the
-repository; if it changes, this harness must change with it.
+and a sweep of the fusion weight. Round 16 adds the language split (zh / en /
+mixed), a recency-rerank sweep on the fused pool, and a near-duplicate merge;
+candidates are cut at the request's turn so later observations cannot leak in.
+Production now applies the 7-day recency half-life chosen here, so the plain
+`hybrid` number is the pre-decay baseline, not what the service returns. The
+production SQL is copied verbatim from the repository; if it changes, this
+harness must change with it.
 
 Usage:
     python3 scripts/eval-retrieval-quality.py \
@@ -49,6 +54,8 @@ TOP_K = 5
 # (`limit * 2` for the default 20-result request).
 LEXICAL_WEIGHT = 2.0
 PRODUCTION_LIMIT = 40
+# Recency rerank sweep: the fused pool is reordered by score * 0.5^(age/half_life).
+DECAY_HALF_LIVES = (7, 30, 90, 365)
 
 
 def load_env() -> dict:
@@ -207,7 +214,7 @@ def load_rows(observations: list[dict], vectors: list[list[float]]) -> None:
             '[]'::jsonb,
             {sql_quote(json.dumps([observation.get('file', '')], ensure_ascii=False))}::jsonb,
             {sql_quote(observation['id'][-16:].ljust(16, '0')[:16])},
-            now(), {epoch + index},
+            now(), {int(observation.get('observed_at') or (epoch + index))},
             (SELECT id FROM mem_memory_scopes
              WHERE scope_type = 'project' AND scope_key = {sql_quote(PROJECT)} COLLATE "C"),
             'claude', 'complete', {sql_quote(vector_literal(vector))}::vector
@@ -217,18 +224,27 @@ def load_rows(observations: list[dict], vectors: list[list[float]]) -> None:
     psql("\n".join(statements))
 
 
-SCOPE_FILTER = f"""
+# Evaluation clock: observations created after the query's turn did not exist yet
+# when the request was made, so letting the retriever rank them is future leakage
+# and makes recency meaningless. main() sets this before ranking each query.
+CURRENT_CUTOFF = 0
+
+
+def scope_filter() -> str:
+    clause = f"""
     memory_scope_id IN (
         SELECT id FROM mem_memory_scopes
         WHERE scope_type = 'project' AND scope_key = {sql_quote(PROJECT)} COLLATE "C"
-    )
-"""
+    )"""
+    if CURRENT_CUTOFF:
+        clause += f"\n      AND created_at_epoch <= {CURRENT_CUTOFF}"
+    return clause
 
 
 def rank_vector(query_vector: str, limit: int = TOP_K) -> list[str]:
     return psql(f"""
         SELECT id FROM mem_observations
-        WHERE {SCOPE_FILTER}
+        WHERE {scope_filter()}
           AND embedding_1024 IS NOT NULL
           AND created_at_epoch > 0
         ORDER BY embedding_1024 <=> cast({sql_quote(query_vector)} as vector)
@@ -250,7 +266,7 @@ def rank_fulltext(query: str, limit: int = TOP_K) -> list[str]:
         FROM qb
         JOIN mem_observations o
           ON o.search_tokens @@ to_tsquery('simple', quote_literal(qb.tok))
-        WHERE {SCOPE_FILTER}
+        WHERE {scope_filter()}
         GROUP BY o.id
         ORDER BY count(*) DESC, o.id
         LIMIT {limit};
@@ -262,7 +278,7 @@ def rank_fulltext_english(query: str, limit: int = TOP_K) -> list[str]:
     return psql(f"""
         SELECT o.id
         FROM mem_observations o
-        WHERE {SCOPE_FILTER}
+        WHERE {scope_filter()}
           AND to_tsvector('english', coalesce(o.title,'') || ' ' || coalesce(o.content,''))
               @@ plainto_tsquery('english', {sql_quote(query)})
         LIMIT {limit};
@@ -278,7 +294,7 @@ def rank_fulltext_ts_rank(query: str, limit: int = TOP_K) -> list[str]:
         tq AS (SELECT to_tsquery('simple', string_agg(quote_literal(tok), ' | ')) AS query FROM qb)
         SELECT o.id
         FROM mem_observations o, tq
-        WHERE {SCOPE_FILTER}
+        WHERE {scope_filter()}
           AND o.search_tokens @@ tq.query
         ORDER BY ts_rank_cd(o.search_tokens, tq.query) DESC
         LIMIT {limit};
@@ -295,7 +311,7 @@ def rank_hybrid(query: str, query_vector: str, min_similarity: float,
             FROM qb
             JOIN mem_observations o
               ON o.search_tokens @@ to_tsquery('simple', quote_literal(qb.tok))
-            WHERE {SCOPE_FILTER}
+            WHERE {scope_filter()}
               AND o.created_at_epoch > 0
             GROUP BY o.id
         ),
@@ -303,7 +319,7 @@ def rank_hybrid(query: str, query_vector: str, min_similarity: float,
             SELECT o.id, row_number() OVER (
                        ORDER BY o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector)) AS rank
             FROM mem_observations o
-            WHERE {SCOPE_FILTER}
+            WHERE {scope_filter()}
               AND o.embedding_1024 IS NOT NULL
               AND o.created_at_epoch > 0
               AND (1.0 - (o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector))) >= {min_similarity}
@@ -330,6 +346,95 @@ def rank_hybrid(query: str, query_vector: str, min_similarity: float,
     """).splitlines()
 
 
+def hybrid_pool(query: str, query_vector: str, min_similarity: float,
+                limit: int = PRODUCTION_LIMIT) -> list[dict]:
+    """The fused top-N with the metadata a reranker needs: fused score, time, title."""
+    rows = psql(TOKEN_QUERY.format(query=sql_quote(query)) + f"""
+        , qtotal AS (SELECT greatest(count(*), 1) AS n FROM qb),
+        text_cov AS (
+            SELECT o.id, count(*) AS matched
+            FROM qb
+            JOIN mem_observations o
+              ON o.search_tokens @@ to_tsquery('simple', quote_literal(qb.tok))
+            WHERE {scope_filter()}
+              AND o.created_at_epoch > 0
+            GROUP BY o.id
+        ),
+        semantic_ranked AS (
+            SELECT o.id, row_number() OVER (
+                       ORDER BY o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector)) AS rank
+            FROM mem_observations o
+            WHERE {scope_filter()}
+              AND o.embedding_1024 IS NOT NULL
+              AND o.created_at_epoch > 0
+              AND (1.0 - (o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector))) >= {min_similarity}
+            ORDER BY o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector)
+            LIMIT {limit}
+        ),
+        lexical_ranked AS (
+            SELECT id, row_number() OVER (ORDER BY matched DESC, id) AS rank FROM text_cov LIMIT {limit}
+        ),
+        fused AS (
+            SELECT id, SUM(score) AS score
+            FROM (
+                SELECT id, 1.0 / (60 + rank) AS score FROM semantic_ranked
+                UNION ALL
+                SELECT id, {LEXICAL_WEIGHT} / (60 + rank) AS score FROM lexical_ranked
+            ) parts
+            GROUP BY id
+        )
+        SELECT json_build_object(
+                   'id', f.id, 'score', f.score,
+                   'epoch', o.created_at_epoch, 'title', o.title)::text
+        FROM fused f
+        JOIN mem_observations o ON o.id = f.id
+        ORDER BY f.score DESC, f.id
+        LIMIT {limit};
+    """).splitlines()
+    return [json.loads(line) for line in rows if line.strip()]
+
+
+def normalize_title(title: str) -> str:
+    """Same-title key for near-duplicate merging.
+
+    Observation titles are generated as "Created <file>" / "Changed <file>", so
+    the same file edited in five sessions produces five titles that differ only
+    by the verb' position. Lowercase, drop the verb and punctuation, and collapse
+    whitespace so those collapse into one key.
+    """
+    text = (title or "").lower()
+    text = re.sub(r"^(created|changed|updated|modified)\s+", "", text)
+    text = re.sub(r"[^0-9a-z\u4e00-\u9fff]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip() or (title or "").lower().strip()
+
+
+def rerank_time_decay(pool: list[dict], now_ms: int, half_life_days: float) -> list[dict]:
+    """Recency rerank: halve the fused score every half_life_days of age."""
+    def adjusted(item: dict) -> float:
+        age_days = max(0.0, (now_ms - int(item["epoch"])) / 86_400_000)
+        return float(item["score"]) * (0.5 ** (age_days / half_life_days))
+
+    return sorted(pool, key=lambda item: (-adjusted(item), item["id"]))
+
+
+def rerank_dedupe(pool: list[dict]) -> list[dict]:
+    """Near-duplicate merge: keep only the newest row for each normalized title.
+
+    Order is preserved, so a newest duplicate that sat below its older copies
+    moves up when those are dropped. Relevant rows that lose this merge are
+    counted per query, because a merge that hides the expected row is a real
+    regression even when the aggregate metric improves.
+    """
+    newest: dict[str, dict] = {}
+    for item in pool:
+        key = normalize_title(str(item.get("title") or ""))
+        current = newest.get(key)
+        if current is None or int(item["epoch"]) > int(current["epoch"]):
+            newest[key] = item
+    keep = {item["id"] for item in newest.values()}
+    return [item for item in pool if item["id"] in keep]
+
+
 def rank_hybrid_additive(query: str, query_vector: str, min_similarity: float,
                           text_weight: float, limit: int = TOP_K) -> list[str]:
     """Diagnostic: cosine + text_weight * coverage (the shape RRF replaced)."""
@@ -340,7 +445,7 @@ def rank_hybrid_additive(query: str, query_vector: str, min_similarity: float,
             FROM qb
             JOIN mem_observations o
               ON o.search_tokens @@ to_tsquery('simple', quote_literal(qb.tok))
-            WHERE {SCOPE_FILTER}
+            WHERE {scope_filter()}
               AND o.created_at_epoch > 0
             GROUP BY o.id
         ),
@@ -348,7 +453,7 @@ def rank_hybrid_additive(query: str, query_vector: str, min_similarity: float,
             SELECT o.id,
                    (1.0 - (o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector))) AS cosine
             FROM mem_observations o
-            WHERE {SCOPE_FILTER}
+            WHERE {scope_filter()}
               AND o.embedding_1024 IS NOT NULL
               AND o.created_at_epoch > 0
               AND (1.0 - (o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector))) >= {min_similarity}
@@ -378,7 +483,7 @@ def rank_rrf(query: str, query_vector: str, limit: int = TOP_K, pool: int = 20) 
             SELECT o.id AS id, row_number() OVER (
                        ORDER BY o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector)) AS rank
             FROM mem_observations o
-            WHERE {SCOPE_FILTER}
+            WHERE {scope_filter()}
               AND o.embedding_1024 IS NOT NULL
               AND o.created_at_epoch > 0
             ORDER BY o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector)
@@ -389,7 +494,7 @@ def rank_rrf(query: str, query_vector: str, limit: int = TOP_K, pool: int = 20) 
             FROM qb
             JOIN mem_observations o
               ON o.search_tokens @@ to_tsquery('simple', quote_literal(qb.tok))
-            WHERE {SCOPE_FILTER}
+            WHERE {scope_filter()}
               AND o.created_at_epoch > 0
             GROUP BY o.id
             LIMIT {pool}
@@ -439,7 +544,7 @@ def rank_identifier_or(query: str, limit: int = TOP_K) -> list[str]:
     return psql(f"""
         SELECT o.id
         FROM mem_observations o
-        WHERE {SCOPE_FILTER}
+        WHERE {scope_filter()}
           AND {document} @@ {tsquery}
         ORDER BY ts_rank({document}, {tsquery}) DESC
         LIMIT {limit};
@@ -459,7 +564,7 @@ def rank_identifier_or_rrf(query: str, query_vector: str, limit: int = TOP_K,
             SELECT id, row_number() OVER (
                        ORDER BY embedding_1024 <=> cast({sql_quote(query_vector)} as vector)) AS rank
             FROM mem_observations
-            WHERE {SCOPE_FILTER}
+            WHERE {scope_filter()}
               AND embedding_1024 IS NOT NULL
               AND created_at_epoch > 0
             ORDER BY embedding_1024 <=> cast({sql_quote(query_vector)} as vector)
@@ -469,7 +574,7 @@ def rank_identifier_or_rrf(query: str, query_vector: str, limit: int = TOP_K,
             SELECT id, row_number() OVER (
                        ORDER BY ts_rank({document}, {tsquery}) DESC) AS rank
             FROM mem_observations
-            WHERE {SCOPE_FILTER}
+            WHERE {scope_filter()}
               AND {document} @@ {tsquery}
             LIMIT {pool}
         )
@@ -537,11 +642,32 @@ def render_report(result: dict, corpus_path: Path) -> str:
         "hybrid_w1.0": "additive w1.0 (rejected)",
         "lexical": "lexical (V24 token coverage)",
         "tsvector_english": "english tsvector (replaced by V24)",
+        "hybrid_decay_7d": "hybrid + recency 7 d half-life",
+        "hybrid_decay_30d": "hybrid + recency 30 d half-life",
+        "hybrid_decay_90d": "hybrid + recency 90 d half-life",
+        "hybrid_decay_365d": "hybrid + recency 365 d half-life",
+        "hybrid_dedupe": "hybrid + near-duplicate merge",
+        "hybrid_dedupe_decay30d": "merge + recency 30 d",
     }
     for name, summary in result["summary"].items():
         lines.append(
             f"| {labels.get(name, name)} | {summary['hit@1']:.3f} | "
             f"{summary['hit@5']:.3f} | {summary['mrr']:.3f} | {summary['empty_results']} |"
+        )
+    lines += [
+        "",
+        "## Language split (round 16 contrast set)",
+        "",
+        "| language | queries | hybrid hit@1 | hybrid hit@5 | hybrid MRR | merge+recency hit@1 |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    for language, summaries in result["by_language"].items():
+        hybrid_language = summaries["hybrid"]
+        combined_language = summaries["hybrid_dedupe_decay30d"]
+        lines.append(
+            f"| {language} | {hybrid_language['queries']} | {hybrid_language['hit@1']:.3f} | "
+            f"{hybrid_language['hit@5']:.3f} | {hybrid_language['mrr']:.3f} | "
+            f"{combined_language['hit@1']:.3f} |"
         )
     lines += [
         "",
@@ -553,8 +679,9 @@ def render_report(result: dict, corpus_path: Path) -> str:
         "",
         "| query | relevant | vector | vector-head120 | vector-tail120 | lexical | "
         "lexical-ts-rank | english-tsvector | add-w0.25 | hybrid (RRF w2) | add-w0.75 | "
-        "add-w1.0 | rrf-k60 | identifier-or |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "add-w1.0 | rrf-k60 | identifier-or | decay30d | merge | merge+decay |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+        "---:|---:|---:|",
     ]
     for row in result["rows"]:
         def rank(key: str) -> str:
@@ -568,13 +695,16 @@ def render_report(result: dict, corpus_path: Path) -> str:
             f"{rank('vector_head120')} | {rank('vector_tail120')} | {rank('lexical')} | "
             f"{rank('lexical_ts_rank')} | {rank('tsvector_english')} | "
             f"{rank('hybrid_w0.25')} | {rank('hybrid')} | {rank('hybrid_w0.75')} | "
-            f"{rank('hybrid_w1.0')} | {rank('rrf')} | {rank('identifier_or')} |"
+            f"{rank('hybrid_w1.0')} | {rank('rrf')} | {rank('identifier_or')} | "
+            f"{rank('hybrid_decay_30d')} | {rank('hybrid_dedupe')} | "
+            f"{rank('hybrid_dedupe_decay30d')} |"
         )
     lines.append("")
     return "\n".join(lines)
 
 
 def main() -> int:
+    global CURRENT_CUTOFF
     parser = argparse.ArgumentParser()
     parser.add_argument("--corpus", default="backend/src/test/resources/eval/retrieval-corpus-real.json")
     parser.add_argument("--report", default="docs/archive/" +
@@ -617,22 +747,57 @@ def main() -> int:
         "identifier_or_rrf": lambda q, v: rank_identifier_or_rrf(q, v),
     }
     corpus_ids = {obs["id"] for obs in observations}
+    observed_at = {obs["id"]: obs.get("observed_at") for obs in observations}
+    now_ms = int(time.time() * 1000)
     rows = []
     for query, vector, head, tail in zip(queries, query_vectors, head_vectors, tail_vectors):
         relevant = {uuid_for(item) for item in query["relevant"] if item in corpus_ids}
-        row = {"id": query["id"], "text": query["text"], "relevant": sorted(relevant)}
+        # The request's own clock: hide observations that did not exist yet, and
+        # measure recency from the moment the user asked.
+        relevant_epochs = [int(observed_at[item]) for item in query["relevant"]
+                           if observed_at.get(item)]
+        reference_ms = max(relevant_epochs) if relevant_epochs else int(
+            query.get("asked_at") or now_ms)
+        CURRENT_CUTOFF = reference_ms
+        row = {"id": query["id"], "text": query["text"],
+               "language": query.get("language", "unknown"), "relevant": sorted(relevant)}
         for name, function in names.items():
             row[name] = metrics(function(query["text"], vector_literal(vector)), relevant)
         row["vector_head120"] = metrics(rank_vector(vector_literal(head)), relevant)
         row["vector_tail120"] = metrics(rank_vector(vector_literal(tail)), relevant)
+
+        # Rerank experiments run on the same fused pool production returns, so
+        # the only variable is the reorder rule.
+        pool = hybrid_pool(query["text"], vector_literal(vector), 0.5)
+        row["hybrid_pool_size"] = len(pool)
+        for half_life in DECAY_HALF_LIVES:
+            row[f"hybrid_decay_{half_life}d"] = metrics(
+                [item["id"] for item in rerank_time_decay(pool, reference_ms, half_life)],
+                relevant)
+        deduped = rerank_dedupe(pool)
+        row["hybrid_dedupe"] = metrics([item["id"] for item in deduped], relevant)
+        row["hybrid_dedupe_decay30d"] = metrics(
+            [item["id"] for item in rerank_time_decay(deduped, reference_ms, 30)], relevant)
+        row["dedupe_hidden_relevant"] = len(relevant - {item["id"] for item in deduped})
         rows.append(row)
+    CURRENT_CUTOFF = 0
 
     summary_names = list(names) + ["vector_head120", "vector_tail120"]
+    summary_names += [f"hybrid_decay_{half_life}d" for half_life in DECAY_HALF_LIVES]
+    summary_names += ["hybrid_dedupe", "hybrid_dedupe_decay30d"]
     result = {
         "corpus": {"observations": len(observations), "queries": len(queries),
-                   "path": str(corpus_path.relative_to(ROOT))},
+                   "path": str(corpus_path.relative_to(ROOT)),
+                   "languages": {language: sum(1 for row in rows if row["language"] == language)
+                                 for language in sorted({row["language"] for row in rows})}},
         "embedding_model": EMBED_MODEL,
         "summary": {name: summarize([row[name] for row in rows]) for name in summary_names},
+        "by_language": {
+            language: {name: summarize([row[name] for row in rows if row["language"] == language])
+                       for name in ("vector", "lexical", "hybrid", "hybrid_dedupe",
+                                    "hybrid_decay_30d", "hybrid_dedupe_decay30d")}
+            for language in sorted({row["language"] for row in rows})
+        },
         "rows": rows,
     }
     vector_summary = result["summary"]["vector"]
@@ -641,26 +806,41 @@ def main() -> int:
     english_summary = result["summary"]["tsvector_english"]
     identifiers_summary = result["summary"]["identifier_or"]
     additive = {w: result["summary"][f"hybrid_w{w}"] for w in ("0.25", "0.75", "1.0")}
+    decay = {half_life: result["summary"][f"hybrid_decay_{half_life}d"]
+             for half_life in DECAY_HALF_LIVES}
+    best_decay = max(DECAY_HALF_LIVES,
+                     key=lambda half_life: (decay[half_life]["hit@1"], decay[half_life]["mrr"]))
+    dedupe_summary = result["summary"]["hybrid_dedupe"]
+    combined_summary = result["summary"]["hybrid_dedupe_decay30d"]
+    hidden_relevant = sum(row["dedupe_hidden_relevant"] for row in rows)
+    languages_text = ", ".join(
+        f"{language} {count}" for language, count in result["corpus"]["languages"].items())
     diagnosis = (
-        f"V24 lexical path reaches hit@1 {lexical_summary['hit@1']:.3f}, "
-        f"hit@5 {lexical_summary['hit@5']:.3f}, MRR {lexical_summary['mrr']:.3f} with "
-        f"{lexical_summary['empty_results']} empty results; the English tsvector it replaced "
-        f"was empty for {english_summary['empty_results']} of "
+        f"Corpus split: {languages_text}. V24 lexical path reaches hit@1 "
+        f"{lexical_summary['hit@1']:.3f}, hit@5 {lexical_summary['hit@5']:.3f}, MRR "
+        f"{lexical_summary['mrr']:.3f} with {lexical_summary['empty_results']} empty results; "
+        f"the English tsvector it replaced was empty for {english_summary['empty_results']} of "
         f"{english_summary['queries']} queries (hit@5 {english_summary['hit@5']:.3f}). "
         f"Production hybrid (weighted RRF, lexical weight {LEXICAL_WEIGHT}) reaches hit@1 "
         f"{hybrid_summary['hit@1']:.3f}, hit@5 {hybrid_summary['hit@5']:.3f}, MRR "
         f"{hybrid_summary['mrr']:.3f} against pure vector {vector_summary['hit@1']:.3f} / "
         f"{vector_summary['hit@5']:.3f} / {vector_summary['mrr']:.3f}. "
-        f"The stored column also indexes file paths (weight C): that lifted the lexical half "
-        f"from hit@1 0.733 / MRR 0.788 to 0.767 / 0.805 in the same run, so a query that names "
-        f"a file matches it. Additive score fusion "
-        f"froze hit@5 at {additive['1.0']['hit@5']:.3f} for every weight (MRR "
-        f"{additive['0.25']['mrr']:.3f} / {additive['0.75']['mrr']:.3f} / "
+        f"Additive score fusion froze hit@5 at {additive['1.0']['hit@5']:.3f} for every weight "
+        f"(MRR {additive['0.25']['mrr']:.3f} / {additive['0.75']['mrr']:.3f} / "
         f"{additive['1.0']['mrr']:.3f} at w=0.25/0.75/1.0) because cosine (0.6-0.8) swamps "
         f"coverage (0.05-0.2) — rank fusion removes that scale mismatch. Ordering the same "
         f"tokens with ts_rank_cd gives MRR {result['summary']['lexical_ts_rank']['mrr']:.3f} "
         f"versus {lexical_summary['mrr']:.3f} for coverage. Identifier-OR ranking scores "
-        f"{identifiers_summary['mrr']:.3f} MRR."
+        f"{identifiers_summary['mrr']:.3f} MRR. "
+        f"Recency rerank on the fused pool: best half-life {best_decay}d gives hit@1 "
+        f"{decay[best_decay]['hit@1']:.3f}, hit@5 {decay[best_decay]['hit@5']:.3f}, MRR "
+        f"{decay[best_decay]['mrr']:.3f}; the 30-day variant alone is "
+        f"{decay[30]['hit@1']:.3f} / {decay[30]['hit@5']:.3f} / {decay[30]['mrr']:.3f}. "
+        f"Near-duplicate merge (newest of each normalized title) gives hit@1 "
+        f"{dedupe_summary['hit@1']:.3f}, hit@5 {dedupe_summary['hit@5']:.3f}, MRR "
+        f"{dedupe_summary['mrr']:.3f}; it hid a relevant row for {hidden_relevant} queries. "
+        f"Merge then 30-day decay gives {combined_summary['hit@1']:.3f} / "
+        f"{combined_summary['hit@5']:.3f} / {combined_summary['mrr']:.3f}."
     )
     result["diagnosis"] = diagnosis
 
