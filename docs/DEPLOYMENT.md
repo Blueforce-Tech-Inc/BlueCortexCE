@@ -437,6 +437,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 | `SPRING_PROFILES_ACTIVE` | No | `prd` **under Docker Compose only** | Spring profile (`dev`/`prd`). `docker-compose.yml:52` is what defaults it to `prd`; a native JAR run that leaves it unset has **no active profile** — see the third state in §5.4 |
 | `SERVER_PORT` | No | `37777` | HTTP service port |
 | `SERVER_ADDRESS` | No | `127.0.0.1` (local JAR); hardcoded `0.0.0.0` in Docker | Bind address |
+| `CORTEXCE_API_TOKEN` | No | empty (no auth) | Optional bearer token (`cortexce.security.api-token`). When set, writes under `/api/**` and `GET /api/logs/**` require `Authorization: Bearer <token>`; missing/wrong tokens get 401 with the unified error envelope. **Set this before exposing the service beyond localhost.** |
 
 ### 5.2 Database Configuration
 

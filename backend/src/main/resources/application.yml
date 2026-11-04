@@ -3,6 +3,19 @@ server:
   address: ${SERVER_ADDRESS:127.0.0.1}
 
 # ============================================================================
+# API authentication (round 18)
+# ============================================================================
+cortexce:
+  security:
+    # Optional bearer token. Empty (the default) keeps the local-first behaviour: no
+    # credential is required, which is safe only because the service binds to
+    # 127.0.0.1 by default. Set this before exposing the service to another host —
+    # then writes under /api/** and GET /api/logs/** require
+    # `Authorization: Bearer <token>`, missing or wrong tokens answer 401
+    # (`error.code = unauthorized`). Comparison is constant-time.
+    api-token: ${CORTEXCE_API_TOKEN:}
+
+# ============================================================================
 # Evo-Memory Feature Flags (Section 6.1.1)
 # ============================================================================
 app:

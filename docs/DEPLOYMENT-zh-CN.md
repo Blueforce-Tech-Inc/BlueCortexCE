@@ -432,6 +432,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 | `SPRING_PROFILES_ACTIVE` | 否 | `prd`（**仅 Docker Compose 下**） | 环境配置（dev/prd）。把默认值定成 `prd` 的是 `docker-compose.yml:52`；原生 JAR 运行若不设该变量，则**没有任何激活的 profile** —— 见 5.4 节的第三种状态 |
 | `SERVER_PORT` | 否 | `37777` | HTTP 服务端口 |
 | `SERVER_ADDRESS` | 否 | `127.0.0.1`（本地 JAR）；Docker 中硬编码为 `0.0.0.0` | 监听地址 |
+| `CORTEXCE_API_TOKEN` | 否 | 空（无鉴权） | 可选 Bearer token（`cortexce.security.api-token`）。配置后 `/api/**` 写操作与 `GET /api/logs/**` 要求 `Authorization: Bearer <token>`；缺失或错误 token 返回 401 与统一错误信封。**对外暴露到 localhost 之外前必须配置。** |
 
 ### 5.2 数据库配置
 
