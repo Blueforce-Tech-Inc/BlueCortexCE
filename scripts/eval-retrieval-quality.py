@@ -61,6 +61,10 @@ DECAY_HALF_LIVES = (7, 30, 90, 365)
 # 20-result page; the sweep asks whether widening the pool lets the recency rerank
 # promote relevant rows that the fused top-40 cut away.
 POOL_DEPTHS = (40, 100, 200)
+# Round 20: widen only the vector candidate list. The lexical half stays at the
+# production depth, so any delta is attributable to vectors the fused top-40
+# never saw. 400 is the corpus-sized ceiling (188 at the time of writing).
+VECTOR_DEPTHS = (100, 200, 400)
 
 
 def load_env() -> dict:
@@ -227,7 +231,7 @@ def load_rows(observations: list[dict], vectors: list[list[float]]) -> None:
             now(), {int(observation.get('observed_at') or (epoch + index))},
             (SELECT id FROM mem_memory_scopes
              WHERE scope_type = 'project' AND scope_key = {sql_quote(PROJECT)} COLLATE "C"),
-            'claude', 'complete', {sql_quote(vector_literal(vector))}::vector
+            'claude', 'ready', {sql_quote(vector_literal(vector))}::vector
         );
         """)
     statements.append("ANALYZE mem_observations;")
@@ -357,8 +361,16 @@ def rank_hybrid(query: str, query_vector: str, min_similarity: float,
 
 
 def hybrid_pool(query: str, query_vector: str, min_similarity: float,
-                limit: int = PRODUCTION_LIMIT) -> list[dict]:
-    """The fused top-N with the metadata a reranker needs: fused score, time, title."""
+                limit: int = PRODUCTION_LIMIT,
+                semantic_limit: int | None = None) -> list[dict]:
+    """The fused top-N with the metadata a reranker needs: fused score, time, title.
+
+    `semantic_limit` widens only the vector list; the lexical list and the final
+    fused cut stay at `limit`. That is the round-20 experiment: a relevant row
+    that the vector scan ranked below the fused top-40 can enter without giving
+    the lexical pool more candidates.
+    """
+    semantic_limit = semantic_limit or limit
     rows = psql(TOKEN_QUERY.format(query=sql_quote(query)) + f"""
         , qtotal AS (SELECT greatest(count(*), 1) AS n FROM qb),
         text_cov AS (
@@ -379,7 +391,7 @@ def hybrid_pool(query: str, query_vector: str, min_similarity: float,
               AND o.created_at_epoch > 0
               AND (1.0 - (o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector))) >= {min_similarity}
             ORDER BY o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector)
-            LIMIT {limit}
+            LIMIT {semantic_limit}
         ),
         lexical_ranked AS (
             SELECT id, row_number() OVER (ORDER BY matched DESC, id) AS rank FROM text_cov LIMIT {limit}
@@ -874,6 +886,27 @@ def render_report(result: dict, corpus_path: Path) -> str:
         )
     lines += [
         "",
+        "## Vector-only candidate expansion (round 20)",
+        "",
+        "Semantic list widened; lexical list and fused cut stay at production depth 40.",
+        "",
+        "| vector depth | mean rows | hit@1 (fusion) | hit@5 (fusion) | MRR (fusion) | "
+        "hit@1 (+7d) | hit@5 (+7d) | MRR (+7d) | mean ms | p95 ms |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for depth in result.get("round20", {}).get("vector_depths") or []:
+        sizes = [row[f"vecdeep_{depth}_size"] for row in result["rows"]]
+        fused = result["summary"][f"vecdeep_{depth}"]
+        decayed = result["summary"][f"vecdeep_{depth}_decay7d"]
+        latency = result["latency_ms"][f"vecdeep_{depth}"]
+        lines.append(
+            f"| {depth} | {statistics.fmean(sizes):.1f} | {fused['hit@1']:.3f} | "
+            f"{fused['hit@5']:.3f} | {fused['mrr']:.3f} | {decayed['hit@1']:.3f} | "
+            f"{decayed['hit@5']:.3f} | {decayed['mrr']:.3f} | {latency['mean']:.1f} | "
+            f"{latency['p95']:.1f} |"
+        )
+    lines += [
+        "",
         "## Language split (round 16 contrast set)",
         "",
         "| language | queries | hybrid hit@1 | hybrid hit@5 | hybrid MRR | merge+recency hit@1 |",
@@ -892,6 +925,23 @@ def render_report(result: dict, corpus_path: Path) -> str:
         "## Diagnosis",
         "",
         result["diagnosis"],
+        "",
+        "## Round 20 production misses",
+        "",
+        "| query | relevant | relevant outside pool | vector reachable @max | recovered by vecdeep |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    max_depth = max((result.get("round20", {}).get("vector_depths") or [0]))
+    for row in result["rows"]:
+        if row["hybrid_decay_7d"]["hit@5"] != 0:
+            continue
+        recovered = any(row[f"vecdeep_{depth}_decay7d"]["hit@5"] == 1
+                        for depth in result["round20"]["vector_depths"])
+        lines.append(
+            f"| {row['id']} | {len(row['relevant'])} | {row['relevant_missing_from_pool']} | "
+            f"{row[f'vector_{max_depth}_reachable']} | {'yes' if recovered else 'no'} |"
+        )
+    lines += [
         "",
         "## Per-query first relevant rank",
         "",
@@ -935,9 +985,13 @@ def main() -> int:
                         time.strftime("%Y-%m-%d") + "_retrieval-quality-real.json")
     parser.add_argument("--pool-depths", default=",".join(str(d) for d in POOL_DEPTHS),
                         help="comma-separated candidate-pool depths to compare")
+    parser.add_argument("--vector-depths",
+                        default=",".join(str(d) for d in VECTOR_DEPTHS),
+                        help="comma-separated vector-only candidate depths (round 20)")
     parser.add_argument("--keep-db", action="store_true")
     args = parser.parse_args()
     pool_depths = tuple(int(value) for value in args.pool_depths.split(",") if value.strip())
+    vector_depths = tuple(int(value) for value in args.vector_depths.split(",") if value.strip())
 
     corpus_path = ROOT / args.corpus
     corpus = json.loads(corpus_path.read_text())
@@ -1003,8 +1057,25 @@ def main() -> int:
 
         # Rerank experiments run on the same fused pool production returns, so
         # the only variable is the reorder rule.
+        pool_started = time.perf_counter()
         pool = hybrid_pool(query["text"], vector_literal(vector), 0.5)
+        row["latency_ms"] = {"pool": (time.perf_counter() - pool_started) * 1000}
         row["hybrid_pool_size"] = len(pool)
+        row["relevant_missing_from_pool"] = len(relevant - {item["id"] for item in pool})
+        # Round 20: how deep does the vector list have to go before every relevant
+        # row is reachable, and does widening only that half change the fused cut?
+        reachable = rank_vector(vector_literal(vector), max(vector_depths))
+        for depth in vector_depths:
+            row[f"vector_{depth}_reachable"] = len(relevant & set(reachable[:depth]))
+            started = time.perf_counter()
+            deep_pool = hybrid_pool(query["text"], vector_literal(vector), 0.5,
+                                    limit=PRODUCTION_LIMIT, semantic_limit=depth)
+            row["latency_ms"][f"vecdeep_{depth}"] = (time.perf_counter() - started) * 1000
+            row[f"vecdeep_{depth}_size"] = len(deep_pool)
+            row[f"vecdeep_{depth}"] = metrics([item["id"] for item in deep_pool], relevant)
+            row[f"vecdeep_{depth}_decay7d"] = metrics(
+                [item["id"] for item in rerank_time_decay(deep_pool, reference_ms, 7)],
+                relevant)
         # Round 18: pool depth sweep. Same fusion and same 7-day recency rerank as
         # production; the only variable is how many fused candidates are fetched.
         for depth in pool_depths:
@@ -1092,6 +1163,8 @@ def main() -> int:
                       "hybrid_decay7d_title_rerank", "hybrid_decay7d_title_blend"]
     summary_names += [f"pool_{depth}" for depth in pool_depths]
     summary_names += [f"pool_{depth}_decay7d" for depth in pool_depths]
+    summary_names += [f"vecdeep_{depth}" for depth in vector_depths]
+    summary_names += [f"vecdeep_{depth}_decay7d" for depth in vector_depths]
     summary_names += [f"cluster_{label}_{weight}"
                       for label in ("session", "file", "both") for weight in CLUSTER_WEIGHTS]
     summary_names += ["hybrid_queryident_decay7d", "hybrid_queryident_cluster_decay7d"]
@@ -1110,6 +1183,26 @@ def main() -> int:
             for language in sorted({row["language"] for row in rows})
         },
         "rows": rows,
+    }
+    latency_keys = ["pool"] + [f"vecdeep_{depth}" for depth in vector_depths]
+    result["latency_ms"] = {
+        key: {"mean": round(statistics.fmean(row["latency_ms"][key] for row in rows), 2),
+              "p95": round(percentile([row["latency_ms"][key] for row in rows], 95), 2)}
+        for key in latency_keys
+    }
+    production_misses = [row for row in rows if row["hybrid_decay_7d"]["hit@5"] == 0]
+    result["round20"] = {
+        "vector_depths": list(vector_depths),
+        "production_misses": len(production_misses),
+        "misses_with_relevant_outside_pool":
+            sum(1 for row in production_misses if row["relevant_missing_from_pool"] > 0),
+        "queries_with_relevant_outside_pool":
+            sum(1 for row in rows if row["relevant_missing_from_pool"] > 0),
+        "missing_relevant_rows": sum(row["relevant_missing_from_pool"] for row in rows),
+        "vector_reachable": {
+            str(depth): sum(row[f"vector_{depth}_reachable"] for row in rows)
+            for depth in vector_depths},
+        "relevant_total": sum(len(row["relevant"]) for row in rows),
     }
     vector_summary = result["summary"]["vector"]
     hybrid_summary = result["summary"]["hybrid"]
@@ -1217,6 +1310,29 @@ def main() -> int:
         f"cluster rule {result['summary']['hybrid_queryident_cluster_decay7d']['hit@1']:.3f} / "
         f"{result['summary']['hybrid_queryident_cluster_decay7d']['hit@5']:.3f} / "
         f"{result['summary']['hybrid_queryident_cluster_decay7d']['mrr']:.3f}. "
+    )
+    round20 = result["round20"]
+    vector_text = "; ".join(
+        f"{depth}: hit@1 {result['summary'][f'vecdeep_{depth}']['hit@1']:.3f}, "
+        f"hit@5 {result['summary'][f'vecdeep_{depth}']['hit@5']:.3f}, "
+        f"MRR {result['summary'][f'vecdeep_{depth}']['mrr']:.3f}, "
+        f"after 7-day decay {result['summary'][f'vecdeep_{depth}_decay7d']['hit@1']:.3f} / "
+        f"{result['summary'][f'vecdeep_{depth}_decay7d']['hit@5']:.3f} / "
+        f"{result['summary'][f'vecdeep_{depth}_decay7d']['mrr']:.3f}, "
+        f"mean {result['latency_ms'][f'vecdeep_{depth}']['mean']:.1f} ms"
+        for depth in vector_depths)
+    diagnosis += (
+        f" Round 20 vector-only expansion: {round20['production_misses']} production misses, "
+        f"{round20['misses_with_relevant_outside_pool']} of them had a relevant row outside the "
+        f"fused top-40; {round20['queries_with_relevant_outside_pool']} of {len(rows)} queries "
+        f"had any relevant row outside it ({round20['missing_relevant_rows']} rows in total). "
+        f"Vector list reachable relevant rows at depths "
+        + ", ".join(f"{depth}: {count}/{round20['relevant_total']}"
+                    for depth, count in round20["vector_reachable"].items())
+        + f". Widening only the vector half: {vector_text}. A 90-query corpus moves by one "
+        f"query per 0.011, so a delta below 0.02 is inside one-query noise; client wall time "
+        f"includes a fixed psql process cost, so differences under a few milliseconds are not "
+        f"attributable to the scan."
     )
     result["diagnosis"] = diagnosis
 
