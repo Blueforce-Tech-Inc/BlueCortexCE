@@ -31,7 +31,7 @@
 #   PG_CONTAINER=postgresql  PG_PORT=5432  PG_USER=postgres  PG_PASSWORD=123456
 #   TEST_DB=<existing-name>   # pin the database instead of generating a unique one
 #   VERIFY_KEEP_DB=1          # keep the database after the run (default: drop it)
-#   VERIFY_MIN_TESTS=514   VERIFY_APP_PORT=37888   VERIFY_E2E_PORT=37777
+#   VERIFY_MIN_TESTS=528   VERIFY_APP_PORT=37888   VERIFY_E2E_PORT=37777
 #   VERIFY_LOG_DIR=/tmp/cortexce-verify
 
 set -euo pipefail
@@ -55,7 +55,7 @@ PG_CONTAINER="${PG_CONTAINER:-}"
 PG_PORT="${PG_PORT:-}"
 APP_PORT="${VERIFY_APP_PORT:-37888}"
 E2E_PORT="${VERIFY_E2E_PORT:-37777}"
-MIN_TESTS="${VERIFY_MIN_TESTS:-514}"
+MIN_TESTS="${VERIFY_MIN_TESTS:-528}"
 LOG_BASE="${TMPDIR:-/tmp}"
 LOG_BASE="${LOG_BASE%/}"
 LOG_DIR="${VERIFY_LOG_DIR:-${LOG_BASE}/cortexce-verify-$$}"
