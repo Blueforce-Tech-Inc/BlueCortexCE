@@ -306,7 +306,7 @@ mvn -B clean install
 > 与 V20 冲突演练会各自创建并迁移一次性数据库。
 >
 > CI 会跑同一套测试，然后执行 `python3 scripts/check-test-results.py
-> --require-zero-skips --min-tests 472 --require-layers --require-baseline`；因此
+> --require-zero-skips --min-tests 528 --require-layers --require-baseline`；因此
 > 「构建成功但有用例被跳过」「某一层整个消失」或「某层用例数低于 baseline」都会直接失败。
 > CI 使用自己的 `pgvector/pgvector:pg16` service 容器，而不是复用本地容器。
 
@@ -475,7 +475,7 @@ GitHub Actions 工作流配置在 `.github/workflows/`：
     容器，映射到宿主机 **5433**（GitHub runner 自带的 PostgreSQL 已占用 5432），
     用应用自身的 Flyway 配置迁移到最新版本，执行 `mvn -B clean install`（不带
     `-DskipTests`），然后执行 `python3 scripts/check-test-results.py
-    --require-zero-skips --min-tests 472 --require-layers --require-baseline`。
+    --require-zero-skips --min-tests 528 --require-layers --require-baseline`。
     任何一个 DB 用例被跳过、用例总数下降、或某一层低于 baseline，都会让 job 失败，
     因此「BUILD SUCCESS 但有跳过」不可能通过 CI。
   - 仅 JDK 21 的 job 会在 37777 启动服务，运行
@@ -487,6 +487,14 @@ GitHub Actions 工作流配置在 `.github/workflows/`：
     fork，把本仓库的门禁绑在上游用例对某个 Bun 版本的兼容性上会阻塞无关
     改动。我们与 viewer 的契约改由后端测试固定（`WebUiWireContractTest`：
     `hasMore`、`updateFiles`、`CLAUDE_MEM_*`）。该 job 不修改子模块。
+  - `browser-e2e` 用打包好的 jar 连一个 `pgvector/pgvector:pg16` service（宿主机
+    **5433**；`PG_CONTAINER=''` 让脚本改用 `psql` 客户端而非 `docker exec`），
+    用 `npx playwright install --with-deps chromium` 安装 Playwright 1.59.1 与
+    Chromium，然后运行 `scripts/webui-browser-e2e.sh`。缺少 Playwright 会直接让
+    job 失败而不是跳过；断言失败打印 `FAIL: ASSERTION FAILED: ...`，浏览器异常
+    打印 `FAIL: PAGE ERROR: ...`。最近一次通过的运行：
+    [41798694874](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/actions/runs/41798694874)
+    （1m27s，2026-11-04）。
 
 ## 最佳实践
 

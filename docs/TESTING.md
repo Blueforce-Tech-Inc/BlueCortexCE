@@ -326,7 +326,7 @@ mvn -B clean install
 > V20 conflict rehearsal create and migrate their own disposable databases.
 >
 > CI runs the same suite and then `python3 scripts/check-test-results.py
-> --require-zero-skips --min-tests 508 --require-layers --require-baseline`, so a build
+> --require-zero-skips --min-tests 528 --require-layers --require-baseline`, so a build
 > that reports success while any DB-gated test was skipped, or while a whole layer
 > disappeared, or while a layer executed fewer tests than the recorded baseline,
 > fails. CI provisions its own `pgvector/pgvector:pg16`
@@ -520,7 +520,7 @@ GitHub Actions workflows are configured in `.github/workflows/`:
     owns 5432), migrates it to the newest migration with the application's own
     Flyway configuration, runs `mvn -B clean install` (no `-DskipTests`), and
     then runs `python3 scripts/check-test-results.py --require-zero-skips
-    --min-tests 508 --require-layers --require-baseline`. A skipped DB test, a
+    --min-tests 528 --require-layers --require-baseline`. A skipped DB test, a
     total test-count drop, or any layer shrinking below the recorded baseline
     fails the job, so "BUILD SUCCESS with skipped tests" cannot pass CI.
   - On JDK 21 only, the same job boots the server on 37777 and runs
@@ -534,6 +534,15 @@ GitHub Actions workflows are configured in `.github/workflows/`:
     contract with the viewer is pinned in the backend instead
     (`WebUiWireContractTest`: `hasMore`, `updateFiles`, `CLAUDE_MEM_*`). The job
     never modifies the submodule.
+  - `browser-e2e` boots the packaged jar against a `pgvector/pgvector:pg16` service
+    on host port **5433** (`PG_CONTAINER=''` switches the script from `docker exec`
+    to the `psql` client), installs Playwright 1.59.1 with
+    `npx playwright install --with-deps chromium`, and runs
+    `scripts/webui-browser-e2e.sh`. Missing Playwright fails the job instead of
+    skipping; assertion failures print `FAIL: ASSERTION FAILED: ...` and browser
+    exceptions print `FAIL: PAGE ERROR: ...`. Last verified green run:
+    [41798694874](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/actions/runs/41798694874)
+    (1m27s, 2026-11-04).
 
 ## Best Practices
 
