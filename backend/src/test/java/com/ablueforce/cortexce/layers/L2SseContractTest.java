@@ -48,6 +48,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
                 "app.memory.refine-enabled=false",
                 "claudemem.max-retries=3",
                 "claudemem.sse.timeout-ms=30000",
+                // The burst test sends 600 mutating requests from one address. Production
+                // defaults (200 tokens, 100/s refill) leave a 4-second margin before the
+                // bucket can never exhaust, so a loaded CI machine could finish the burst
+                // without a single 429. Pin a smaller bucket so the assertion is about the
+                // limiter, not about how fast the machine schedules 50 threads.
+                "cortexce.http.rate-limit.capacity=100",
+                "cortexce.http.rate-limit.refill-per-second=10",
                 "logging.level.com.ablueforce=WARN",
                 "logging.level.org.springframework.web=WARN"
         })
@@ -158,7 +165,7 @@ class L2SseContractTest extends HttpLayerTestSupport {
     }
 
     @Test
-    @DisplayName("a burst over the 200-token bucket answers 429 rate_limited with Retry-After")
+    @DisplayName("a burst over the token bucket answers 429 rate_limited with Retry-After")
     void burstBeyondCapacityAnswers429WithRetryAfter() throws Exception {
         int requests = 600;
         int threads = 50;
@@ -192,13 +199,13 @@ class L2SseContractTest extends HttpLayerTestSupport {
             pool.shutdownNow();
         }
 
-        assertTrue(limited > 0, "a 600-request burst must exceed the 200-token bucket");
+        assertTrue(limited > 0, "a 600-request burst must exceed the token bucket");
 
         // Reads are not limited.
         assertEquals(HttpStatus.OK, get("/api/health").getStatusCode());
 
-        // Refill is 100 tokens/s; a short pause restores capacity so later tests in this
-        // shared context do not start against an empty bucket.
-        Thread.sleep(3_000);
+        // Refill is 10 tokens/s in this test; a pause restores enough capacity (50 tokens)
+        // so later tests in this shared context do not start against an empty bucket.
+        Thread.sleep(5_000);
     }
 }
