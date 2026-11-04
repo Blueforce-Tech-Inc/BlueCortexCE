@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.layers;
 
+import com.ablueforce.cortexce.entity.PendingMessageEntity;
 import com.ablueforce.cortexce.offline.OfflineAiTestModels;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.DisplayName;
@@ -12,7 +13,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import java.time.Instant;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,11 +28,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <ol>
  *   <li>every operational meter exists <em>with the labels an operator needs</em>
  *       before any traffic arrives (queue status, provider, failure kind, path);</li>
- *   <li>the values actually move: one queued tool-use raises the pending gauge and
- *       one search raises the hybrid request counter.</li>
+ *   <li>the values actually move: the pending gauge follows a queue row inserted and
+ *       transitioned directly in the shared database, and one search raises the hybrid
+ *       request counter.</li>
  * </ol>
- * <p>The worker scheduler is disabled for this class so the queued row stays pending
- * and the delta is deterministic.</p>
+ * <p>The queue assertion deliberately does <em>not</em> go through
+ * {@code POST /api/ingest/tool-use}. That route publishes a {@code PendingMessageEvent}
+ * whose {@code @Async} listener consumes the row immediately, so a scrape issued right
+ * after the 200 response races the worker: it observed {@code pending=1} locally and
+ * {@code pending=0} on the slower CI runner (run 41769617418), which is the flake this
+ * test used to have. Disabling the scheduler does not help because the listener is
+ * event-driven, not scheduled. Inserting the row through the repository tests the
+ * documented gauge contract — "read from the shared database at scrape time" — without
+ * depending on how fast the worker wins.</p>
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -108,15 +119,17 @@ class L2MetricsEndpointTest extends HttpLayerTestSupport {
     }
 
     @Test
-    @DisplayName("one ingest moves the queue gauge and one search moves the retrieval counter")
+    @DisplayName("the queue gauge reads the shared queue row by row and one search moves the retrieval counter")
     void valuesChangeWithOneIngestAndOneSearch() {
         String project = uniqueProject("metrics");
         String sessionId = uniqueSession("metrics");
 
         double pendingBefore = sample(scrape(), "cortexce_queue_depth", "status=\"pending\"");
+        double processingBefore = sample(scrape(), "cortexce_queue_depth", "status=\"processing\"");
         double hybridSearchesBefore = sample(scrape(),
                 "cortexce_search_requests_total", "path=\"hybrid\"");
         assertTrue(Double.isFinite(pendingBefore), "pending gauge must be readable");
+        assertTrue(Double.isFinite(processingBefore), "processing gauge must be readable");
         assertTrue(Double.isFinite(hybridSearchesBefore), "hybrid counter must be readable");
 
         ResponseEntity<String> start = post("/api/session/start", json(Map.of(
@@ -126,19 +139,33 @@ class L2MetricsEndpointTest extends HttpLayerTestSupport {
         JsonNode startBody = json(start);
         assertTrue(!startBody.path("session_db_id").asText().isBlank());
 
-        ResponseEntity<String> toolUse = post("/api/ingest/tool-use", json(Map.of(
-                "session_id", sessionId,
-                "cwd", project,
-                "tool_name", "Read",
-                "tool_input", Map.of("file_path", project + "/README.md"),
-                "tool_response", Map.of("content", "metrics scrape seed"))));
-        assertEquals(HttpStatus.OK, toolUse.getStatusCode(), toolUse.getBody());
-        assertEquals("accepted", json(toolUse).path("status").asText());
+        PendingMessageEntity queued = new PendingMessageEntity();
+        queued.setSessionDbId(UUID.fromString(startBody.path("session_db_id").asText()));
+        queued.setContentSessionId(sessionId);
+        queued.setMessageType("observation");
+        queued.setToolName("Read");
+        queued.setToolInput("{\"file_path\":\"" + project + "/README.md\"}");
+        queued.setToolInputHash(UUID.randomUUID().toString().replace("-", ""));
+        queued.setToolResponse("{\"content\":\"metrics scrape seed\"}");
+        queued.setCwd(project);
+        queued.setStatus("pending");
+        queued.setRetryCount(0);
+        queued.setCreatedAtEpoch(Instant.now().toEpochMilli());
+        pendingMessageRepository.saveAndFlush(queued);
 
-        String afterIngest = scrape();
-        double pendingAfter = sample(afterIngest, "cortexce_queue_depth", "status=\"pending\"");
-        assertEquals(pendingBefore + 1.0, pendingAfter,
-                "the queued tool-use must raise the pending gauge by exactly one row");
+        double pendingAfterInsert = sample(scrape(), "cortexce_queue_depth", "status=\"pending\"");
+        assertEquals(pendingBefore + 1.0, pendingAfterInsert,
+                "one pending row must raise the pending gauge by exactly one");
+
+        queued.setStatus("processing");
+        queued.setStartedProcessingAtEpoch(Instant.now().toEpochMilli());
+        pendingMessageRepository.saveAndFlush(queued);
+
+        assertEquals(pendingBefore, sample(scrape(), "cortexce_queue_depth", "status=\"pending\""),
+                "the gauge must stop counting the row once it leaves pending");
+        assertEquals(processingBefore + 1.0,
+                sample(scrape(), "cortexce_queue_depth", "status=\"processing\""),
+                "the same row must be counted under processing instead");
 
         ResponseEntity<String> search = get("/api/search?project=" + project + "&query=metrics");
         assertEquals(HttpStatus.OK, search.getStatusCode(), search.getBody());
@@ -152,6 +179,11 @@ class L2MetricsEndpointTest extends HttpLayerTestSupport {
                 "cortexce_worker_processing_seconds_count", "provider=\"openai\"");
         assertTrue(Double.isFinite(workerSamples) && workerSamples >= 0.0,
                 "worker histogram count must stay readable even with the scheduler disabled");
+
+        // The rehearsal database is shared by every layer, so leave no processing row
+        // behind for another class's stale-recovery or readiness assertion to trip over.
+        pendingMessageRepository.delete(queued);
+        pendingMessageRepository.flush();
     }
 
     private String scrape() {

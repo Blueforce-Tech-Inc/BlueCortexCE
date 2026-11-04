@@ -88,7 +88,7 @@ jobs:
         run: mvn -B clean install --no-transfer-progress
 
       - name: Test report gate (failures, test count, skipped, L1-L4 present)
-        run: python3 scripts/check-test-results.py --require-zero-skips --min-tests 493 --require-layers --require-baseline
+        run: python3 scripts/check-test-results.py --require-zero-skips --min-tests 528 --require-layers --require-baseline
 
       - name: API docs surface and proxy E2E (JDK 21 only)
         if: matrix.java == '21'
