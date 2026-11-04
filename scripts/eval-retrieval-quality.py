@@ -524,6 +524,97 @@ def rerank_by_cosine(pool: list[dict], key: str) -> list[dict]:
     return sorted(pool, key=lambda item: (-float(item.get(key) or 0.0), item["id"]))
 
 
+# ---------------------------------------------------------------------------
+# Round 19 experiments: cluster expansion and query-side identifier expansion.
+#
+# Both rules answer the production question "can a candidate that never entered
+# the fused top-40 still be promoted?", which the round-18 pool sweep answered
+# "no" by fetching deeper. Cluster expansion does not fetch a deeper fused pool:
+# it takes the neighbours of the rows that already ranked and gives them a
+# fraction of the hit's decayed score. Query expansion changes the lexical half
+# instead, appending identifier-like tokens that the project actually used
+# recently, which is where the cross-language gap is worst.
+# ---------------------------------------------------------------------------
+
+CLUSTER_WEIGHTS = (0.5, 0.75, 1.0)
+SESSION_WINDOW = 2
+RECENT_WINDOW_DAYS = 30
+MAX_RECENT_IDENTIFIERS = 3
+IDENTIFIER_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:[./][A-Za-z0-9_]+)*")
+
+
+def cluster_neighbours(observations: list[dict]) -> dict[str, dict[str, set[str]]]:
+    """Neighbour sets per row: session-adjacent (±SESSION_WINDOW in time) and same file."""
+    by_session: dict[str, list[dict]] = {}
+    by_file: dict[str, set[str]] = {}
+    for observation in observations:
+        by_session.setdefault(observation.get("session") or "", []).append(observation)
+        if observation.get("file"):
+            by_file.setdefault(observation["file"], set()).add(uuid_for(observation["id"]))
+    session_neighbours: dict[str, set[str]] = {}
+    for rows in by_session.values():
+        ordered = sorted(rows, key=lambda item: (int(item.get("observed_at") or 0), item["id"]))
+        for index, observation in enumerate(ordered):
+            session_neighbours[uuid_for(observation["id"])] = {
+                uuid_for(ordered[other]["id"])
+                for other in range(max(0, index - SESSION_WINDOW),
+                                   min(len(ordered), index + SESSION_WINDOW + 1))
+                if other != index
+            }
+    file_neighbours: dict[str, set[str]] = {}
+    for observation in observations:
+        key = uuid_for(observation["id"])
+        file_neighbours[key] = (by_file.get(observation.get("file") or "", set()) - {key})
+    neighbours = {
+        "session": session_neighbours,
+        "file": file_neighbours,
+        "both": {key: session_neighbours.get(key, set()) | file_neighbours.get(key, set())
+                 for key in set(session_neighbours) | set(file_neighbours)},
+    }
+    return neighbours
+
+
+def rerank_cluster(pool: list[dict], now_ms: int, half_life_days: float,
+                   neighbours: dict[str, set[str]], weight: float,
+                   limit: int = TOP_K) -> list[str]:
+    """Promote neighbours of each ranked row to weight × the row's decayed score."""
+    scores: dict[str, float] = {}
+    for item in pool:
+        age_days = max(0.0, (now_ms - int(item["epoch"])) / 86_400_000)
+        decayed = float(item["score"]) * (0.5 ** (age_days / half_life_days))
+        scores[item["id"]] = max(scores.get(item["id"], 0.0), decayed)
+        for neighbour in neighbours.get(item["id"], ()):
+            scores[neighbour] = max(scores.get(neighbour, 0.0), decayed * weight)
+    ranked = sorted(scores.items(), key=lambda pair: (-pair[1], pair[0]))
+    return [item_id for item_id, _ in ranked[:limit]]
+
+
+def recent_identifiers(observations: list[dict], reference_ms: int, query_text: str,
+                       limit: int = MAX_RECENT_IDENTIFIERS) -> list[str]:
+    """Identifier-like tokens this project used recently, minus the ones the query names.
+
+    Tokens that appear in more than 20% of the visible rows are skipped as too
+    generic to carry meaning; a token the query already contains adds nothing.
+    """
+    window_ms = RECENT_WINDOW_DAYS * 86_400_000
+    visible = [observation for observation in observations
+               if reference_ms - window_ms <= int(observation.get("observed_at") or 0) <= reference_ms]
+    if not visible:
+        return []
+    already_named = set(IDENTIFIER_PATTERN.findall(query_text.lower()))
+    counts: dict[str, int] = {}
+    for observation in visible:
+        tokens = {token for token in IDENTIFIER_PATTERN.findall(observation_text(observation).lower())
+                  if len(token) >= 8}
+        for token in tokens:
+            counts[token] = counts.get(token, 0) + 1
+    cap = max(2, int(len(visible) * 0.2))
+    ordered = sorted(counts.items(), key=lambda pair: (-pair[1], pair[0]))
+    return [token for token, count in ordered
+            if count <= cap and token not in already_named][:limit]
+
+
+
 def rerank_title_blend(pool: list[dict], title_scores: dict[str, float],
                        weight: float = 0.5, limit: int = TOP_K) -> list[dict]:
     """RRF over the fused order and the title-embedding order (weight fixed at 0.5)."""
@@ -886,6 +977,7 @@ def main() -> int:
     }
     corpus_ids = {obs["id"] for obs in observations}
     observed_at = {obs["id"]: obs.get("observed_at") for obs in observations}
+    neighbours = cluster_neighbours(observations)
     now_ms = int(time.time() * 1000)
     rows = []
     for query, vector, head, tail, expanded_vector in zip(
@@ -965,6 +1057,29 @@ def main() -> int:
             [item["id"] for item in rerank_by_cosine(decayed7, "title_cosine")], relevant)
         row["hybrid_decay7d_title_blend"] = metrics(
             [item["id"] for item in rerank_title_blend(decayed7, title_scores)], relevant)
+
+        # Round 19: cluster expansion from the rows that already ranked, and query
+        # expansion from the identifiers this project used in the last 30 days.
+        for label, neighbour_set in (("session", neighbours["session"]),
+                                     ("file", neighbours["file"]),
+                                     ("both", neighbours["both"])):
+            for weight in CLUSTER_WEIGHTS:
+                row[f"cluster_{label}_{weight}"] = metrics(
+                    rerank_cluster(pool, reference_ms, 7, neighbour_set, weight), relevant)
+        identifiers = recent_identifiers(observations, reference_ms, query["text"])
+        row["query_identifiers"] = identifiers
+        if identifiers:
+            identifier_query = query["text"] + " " + " ".join(identifiers)
+            identifier_pool = hybrid_pool(identifier_query, vector_literal(vector), 0.5)
+            row["hybrid_queryident_decay7d"] = metrics(
+                [item["id"] for item in rerank_time_decay(identifier_pool, reference_ms, 7)],
+                relevant)
+            row["hybrid_queryident_cluster_decay7d"] = metrics(
+                rerank_cluster(identifier_pool, reference_ms, 7, neighbours["both"], 0.5),
+                relevant)
+        else:
+            row["hybrid_queryident_decay7d"] = row["hybrid_decay_7d"]
+            row["hybrid_queryident_cluster_decay7d"] = row["cluster_both_0.5"]
         rows.append(row)
     CURRENT_CUTOFF = 0
 
@@ -977,6 +1092,9 @@ def main() -> int:
                       "hybrid_decay7d_title_rerank", "hybrid_decay7d_title_blend"]
     summary_names += [f"pool_{depth}" for depth in pool_depths]
     summary_names += [f"pool_{depth}_decay7d" for depth in pool_depths]
+    summary_names += [f"cluster_{label}_{weight}"
+                      for label in ("session", "file", "both") for weight in CLUSTER_WEIGHTS]
+    summary_names += ["hybrid_queryident_decay7d", "hybrid_queryident_cluster_decay7d"]
     result = {
         "corpus": {"observations": len(observations), "queries": len(queries),
                    "path": str(corpus_path.relative_to(ROOT)),
@@ -1082,6 +1200,23 @@ def main() -> int:
     diagnosis += (
         f" Round 18 candidate-pool sweep: {pool_text}. A 90-query corpus moves by one query "
         f"per 0.011 hit@1, so any delta below 0.02 is inside one-query noise."
+    )
+    cluster_text = "; ".join(
+        f"{label} x{weight}: {result['summary'][f'cluster_{label}_{weight}']['hit@1']:.3f} / "
+        f"{result['summary'][f'cluster_{label}_{weight}']['hit@5']:.3f} / "
+        f"{result['summary'][f'cluster_{label}_{weight}']['mrr']:.3f}"
+        for label in ("session", "file", "both") for weight in CLUSTER_WEIGHTS)
+    identified = sum(1 for row in rows if row["query_identifiers"])
+    diagnosis += (
+        f" Round 19 cluster expansion from the fused pool plus 7-day decay: {cluster_text}. "
+        f"Query-side identifier expansion fired on {identified} of {len(rows)} queries "
+        f"(up to {MAX_RECENT_IDENTIFIERS} tokens from the last {RECENT_WINDOW_DAYS} days) and gives "
+        f"{result['summary']['hybrid_queryident_decay7d']['hit@1']:.3f} / "
+        f"{result['summary']['hybrid_queryident_decay7d']['hit@5']:.3f} / "
+        f"{result['summary']['hybrid_queryident_decay7d']['mrr']:.3f}; combined with the 0.5 "
+        f"cluster rule {result['summary']['hybrid_queryident_cluster_decay7d']['hit@1']:.3f} / "
+        f"{result['summary']['hybrid_queryident_cluster_decay7d']['hit@5']:.3f} / "
+        f"{result['summary']['hybrid_queryident_cluster_decay7d']['mrr']:.3f}. "
     )
     result["diagnosis"] = diagnosis
 
