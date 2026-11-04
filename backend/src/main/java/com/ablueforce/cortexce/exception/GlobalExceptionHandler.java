@@ -85,8 +85,46 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
     public ResponseEntity<Object> handleUnreadableBody(Exception exception) {
+        // A chunked body over cortexce.http.max-body-bytes is cut off while it is parsed;
+        // report the real reason (413) instead of the generic malformed-body message.
+        if (hasCause(exception, com.ablueforce.cortexce.common.PayloadTooLargeException.class)) {
+            return payloadTooLarge(exception);
+        }
         return ResponseEntity.badRequest().body(ErrorResponses.body(
             ErrorResponses.INVALID_REQUEST, "Malformed or unreadable request body"));
+    }
+
+    @ExceptionHandler(com.ablueforce.cortexce.common.PayloadTooLargeException.class)
+    public ResponseEntity<Object> handlePayloadTooLarge(Exception exception) {
+        return payloadTooLarge(exception);
+    }
+
+    private static ResponseEntity<Object> payloadTooLarge(Exception exception) {
+        com.ablueforce.cortexce.common.PayloadTooLargeException cause = findCause(
+            exception, com.ablueforce.cortexce.common.PayloadTooLargeException.class);
+        if (cause != null) {
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(ErrorResponses.body(ErrorResponses.PAYLOAD_TOO_LARGE, cause.getMessage(),
+                    Map.of("max_bytes", cause.getLimitBytes())));
+        }
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+            .body(ErrorResponses.body(ErrorResponses.PAYLOAD_TOO_LARGE, "Request body too large"));
+    }
+
+    private static <T extends Throwable> T findCause(Throwable throwable, Class<T> type) {
+        Throwable current = throwable;
+        // Bounded walk: an exception chain is short, but a self-referential cause would loop.
+        for (int depth = 0; current != null && depth < 16; depth++) {
+            if (type.isInstance(current)) {
+                return type.cast(current);
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
+    private static boolean hasCause(Throwable throwable, Class<? extends Throwable> type) {
+        return findCause(throwable, type) != null;
     }
 
     @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)

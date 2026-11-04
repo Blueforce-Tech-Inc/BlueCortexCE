@@ -9,13 +9,21 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -110,5 +118,87 @@ class L2SseContractTest extends HttpLayerTestSupport {
             JsonNode summary = sse.awaitType("new_summary", WAIT);
             assertTrue(summary.path("summary").isObject(), summary.toString());
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Input limits. These live in this class on purpose: they need the same live
+    // context, and a separate @SpringBootTest class with its own DynamicPropertySource
+    // would open another Hikari pool against the shared test container (max_connections
+    // 100), which is already close to its limit.
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("a body over 2 MiB answers 413 payload_too_large; a normal body still succeeds")
+    void oversizedBodyIsRefusedWithTheStandardEnvelope() {
+        String project = uniqueProject("payload-limit");
+        String session = uniqueSession("payload-limit");
+
+        ResponseEntity<String> normal = post("/api/ingest/observation", json(Map.of(
+            "content_session_id", session,
+            "project_path", project,
+            "title", "small observation",
+            "narrative", "short body well under the 2 MiB default")));
+        assertEquals(HttpStatus.OK, normal.getStatusCode(), normal.getBody());
+
+        ResponseEntity<String> oversized = post("/api/ingest/observation", json(Map.of(
+            "content_session_id", session,
+            "project_path", project,
+            "title", "oversized observation",
+            "narrative", "x".repeat(2_200_000))));
+
+        assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, oversized.getStatusCode(), oversized.getBody());
+        JsonNode body = json(oversized);
+        assertEquals("payload_too_large", body.path("error").path("code").asText(), body.toString());
+        assertTrue(body.path("error").path("message").asText().contains("2097152"), body.toString());
+        assertEquals(2_097_152, body.path("error").path("details").path("max_bytes").asInt(),
+            body.toString());
+
+        // The service keeps serving normal requests after the refusal.
+        assertEquals(HttpStatus.OK, get("/api/health").getStatusCode());
+    }
+
+    @Test
+    @DisplayName("a burst over the 200-token bucket answers 429 rate_limited with Retry-After")
+    void burstBeyondCapacityAnswers429WithRetryAfter() throws Exception {
+        int requests = 600;
+        int threads = 50;
+        String project = uniqueProject("rate-limit");
+        List<Callable<ResponseEntity<String>>> calls = new ArrayList<>();
+        for (int i = 0; i < requests; i++) {
+            String session = uniqueSession("rate-limit") + "-" + i;
+            calls.add(() -> post("/api/session/start", json(Map.of(
+                "session_id", session, "project_path", project))));
+        }
+
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        int limited = 0;
+        try {
+            List<Future<ResponseEntity<String>>> futures = pool.invokeAll(calls);
+            for (Future<ResponseEntity<String>> future : futures) {
+                ResponseEntity<String> response = future.get(30, TimeUnit.SECONDS);
+                if (response.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
+                    limited++;
+                    JsonNode body = json(response);
+                    assertEquals("rate_limited", body.path("error").path("code").asText(),
+                        body.toString());
+                    String retryAfter = response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER);
+                    assertTrue(retryAfter != null && retryAfter.matches("[1-9][0-9]*"),
+                        "Retry-After=" + retryAfter);
+                } else {
+                    assertEquals(HttpStatus.OK, response.getStatusCode(), response.getBody());
+                }
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertTrue(limited > 0, "a 600-request burst must exceed the 200-token bucket");
+
+        // Reads are not limited.
+        assertEquals(HttpStatus.OK, get("/api/health").getStatusCode());
+
+        // Refill is 100 tokens/s; a short pause restores capacity so later tests in this
+        // shared context do not start against an empty bucket.
+        Thread.sleep(3_000);
     }
 }

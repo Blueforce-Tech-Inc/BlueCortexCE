@@ -1,6 +1,11 @@
 server:
   port: ${SERVER_PORT:37777}
   address: ${SERVER_ADDRESS:127.0.0.1}
+  tomcat:
+    # A request body over cortexce.http.max-body-bytes is refused before it is read.
+    # Tomcat discards the unread remainder so the client can still receive the 413;
+    # the default (2 MB) would close the connection on the 5 MB probe instead.
+    max-swallow-size: ${SERVER_MAX_SWALLOW_SIZE:8MB}
 
 # ============================================================================
 # API authentication (round 18)
@@ -14,6 +19,23 @@ cortexce:
     # `Authorization: Bearer <token>`, missing or wrong tokens answer 401
     # (`error.code = unauthorized`). Comparison is constant-time.
     api-token: ${CORTEXCE_API_TOKEN:}
+
+  # ==========================================================================
+  # Input limits (round H2)
+  # ==========================================================================
+  http:
+    # Mutating /api/** requests whose body exceeds this answer 413 payload_too_large
+    # before the JSON is parsed. 2 MiB is far above a real observation (prompt text,
+    # the largest legitimate field, is capped at 100 KB) and keeps a 5 MB payload from
+    # being stored whole. Raise it for deployments that import large batches over HTTP.
+    max-body-bytes: ${CORTEXCE_HTTP_MAX_BODY_BYTES:2097152}
+    rate-limit:
+      # Per-client token bucket for mutating /api/** requests. The hook proxy sends a
+      # few events per second, so these defaults are invisible in normal use and cap a
+      # burst of 500 requests. Set enabled=false to remove the layer.
+      enabled: ${CORTEXCE_HTTP_RATE_LIMIT_ENABLED:true}
+      capacity: ${CORTEXCE_HTTP_RATE_LIMIT_CAPACITY:200}
+      refill-per-second: ${CORTEXCE_HTTP_RATE_LIMIT_REFILL_PER_SECOND:100}
 
   # ==========================================================================
   # Age-based retention (round 20)

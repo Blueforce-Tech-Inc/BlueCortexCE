@@ -139,12 +139,20 @@ HTTP 状态码语义保持不变：
 | `forbidden` | 403 | 已认证但无权限（保留，当前不产生） |
 | `not_found` | 404 | 未知路由、会话或资源 |
 | `conflict` | 409 | 状态冲突 |
+| `payload_too_large` | 413 | 请求体超过 `cortexce.http.max-body-bytes`（默认 2 MiB）；`details.max_bytes` |
 | `rate_limited` | 429 | 触发限流；`details.retry_after` 为秒数 |
 | `internal_error` | 500 | 服务端意外失败 |
+| `service_unavailable` | 503 | 达到 SSE 连接上限（`claudemem.sse.max-connections`，默认 200） |
 
 框架层失败（查询参数无法转换、未知路由、不支持的方法）与 handler 抛出的失败都使用
 这一形态。本节早前版本记录过两种互不兼容的响应体——Spring 默认的
 `{timestamp, status, error, path}` 与裸的错误字符串——两者都已移除。
+
+`413` 与 `429` 由控制器前面的两个过滤器产生，覆盖所有写类 `/api/**` 请求（读请求
+不限流）：
+
+- 体积：`{"error":{"code":"payload_too_large","message":"Request body exceeds 2097152 bytes","details":{"max_bytes":2097152}}}`
+- 频率：`{"error":{"code":"rate_limited","message":"Rate limit exceeded","details":{"refill_per_second":100.0,"retry_after":"1","capacity":200}}}`，并带 `Retry-After` 响应头。令牌桶按客户端地址计数，默认 200 突发 / 每秒 100（`cortexce.http.rate-limit.*`）。`RateLimitService` 另外对 `POST /api/ingest/tool-use` 施加每会话 10 次 / 60 秒的窄限流。
 
 ### 查询参数约定
 

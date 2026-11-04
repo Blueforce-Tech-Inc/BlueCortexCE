@@ -137,13 +137,21 @@ The HTTP status keeps its usual meaning:
 | `forbidden` | 403 | Authenticated but not allowed (reserved, not emitted today) |
 | `not_found` | 404 | Unknown route, session, or resource |
 | `conflict` | 409 | Conflicting state |
+| `payload_too_large` | 413 | Request body over `cortexce.http.max-body-bytes` (2 MiB default); `details.max_bytes` |
 | `rate_limited` | 429 | Rate limited; `details.retry_after` in seconds |
 | `internal_error` | 500 | Unexpected server failure |
+| `service_unavailable` | 503 | At the SSE connection cap (`claudemem.sse.max-connections`, 200 default) |
 
 Framework failures (unconvertible query parameters, unknown routes, unsupported methods)
 and handler-thrown failures both use this shape. An earlier revision of this section
 documented two incompatible bodies — Spring's default
 `{timestamp, status, error, path}` and a bare error string. Both are gone.
+
+`413` and `429` are produced by two filters in front of the controllers, so they cover
+every mutating `/api/**` route (reads are never limited):
+
+- body: `{"error":{"code":"payload_too_large","message":"Request body exceeds 2097152 bytes","details":{"max_bytes":2097152}}}`
+- rate: `{"error":{"code":"rate_limited","message":"Rate limit exceeded","details":{"retry_after":"1","capacity":200,"refill_per_second":100.0}}}` with a `Retry-After` header. The bucket is per client address, 200 burst / 100 per second by default (`cortexce.http.rate-limit.*`). `RateLimitService` adds a narrower per-session limit of 10 requests per 60 s on `POST /api/ingest/tool-use`.
 
 ### Query Parameter Conventions
 
