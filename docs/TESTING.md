@@ -66,6 +66,8 @@ Located in `scripts/` directory:
 |--------|-------------|
 | `seed-diverse-data.sh` | Seeds diverse test data for WebUI testing (various types, concepts, content) |
 | `test-llm-provider.sh` | LLM provider connectivity and response validation tests |
+| `soak-test.py` | Manual one-hour mixed-rate soak (real provider, real PostgreSQL): fixed-rate ingest + search, a Prometheus sample every 5 minutes, and a mechanical verdict on heap growth, thread growth, pool saturation, failed rows and stuck `processing` rows. Never runs in CI. |
+| `eval-retrieval-quality.py` | Manual retrieval-quality harness (real embeddings, disposable database): hit@1 / hit@5 / MRR for every candidate-generation rule, with the production SQL copied verbatim. Never runs in CI. |
 | `run-all-e2e.sh` | Orchestrator — runs the 10 local E2E suites defined here in one pass (excludes Docker suites and test-llm-provider.sh). **Suite 5/10, `mcp-streamable-e2e-test.sh`, is conditional**: it is skipped unless the server exposes Streamable HTTP on `/mcp` (a `POST` of an `initialize` request to `/mcp` must answer 200). The backend's default MCP transport is SSE, so on a default install this orchestrator runs **9** suites and reports 1 skipped — that is expected, not a failure. |
 
 **Prerequisites:** Same as regression tests (backend running, database configured).

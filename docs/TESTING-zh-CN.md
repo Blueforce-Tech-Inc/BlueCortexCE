@@ -66,6 +66,8 @@
 |------|------|
 | `seed-diverse-data.sh` | 为 WebUI 测试植入多样化测试数据（多种类型、概念、内容） |
 | `test-llm-provider.sh` | LLM 提供商连接和响应验证测试 |
+| `soak-test.py` | 手动一小时混合速率长稳测试（真实供应商、真实 PostgreSQL）：固定速率 ingest + search，每 5 分钟抓一次 Prometheus 采样，并机械判定堆增长、线程增长、连接池饱和、累计 failed 与卡 processing。绝不进入 CI。 |
+| `eval-retrieval-quality.py` | 手动检索质量评测（真实 embedding、一次性数据库）：逐条候选生成规则给出 hit@1 / hit@5 / MRR，生产 SQL 原样复制。绝不进入 CI。 |
 | `run-all-e2e.sh` | 编排脚本 — 一次运行此处定义的 10 个本地 E2E 套件（不含 Docker 套件和 test-llm-provider.sh）。**其中 5/10 `mcp-streamable-e2e-test.sh` 是条件执行的**：除非服务器在 `/mcp` 上暴露 Streamable HTTP（向 `/mcp` 发一个 `initialize` 请求必须返回 200），否则会被跳过。后端默认的 MCP 传输是 SSE，因此在默认安装下该编排脚本实际运行 **9** 个套件并报告 1 个跳过——**这是预期行为，不是失败**。 |
 
 **前置条件：** 与回归测试相同（后端运行，数据库已配置）。
