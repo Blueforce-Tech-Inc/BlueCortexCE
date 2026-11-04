@@ -106,7 +106,7 @@ public class SearchService {
             throw new IllegalArgumentException("searchRequest must not be null");
         }
         String project = request.project();
-        String query = request.query();
+        String query = stripNul(request.query());
         // P2: Handle Integer.MIN_VALUE edge case with robust limit handling.
         // Clamp to the same [1, MAX_PAGE_SIZE] window the REST controller applies so the limit*2
         // over-fetches below stay positive and bounded for every caller, MCP included.
@@ -177,6 +177,21 @@ public class SearchService {
                 project, e.getClass().getSimpleName());
             return new SearchResult(Collections.emptyList(), "none", true);
         }
+    }
+
+    /**
+     * PostgreSQL rejects a text parameter containing a NUL byte (SQLSTATE 22021), so a
+     * caller-supplied {@code \u0000} in the query used to fail the hybrid path (logged as
+     * a misleading pgvector/schema error) and then the lexical path, ending in an empty
+     * result. Dropping the NUL keeps the rest of the query searchable and stops a hostile
+     * byte from selecting an error path. Other control characters are harmless to the
+     * tokenizer and are left untouched.
+     */
+    private static String stripNul(String query) {
+        if (query == null || query.indexOf('\u0000') < 0) {
+            return query;
+        }
+        return query.replace("\u0000", "");
     }
 
     /**

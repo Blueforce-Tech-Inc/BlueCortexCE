@@ -20,6 +20,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -352,6 +353,37 @@ class SearchServiceLimitTest {
 
         assertThat(result.observations()).hasSize(1);
         assertThat(result.observations().get(0).getSearchScore()).isEqualTo(0.37);
+    }
+
+    // ===== hostile query text =====
+
+    @Test
+    @DisplayName("a NUL in the query is dropped before it reaches PostgreSQL")
+    void nulInQuery_isStrippedBeforeTheDatabase() {
+        stubFullText(1);
+
+        searchService.search(new SearchService.SearchRequest(
+                "/tmp", "auth\u0000 bug", null, null, null, null, null, null, 20, 0, null));
+
+        ArgumentCaptor<String> query = ArgumentCaptor.forClass(String.class);
+        verify(repository).fullTextSearchScored(anyString(), query.capture(), anyInt());
+        assertThat(query.getValue())
+                .as("a NUL byte makes PostgreSQL reject the statement (SQLSTATE 22021)")
+                .doesNotContain("\u0000")
+                .contains("auth", "bug");
+    }
+
+    @Test
+    @DisplayName("a query that is only a NUL falls back to the recent path instead of erroring")
+    void nulOnlyQuery_takesTheFilterPath() {
+        stubRecent(3);
+
+        SearchService.SearchResult result = searchService.search(new SearchService.SearchRequest(
+                "/tmp", "\u0000", null, null, null, null, null, null, 20, 0, null));
+
+        assertThat(result.strategy()).isEqualTo("recent");
+        assertThat(result.observations()).hasSize(3);
+        verify(repository, never()).fullTextSearchScored(anyString(), anyString(), anyInt());
     }
 
     // ===== short and empty repository results pass through unchanged =====
