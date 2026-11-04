@@ -239,6 +239,16 @@ function setCachedContext(cacheKey: string, text: string): void {
   contextCache.set(cacheKey, { text, fetchedAt: Date.now() });
 }
 
+/**
+ * The backend returns HTTP 200 with a human-readable placeholder when it cannot
+ * build context (database unavailable, schema mismatch). That string is useful
+ * in the web viewer, but injecting it into the model's system prompt only adds
+ * noise, so the hook drops it and stays silent.
+ */
+function isBackendErrorContext(text: string): boolean {
+  return /^\s*\[Error generating context/i.test(text);
+}
+
 // ============================================================================
 // HTTP Client (Java Backend API)
 // ============================================================================
@@ -442,17 +452,20 @@ export default function claudeMemJavaPlugin(api: OpenClawPluginApi): void {
         const data = JSON.parse(contextText);
         const context = data.context || "";
 
-        if (context.trim().length > 0) {
+        if (context.trim().length > 0 && !isBackendErrorContext(context)) {
           // Cache the context for 60s
           setCachedContext(cacheKey, context);
           api.logger.info(`[claude-mem] Context injected (${context.length} chars) for ${projectPath}`);
           return { appendSystemContext: context };
         }
       } catch {
-        // If JSON parsing fails, return raw text and cache it
-        setCachedContext(cacheKey, contextText);
-        api.logger.info(`[claude-mem] Context injected (raw, ${contextText.length} chars) for ${projectPath}`);
-        return { appendSystemContext: contextText };
+        // If JSON parsing fails, return raw text and cache it, unless it is an
+        // error placeholder — injecting that would put service noise in the prompt.
+        if (!isBackendErrorContext(contextText)) {
+          setCachedContext(cacheKey, contextText);
+          api.logger.info(`[claude-mem] Context injected (raw, ${contextText.length} chars) for ${projectPath}`);
+          return { appendSystemContext: contextText };
+        }
       }
     }
     return;

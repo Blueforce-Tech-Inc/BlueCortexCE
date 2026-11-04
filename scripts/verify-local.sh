@@ -19,7 +19,9 @@
 #   7. run both documentation consistency checks (checker self-test, then the
 #      published EN/ZH API reference against the live server);
 #   8. run the proxy E2E against that server and refuse a skipped run (this is
-#      the proxy-forwarding part of L3);
+#      the proxy-forwarding part of L3), then run the OpenClaw plugin suite
+#      (context-inject placeholder filtering and session lifecycle) and refuse a
+#      skipped run as well;
 #   9. verify the committed viewer bundle is a fresh build of webui/src, then
 #      drive that bundle in a real Chromium: page rendering, files, hasMore
 #      pagination, an SSE-only live row, refresh visibility and a settings
@@ -434,6 +436,28 @@ if ! grep -Eq '(^|[[:space:]])skipped[[:space:]]+0([[:space:]]|$)' "$LOG_DIR/pro
        "$(summarize_log "$LOG_DIR/proxy-test.log")"
 fi
 note "proxy E2E ran and reported 0 skipped"
+
+# --------------------------------------------------------------------------
+# 8b. OpenClaw plugin tests
+#
+# The plugin is the other consumer of the same endpoints (/api/context/inject,
+# /api/search, the ingest routes). Its suite runs offline; the checks below
+# reject a skipped or empty run the same way step 8 does.
+# --------------------------------------------------------------------------
+step "8b/9 OpenClaw plugin tests (no-provider placeholder filtering, session lifecycle)"
+
+cd "$ROOT/openclaw-plugin"
+npm ci > "$LOG_DIR/openclaw-install.log" 2>&1 \
+  || fail "openclaw plugin install" "npm ci failed in openclaw-plugin/." "$(summarize_log "$LOG_DIR/openclaw-install.log")"
+
+npm test > "$LOG_DIR/openclaw-test.log" 2>&1 \
+  || fail "openclaw plugin tests" "npm test failed in openclaw-plugin/." "$(summarize_log "$LOG_DIR/openclaw-test.log")"
+
+if ! grep -Eq '(^|[[:space:]])skipped[[:space:]]+0([[:space:]]|$)' "$LOG_DIR/openclaw-test.log"; then
+  fail "openclaw plugin tests" "node --test reported skipped tests (a skipped suite is not a green run)." \
+       "$(summarize_log "$LOG_DIR/openclaw-test.log")"
+fi
+note "openclaw plugin tests ran and reported 0 skipped"
 
 # --------------------------------------------------------------------------
 # 9. browser E2E
