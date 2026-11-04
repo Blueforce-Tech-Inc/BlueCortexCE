@@ -70,6 +70,7 @@
 | `eval-retrieval-quality.py` | 手动检索质量评测（真实 embedding、一次性数据库）：逐条候选生成规则给出 hit@1 / hit@5 / MRR，生产 SQL 原样复制。绝不进入 CI。 |
 | `upgrade-rehearsal.sh` | 手动老库升级演练：让 Flyway 停在 V12，灌入带 embedding 与中文的 V13 之前形态数据，原地升级到 V25，校验行数 / id / V13 关联 / 中文检索，再恢复 V12 dump 作为回滚证明。绝不进入 CI。 |
 | `hook-payload-e2e.sh` | 手动 Hook 端到端：用真实 Claude Code 载荷（UserPromptSubmit / PostToolUse / SessionEnd）经 `proxy/wrapper.js` 转发，校验字段映射、落库、重复 PostToolUse 去重、summary 生成，以及后端不可达时的优雅失败。绝不进入 CI。 |
+| `webui-browser-e2e.sh` | 手动浏览器端到端：在一次性数据库上启动真实后端、灌入 60 条 observation，再用无头 Chromium（Playwright）验证内置查看器能渲染卡片、能读到 `files_modified`、按 `hasMore` 翻完整个信息流，并在刷新后看到加载后新建的记录。Playwright 仅为本地工具，不是生产依赖。绝不进入 CI。 |
 | `run-all-e2e.sh` | 编排脚本 — 一次运行此处定义的 10 个本地 E2E 套件（不含 Docker 套件和 test-llm-provider.sh）。**其中 5/10 `mcp-streamable-e2e-test.sh` 是条件执行的**：除非服务器在 `/mcp` 上暴露 Streamable HTTP（向 `/mcp` 发一个 `initialize` 请求必须返回 200），否则会被跳过。后端默认的 MCP 传输是 SSE，因此在默认安装下该编排脚本实际运行 **9** 个套件并报告 1 个跳过——**这是预期行为，不是失败**。 |
 
 **前置条件：** 与回归测试相同（后端运行，数据库已配置）。
