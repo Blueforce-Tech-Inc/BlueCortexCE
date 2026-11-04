@@ -1,0 +1,8 @@
+<observed_from_primary_session>
+  <what_happened>{{toolName}}</what_happened>
+  <occurred_at>{{occurredAt}}</occurred_at>
+  <working_directory>{{cwd}}</working_directory>
+  <parameters>{{toolInput}}</parameters>
+  <outcome>{{toolOutput}}</outcome>
+  {{signals}}
+</observed_from_primary_session>
