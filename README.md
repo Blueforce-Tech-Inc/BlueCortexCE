@@ -309,7 +309,7 @@ Then either run the browser check alone (it starts its own disposable database
 and backend), or the whole gate:
 
 ```bash
-./scripts/webui-browser-e2e.sh   # rendering, files, hasMore, SSE, refresh, settings round trip
+./scripts/webui-browser-e2e.sh   # rendering, files, hasMore, SSE, refresh, settings, 401 errors, outage recovery
 ./scripts/check-viewer-bundle.sh # committed bundle vs a fresh build of webui/src
 ./scripts/verify-local.sh        # step 9 runs both; prints SKIP if Playwright or webui deps are absent
 ```

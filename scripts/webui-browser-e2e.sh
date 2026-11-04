@@ -5,8 +5,13 @@
 # observations to cross the viewer's 50-row page size, then runs a real Chromium
 # (Playwright) against http://127.0.0.1:<port>/ to prove the page renders,
 # `files_modified` reaches the card, `hasMore` pagination pages through the whole
-# feed, a record created after load is visible after a plain refresh, and a
+# feed, a record created after load appears over SSE without a refresh, and a
 # settings toggle survives a refresh.
+#
+# It then boots the same jar with CORTEXCE_API_TOKEN set to prove that a browser
+# without the token gets readable errors (gated /api/logs read and a settings
+# save) instead of an empty feed, and finally stops and restarts the backend to
+# prove the open page shows a readable outage alert (not a spinner) and recovers.
 #
 # Playwright is a test-only tool, not a production dependency. Install it once:
 #   (cd scripts/browser && npm install --no-save playwright && npx playwright install --with-deps chromium)
@@ -60,12 +65,34 @@ sql() {
   fi
 }
 
+start_app() {
+  local token="${1:-}"
+  SPRING_DATASOURCE_URL="jdbc:postgresql://127.0.0.1:${PG_PORT}/${DB}" \
+  SPRING_DATASOURCE_USERNAME="$PG_USER" \
+  SPRING_DATASOURCE_PASSWORD="$PG_PASSWORD" \
+  SERVER_PORT="$PORT" \
+  CLAUDE_MEM_DATA_DIR="$LOG_DIR/data" \
+  CORTEXCE_API_TOKEN="$token" \
+    java -jar "$JAR" --server.port="$PORT" > "$LOG_DIR/app.log" 2>&1 &
+  APP_PID=$!
+  for _ in $(seq 1 120); do
+    if curl -sf "${BASE_URL}/api/health" >/dev/null 2>&1; then break; fi
+    kill -0 "$APP_PID" 2>/dev/null || fail "application exited during startup"
+    sleep 1
+  done
+  curl -sf "${BASE_URL}/api/health" >/dev/null || fail "application did not become healthy"
+}
+
+stop_app() {
+  [[ -n "$APP_PID" ]] || return 0
+  kill "$APP_PID" 2>/dev/null || true
+  wait "$APP_PID" 2>/dev/null || true
+  APP_PID=""
+}
+
 cleanup() {
   local status=$?
-  if [[ -n "$APP_PID" ]]; then
-    kill "$APP_PID" 2>/dev/null || true
-    wait "$APP_PID" 2>/dev/null || true
-  fi
+  stop_app
   if [[ "${KEEP_DB:-0}" == "1" ]]; then
     echo "kept database $DB (KEEP_DB=1)"
   else
@@ -106,19 +133,7 @@ echo "jar=$JAR"
 
 step "Boot the backend on ${BASE_URL}"
 mkdir -p "$LOG_DIR/data"
-SPRING_DATASOURCE_URL="jdbc:postgresql://127.0.0.1:${PG_PORT}/${DB}" \
-SPRING_DATASOURCE_USERNAME="$PG_USER" \
-SPRING_DATASOURCE_PASSWORD="$PG_PASSWORD" \
-SERVER_PORT="$PORT" \
-CLAUDE_MEM_DATA_DIR="$LOG_DIR/data" \
-  java -jar "$JAR" --server.port="$PORT" > "$LOG_DIR/app.log" 2>&1 &
-APP_PID=$!
-for _ in $(seq 1 120); do
-  if curl -sf "${BASE_URL}/api/health" >/dev/null 2>&1; then break; fi
-  kill -0 "$APP_PID" 2>/dev/null || fail "application exited during startup"
-  sleep 1
-done
-curl -sf "${BASE_URL}/api/health" >/dev/null || fail "application did not become healthy"
+start_app ""
 echo "health: $(curl -s "${BASE_URL}/api/health")"
 
 step "Start a session and assert the updateFiles contract"
@@ -144,6 +159,20 @@ step "Drive the bundled viewer with Playwright"
 BASE_URL="$BASE_URL" PROJECT_PATH="$PROJECT_PATH" SEED_COUNT="$SEED_COUNT" \
 SCREENSHOT="${SCREENSHOT:-}" \
   node "$ROOT/scripts/browser/webui-viewer-e2e.mjs" || fail "browser assertions"
+
+step "Reject unauthorized requests without rendering them as empty data"
+stop_app
+start_app "e2e-secret-token"
+BASE_URL="$BASE_URL" \
+  node "$ROOT/scripts/browser/webui-viewer-auth-e2e.mjs" || fail "viewer auth error state"
+stop_app
+
+step "Survive a backend outage and recover after the restart"
+E2E_APP_JAR="$JAR" E2E_APP_PORT="$PORT" \
+E2E_APP_DB_URL="jdbc:postgresql://127.0.0.1:${PG_PORT}/${DB}" \
+E2E_APP_DB_USER="$PG_USER" E2E_APP_DB_PASSWORD="$PG_PASSWORD" \
+E2E_APP_DATA_DIR="$LOG_DIR/data" E2E_APP_LOG="$LOG_DIR/app-offline.log" \
+  node "$ROOT/scripts/browser/webui-viewer-offline-e2e.mjs" || fail "viewer outage recovery"
 
 echo ""
 echo "ALL CHECKS PASSED"

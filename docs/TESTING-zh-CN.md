@@ -70,7 +70,7 @@
 | `eval-retrieval-quality.py` | 手动检索质量评测（真实 embedding、一次性数据库）：逐条候选生成规则给出 hit@1 / hit@5 / MRR，生产 SQL 原样复制。绝不进入 CI。 |
 | `upgrade-rehearsal.sh` | 手动老库升级演练：让 Flyway 停在 V12，灌入带 embedding 与中文的 V13 之前形态数据，原地升级到 V25，校验行数 / id / V13 关联 / 中文检索，再恢复 V12 dump 作为回滚证明。绝不进入 CI。 |
 | `hook-payload-e2e.sh` | 手动 Hook 端到端：用真实 Claude Code 载荷（UserPromptSubmit / PostToolUse / SessionEnd）经 `proxy/wrapper.js` 转发，校验字段映射、落库、重复 PostToolUse 去重、summary 生成，以及后端不可达时的优雅失败。绝不进入 CI。 |
-| `webui-browser-e2e.sh` | 查看器级浏览器端到端：在一次性数据库上启动真实后端、灌入 60 条 observation，再用无头 Chromium（Playwright）验证内置查看器能渲染卡片、能读到 `files_modified`、按 `hasMore` 翻完整个信息流、不经刷新合并 SSE 广播、刷新后看到加载后新建的记录，并验证设置开关在「修改 → 保存 → 刷新」后保持。Playwright 仅为测试依赖。该脚本是 `verify-local.sh` 第 9 步（未安装 Playwright 时 SKIP），也是 `browser-e2e` CI job 的执行体；CI 中未安装直接失败而不是跳过。 |
+| `webui-browser-e2e.sh` | 查看器级浏览器端到端：在一次性数据库上启动真实后端、灌入 60 条 observation，再用无头 Chromium（Playwright）验证内置查看器能渲染卡片、能读到 `files_modified`、按 `hasMore` 翻完整个信息流、不经刷新合并 SSE 广播、刷新后看到加载后新建的记录、设置开关在「修改 → 保存 → 刷新」后保持、后端要求 token 而浏览器不带 token 时给出可读 401 错误（绝不显示成空数据），以及后端停服再重启后的可见错误态（不卡加载）与恢复。Playwright 仅为测试依赖。该脚本是 `verify-local.sh` 第 9 步（未安装 Playwright 时 SKIP），也是 `browser-e2e` CI job 的执行体；CI 中未安装直接失败而不是跳过。 |
 | `check-viewer-bundle.sh` | 比对提交在 `backend/.../static` 的查看器与 `webui/src` 的全新构建结果；构建在临时副本中进行，不改动子模块。退出码：0 一致、1 漂移（打印逐文件哈希与重建步骤）、2 `webui/node_modules` 缺失。由 `verify-local.sh` 第 9 步开头调用。 |
 | `run-all-e2e.sh` | 编排脚本 — 一次运行此处定义的 10 个本地 E2E 套件（不含 Docker 套件和 test-llm-provider.sh）。**其中 5/10 `mcp-streamable-e2e-test.sh` 是条件执行的**：除非服务器在 `/mcp` 上暴露 Streamable HTTP（向 `/mcp` 发一个 `initialize` 请求必须返回 200），否则会被跳过。后端默认的 MCP 传输是 SSE，因此在默认安装下该编排脚本实际运行 **9** 个套件并报告 1 个跳过——**这是预期行为，不是失败**。 |
 
@@ -129,7 +129,9 @@ L1–L4 中任何一层的执行数低于 `scripts/test-baseline.json` 记录。
    （`scripts/check-viewer-bundle.sh` 在临时副本中构建，绝不修改子模块），
    再用真实 Chromium（Playwright）驱动该 bundle：页面渲染、卡片上的
    `files_modified`、`hasMore` 分页、页面开着时通过 API 写入并仅靠 SSE 出现的
-   新记录、刷新后可见、以及设置开关的往返保存。未安装 Playwright/Chromium 或
+   新记录、刷新后可见、设置开关的往返保存、后端要求 token 而浏览器不带 token
+   时给出可读的 401 错误（绝不会显示成空数据），以及后端停服再重启后的可见错误
+   态（不卡在加载动画）与恢复。未安装 Playwright/Chromium 或
    `webui/node_modules` 时该步打印 `SKIP` 并继续；`REQUIRE_BROWSER_E2E=1`
    会把该 SKIP 变成失败，CI 的独立 job 始终要求浏览器执行。
 

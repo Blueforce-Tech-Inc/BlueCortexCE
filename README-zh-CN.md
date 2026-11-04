@@ -301,7 +301,7 @@ npx playwright install --with-deps chromium
 之后可以单独跑浏览器检查（脚本会自建一次性数据库并启动后端），或跑完整门禁：
 
 ```bash
-./scripts/webui-browser-e2e.sh   # 渲染、files_modified、hasMore、SSE、刷新、设置往返
+./scripts/webui-browser-e2e.sh   # 渲染、files_modified、hasMore、SSE、刷新、设置往返、401 错误、停服恢复
 ./scripts/check-viewer-bundle.sh # 提交的 bundle 与 webui/src 全新构建是否一致
 ./scripts/verify-local.sh        # 第 9 步执行两者；未安装 Playwright 或 webui 依赖时打印 SKIP
 ```

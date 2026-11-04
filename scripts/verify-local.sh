@@ -492,11 +492,11 @@ else
          "$(tail -n 40 "$LOG_DIR/webui-browser-e2e.log")"
 
   PASS_LINES="$(grep -c '^PASS:' "$LOG_DIR/webui-browser-e2e.log" || true)"
-  [[ "$PASS_LINES" -ge 8 ]] \
-    || fail "browser E2E" "the run reported only ${PASS_LINES} PASS lines; expected at least 8." \
+  [[ "$PASS_LINES" -ge 20 ]] \
+    || fail "browser E2E" "the run reported only ${PASS_LINES} PASS lines; expected at least 20." \
          "$(tail -n 40 "$LOG_DIR/webui-browser-e2e.log")"
-  BROWSER_RESULT="E2E PASS (${PASS_LINES} checks: rendering, files, hasMore, SSE, refresh, settings)"
-  note "browser E2E PASS (${PASS_LINES} checks, settings round trip included)"
+  BROWSER_RESULT="E2E PASS (${PASS_LINES} checks: rendering, files, hasMore, SSE, refresh, settings, 401 errors, outage recovery)"
+  note "browser E2E PASS (${PASS_LINES} checks, settings/auth/outage included)"
 fi
 
 printf '\nALL CHECKS PASSED\n'
