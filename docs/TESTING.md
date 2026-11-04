@@ -536,16 +536,22 @@ GitHub Actions workflows are configured in `.github/workflows/`:
     upstream test's Bun compatibility would block unrelated work. Our own
     contract with the viewer is pinned in the backend instead
     (`WebUiWireContractTest`: `hasMore`, `updateFiles`, `CLAUDE_MEM_*`). The job
-    never modifies the submodule.
+    never modifies the submodule. It also installs the pinned toolchain in
+    `scripts/viewer-build` and runs `scripts/check-viewer-bundle.sh`, so a
+    stale `backend/.../static` bundle fails CI (last verified green:
+    [41805175336](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/actions/runs/41805175336)).
   - `browser-e2e` boots the packaged jar against a `pgvector/pgvector:pg16` service
     on host port **5433** (`PG_CONTAINER=''` switches the script from `docker exec`
     to the `psql` client), installs Playwright 1.59.1 with
     `npx playwright install --with-deps chromium`, and runs
-    `scripts/webui-browser-e2e.sh`. Missing Playwright fails the job instead of
-    skipping; assertion failures print `FAIL: ASSERTION FAILED: ...` and browser
-    exceptions print `FAIL: PAGE ERROR: ...`. Last verified green run:
-    [41798694874](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/actions/runs/41798694874)
-    (1m27s, 2026-11-04).
+    `scripts/webui-browser-e2e.sh` (it boots the jar three times: healthy
+    rendering/pagination/SSE/settings, a token-protected backend without a
+    browser token, and an outage followed by a restart). Missing Playwright
+    fails the job instead of skipping; assertion failures print
+    `FAIL: ASSERTION FAILED: ...` and browser exceptions print
+    `FAIL: PAGE ERROR: ...`. Last verified green run:
+    [41805175336](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/actions/runs/41805175336)
+    (2026-11-04).
 
 ## Best Practices
 

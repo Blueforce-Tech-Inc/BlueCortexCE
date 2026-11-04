@@ -488,15 +488,20 @@ GitHub Actions 工作流配置在 `.github/workflows/`：
     `npm run typecheck`。上游 Bun 测试套件**有意不在范围内**：它属于 WebUI
     fork，把本仓库的门禁绑在上游用例对某个 Bun 版本的兼容性上会阻塞无关
     改动。我们与 viewer 的契约改由后端测试固定（`WebUiWireContractTest`：
-    `hasMore`、`updateFiles`、`CLAUDE_MEM_*`）。该 job 不修改子模块。
+    `hasMore`、`updateFiles`、`CLAUDE_MEM_*`）。该 job 不修改子模块；它还会安装
+    `scripts/viewer-build` 中的固定工具链并运行 `scripts/check-viewer-bundle.sh`，
+    因此 `backend/.../static` 里的过期 bundle 会让 CI 失败（最近一次通过：
+    [41805175336](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/actions/runs/41805175336)）。
   - `browser-e2e` 用打包好的 jar 连一个 `pgvector/pgvector:pg16` service（宿主机
     **5433**；`PG_CONTAINER=''` 让脚本改用 `psql` 客户端而非 `docker exec`），
     用 `npx playwright install --with-deps chromium` 安装 Playwright 1.59.1 与
-    Chromium，然后运行 `scripts/webui-browser-e2e.sh`。缺少 Playwright 会直接让
-    job 失败而不是跳过；断言失败打印 `FAIL: ASSERTION FAILED: ...`，浏览器异常
-    打印 `FAIL: PAGE ERROR: ...`。最近一次通过的运行：
-    [41798694874](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/actions/runs/41798694874)
-    （1m27s，2026-11-04）。
+    Chromium，然后运行 `scripts/webui-browser-e2e.sh`（脚本会启动 jar 三次：健康
+    状态下的渲染/翻页/SSE/设置、要求 token 而浏览器不带 token、以及停服再重启）。
+    缺少 Playwright 会直接让 job 失败而不是跳过；断言失败打印
+    `FAIL: ASSERTION FAILED: ...`，浏览器异常打印 `FAIL: PAGE ERROR: ...`。
+    最近一次通过的运行：
+    [41805175336](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/actions/runs/41805175336)
+    （2026-11-04）。
 
 ## 最佳实践
 
