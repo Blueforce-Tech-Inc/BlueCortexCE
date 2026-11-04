@@ -116,11 +116,11 @@ git submodule update --init --recursive
    `flyway_schema_history` 中没有失败记录。
 5. 用一次 `mvn -B clean install` 跑完 L1–L4，`MEMSCOPE_*` 指向该库。
 6. 执行 `python3 scripts/check-test-results.py --require-zero-skips
-   --min-tests 580 --require-layers --require-baseline`。下限是硬性
-   **不得低于** 值（当前 580 个用例）；baseline 额外提供按层棘轮，任何一层
+   --min-tests 593 --require-layers --require-baseline`。下限是硬性
+   **不得低于** 值（当前 593 个用例）；baseline 额外提供按层棘轮，任何一层
    悄悄减少用例都会失败。随后执行评估下限门禁与检索质量回放门禁。
 
-门禁在以下任一情况失败：有用例被跳过；总执行数低于 580；某一层一个用例都没执行；
+门禁在以下任一情况失败：有用例被跳过；总执行数低于 593；某一层一个用例都没执行；
 L1–L4 中任何一层的执行数低于 `scripts/test-baseline.json` 记录。只有在新增用例后，
 才应同时抬高下限并重写 baseline（`--write-baseline`）。
 7. 执行两项文档一致性检查：检查器自测，再用中英文 API 参考对比运行中的服务。
@@ -308,7 +308,7 @@ mvn -B clean install
 > 与 V20 冲突演练会各自创建并迁移一次性数据库。
 >
 > CI 会跑同一套测试，然后执行 `python3 scripts/check-test-results.py
-> --require-zero-skips --min-tests 580 --require-layers --require-baseline`；因此
+> --require-zero-skips --min-tests 593 --require-layers --require-baseline`；因此
 > 「构建成功但有用例被跳过」「某一层整个消失」或「某层用例数低于 baseline」都会直接失败。
 > CI 使用自己的 `pgvector/pgvector:pg16` service 容器，而不是复用本地容器。
 
@@ -477,7 +477,7 @@ GitHub Actions 工作流配置在 `.github/workflows/`：
     容器，映射到宿主机 **5433**（GitHub runner 自带的 PostgreSQL 已占用 5432），
     用应用自身的 Flyway 配置迁移到最新版本，执行 `mvn -B clean install`（不带
     `-DskipTests`），然后执行 `python3 scripts/check-test-results.py
-    --require-zero-skips --min-tests 580 --require-layers --require-baseline`。
+    --require-zero-skips --min-tests 593 --require-layers --require-baseline`。
     任何一个 DB 用例被跳过、用例总数下降、或某一层低于 baseline，都会让 job 失败，
     因此「BUILD SUCCESS 但有跳过」不可能通过 CI。
   - 仅 JDK 21 的 job 会在 37777 启动服务，运行
@@ -566,6 +566,7 @@ cd backend
 
 | 日期 | 变更 |
 |------|------|
+| 2026-11-05 | **写入路径跑到百万行、provider 全故障、以及没被钉住的配置面。** `ImportService` 过去为了按标题去重，把整个会话的行（每行三个向量 + 四个 JSON 列）读进内存，1 GB 堆在约 195k 行时 `OutOfMemoryError`；现改为标量 `ImportDedupRow` 投影 + 两个按本批标题过滤的查询，`ImportServiceDatabaseTest` 钉住去重只发生在所属会话内（用例 580 → 581）。同一堆下填充达到 **1,000,570 行、914.6 rows/s**；批 1,000–2,000 行为 909–952 rows/s，4 个并发客户端 1,318 rows/s（8 个反而退到 708）；默认 2 MiB 体限每个请求只容约 **184** 个带向量行；HNSW 恒为 **8,192 字节/向量行**，默认 64 MB `maintenance_work_mem` 慢 **5.4 倍**，而往已建好的百万节点图里插入降到 **38–53 rows/s**（`docs/archive/2026-11-05_write-path-scale.md`）。provider 每次调用都返回 500 时，旧实现让一次写入挂 **>200 s**（embedding 默认重试十次），且运输层错误被判 `UNKNOWN` 会把熔断重置；`claudemem.embedding.*` 现在把重试收敛为 2 次、读超时 15 s，`IOException` 判 `UNAVAILABLE`，于是同一写入 **1.39 s/200**、search **1.09 s/200** 走 `tsvector`、第 4 个排队作业 **0 次**外部调用（`docs/archive/2026-11-05_provider-outage-behavior.md`，`LlmServiceClassificationTest` 8 例）。`WebConfigCorsTest`（4 例）钉住此前无人覆盖的 CORS 头与预检；刻意不测的审计项写入 `docs/archive/2026-11-05_audit-test-gaps.md`。用例 580 → **593**（L1 546 → 559），0 跳过；`--min-tests` 580 → 593。中英文同步 |
 | 2026-11-05 | **瓶颈在响应体，不在查询：向量退出线上载荷。** `ObservationEntity` 用 `@JsonProperty` 暴露了 `embedding_768`/`embedding_1024`/`embedding_1536`，所有观察记录端点都会序列化三份浮点数组：顺序探针实测每个响应体 **125.2 KB**，其中 **79.3%** 是向量，`/api/observations` p95 为 **293.9 ms**。三个列现已改为 `@JsonIgnore`。观察记录的其余字段与硬契约（`hasMore`、`updateFiles`、`CLAUDE_MEM_*`）不变，`ImportService` 仍通过自己的 record 写入向量，导入不会丢向量。`WebUiWireContractTest` 新增第 5 个用例：先把三个向量都填进实体再序列化，断言单行与 `GET /api/search` 信封都不含向量，同时 `id`/`content_hash`/`platform_source`/`memory_scope_type` 仍在——重新加回 `@JsonProperty` 无法靠 null 空过。改动前后证据：`docs/archive/2026-11-05_response-payload-before.md` 与 `…-after.md`；同一小时内 7 次交替 A/B（每次 56k–75k 请求）使 `/api/search` p50 降约 7%、p95 降约 10%，而不带向量的 `/api/context/inject` 对照组持平（`docs/archive/2026-11-05_retrieval-concurrent-read-after.md`）。用例 579 → **580**（L1 545 → 546），0 跳过；`--min-tests` 579 → 580（文档里的下限此前漂到了 528）。中英文同步 |
 | 2026-11-04 | **第 18 轮：统一错误形态、可选 token 与有数据的候选池拒绝。** *候选池：* 不假设第 17 轮定位的根因（相关记录在融合 top-40 之外），而是实测。`eval-retrieval-quality.py` 新增 `--pool-depths`；90 条真实查询在 `LIMIT 40/100/200` 下 hit@1 **0.833 / 0.833 / 0.833**、hit@5 **0.911 / 0.911 / 0.911**、7 天衰减后的 MRR **0.866 / 0.867 / 0.868**——全部落在 0.011（一条查询）的噪声区间内。**1,000,198 行**下延迟 p95 为 2.00 / 2.11 / 2.32 ms，远低于 50 ms 预算，因此瓶颈不在延迟；该改动以「质量无提升」为由拒绝（`docs/archive/2026-11-04_retrieval-pool-round18.md`）。*可选鉴权：* `cortexce.security.api-token`（环境变量 `CORTEXCE_API_TOKEN`）默认为空，本地用法不变；配置后 `/api/**` 写操作与 `GET /api/logs/**` 要求 `Authorization: Bearer <token>`，使用填充缓冲上的 `MessageDigest.isEqual` 做常量时间比较，缺失或错误 token 返回 401，带 `WWW-Authenticate` 与统一信封。`ApiTokenAuthFilterTest`（5 条）覆盖未配置放行、无 token 401、错 token 401、正确放行与作用域规则；`L2ApiTokenAuthTest`（6 条）验证真实接线，包括正确 token 能走到参数校验。文档明确写明**对外暴露前必须配置 token**。*错误信封：* 三种形态收敛为一种——`{"error": {"code", "message", "details"?}, "message"}`；`GlobalExceptionHandler` 统一渲染框架层失败，44 处 handler 改用 `ErrorResponses`；顶层 `message` 镜像保证 `webui/src/ui/viewer/utils/save-error.ts`（读取字符串字段）不破坏。HTTP 状态码语义不变。`check-api-doc-surface.py` 现在既校验线上错误体符合信封，也校验中英文文档中的每个错误示例，并新增自检用例：拒绝裸字符串、缺少顶层镜像、未知 code。*SSE：* `L2SseContractTest` 固定 `initial_load` / `processing_status` / `new_prompt` / `new_observation` / `new_summary` 五个事件名及其载荷字段，改名或删字段会先让测试失败，而不是静默到达 Viewer。用例 514 → **528**（L1 504 / L2 17 / L3 6 / L4 1），0 跳过；中英文同步更新 |
 | 2026-11-04 | **第 17 轮：可观测、可估算、有边界。** *Prometheus：* 引入 `micrometer-registry-prometheus`，新增 `CortexMetrics`（`MeterBinder`），暴露 `cortexce.queue.depth{status=pending|processing|failed|stale}`、`cortexce.embedding.backlog`、`cortexce.worker.processing`、`cortexce.llm.calls{outcome,failure_kind}`、`cortexce.llm.retries{failure_kind}`、`cortexce.search.requests{path}`、`cortexce.search.duration{path}`（vector/lexical/hybrid/filter/recent，含分位数）；队列 gauge 在抓取时读库，异常时发布 NaN 而不让整次抓取失败。`SpringAiConfig` 挂上 `RetryMetricsListener`（`onError` 里 `retryCount < maxAttempts` 即“将被重试”），`LlmService.classify` 改为 public，重试与失败共用同一套 failure kind。`/actuator` 只暴露 health/metrics/info/prometheus，env/beans/configprops 返回 404。L2 测试启动应用、真实抓取端点、断言指标名与标签，并验证一次 ingest 改变 pending gauge、一次 search 改变 `path=hybrid`。*迁移预检：* `scripts/migration-preflight.sh` 统计行数、堆与索引体积，输出全表重写/分阶段耗时、锁级别与 DIRECT / MAINTENANCE WINDOW / PHASED ONLINE 三档结论；`--calibrate` 克隆真实表（含全部索引）到临时表实测两条路径。10 万行校准：全表重写实测 7,201 ms vs 模型 7,655（**+6.3%**），分阶段 11,815 ms vs 11,590（**−1.9%**）；系数 6,657 / 998 / 10,189 / 1,400 ms per 100k。在 100 万行库上投影 **76.6 s 锁窗口** 与 **115.9 s 分阶段**，并明确输出 MAINTENANCE WINDOW REQUIRED。*100 万行容量：* 1,000,198 行时堆 976.8 MB、索引 1,033.2 MB（V24 token GIN 167 MB，project/scope btree 122–132 MB）；三条列表路径均未越过 2× p95 拐点（recent 3.32、deep_page 3.05、type_filter 2.94、query 5.94 ms）；ingest 56.82 行/秒，0 重复哈希、0 卡住。对 1024 维 HNSW 做 2 万行探针：**7.8 kB/行**（推算 100 万行 7.8 GB）、建索引 **0.88 ms/行**（推算约 15 分钟；默认 64 MB `maintenance_work_mem` 下图已放不下），因此**单库推荐上限为 100 万行全量 embedding（约 13.8 GB）**；ANALYZE 0.94 s、VACUUM ANALYZE 12.6 s。*检索第 17 轮：* 以已上线的 0.833 为基线，按 intent/type 加权下降 0.133（标题动词只是弱的类型代理），top-20 的 body/title embedding 重排下降 0.155 / 0.377；通用中英同义词扩展（37 个词条，90 条中命中 62 条）只多命中 1 条，达到 **0.844**，落在 ±1 条的 embedding 抖动内，因此不上线。同义词 + 近重复合并 + 7 天衰减可达 **0.867 / 0.933 / 0.894**，但该合并会对 76/90 条查询隐藏相关记录，属于产品取舍而非检索调参，未上线。基线 15 条未命中里有 5 条的相关记录根本不在 40 条候选池内（候选生成是下限）。用例 511 → **514**（L1 497 / L2 10 / L3 6 / L4 1），0 跳过；中英文同步更新 |
