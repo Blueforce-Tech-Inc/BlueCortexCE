@@ -777,23 +777,34 @@ curl http://localhost:37777/actuator/health | jq
 
 ### 6.2 应用日志
 
-#### 日志配置
+#### 日志位置与上限
+
+服务把结构化日志写到 `${CLAUDEMEM_LOG_DIR}`（默认 `~/.claude-mem/logs`）：
+
+| 文件 | 写入方 | 上限 |
+|------|--------|------|
+| `claude-mem-YYYY-MM-DD.log` | `ClaudeMemLogAppender`；`GET /api/logs` 读取的也是它 | 达到 `cortexce.logging.max-file-size`（100 MB）时轮转 |
+| `claude-mem-YYYY-MM-DD.<时间戳>.log` | 上面文件的轮转分片 | 目录总量超过 `cortexce.logging.total-size-cap`（1 GB）时从最旧的分片开始删除 |
+
+轮转后**日期命名文件仍是活动文件（最新内容）**：写满后它被改名为带时间戳的分片，再新建一个空的日期文件继续写。因此轮转不会让 `/api/logs` 读不到最新日志。
 
 ```yaml
-# application.yml
-logging:
-  level:
-    root: INFO
-    com.claudemem: INFO
-    org.springframework.web: WARN
-    org.hibernate.SQL: WARN
-  file:
-    name: ${CLAUDEMEM_LOG_DIR}/claude-mem.log
-    max-size: 10MB
-    max-history: 30
+cortexce:
+  logging:
+    max-file-size: ${CORTEXCE_LOG_MAX_FILE_SIZE:100MB}
+    total-size-cap: ${CORTEXCE_LOG_TOTAL_SIZE_CAP:1GB}
 ```
 
-#### 日志查看
+清理在启动时和每次轮转后执行，所以两次轮转之间目录最多超出上限一个活动文件（≤ `max-file-size`）。
+
+#### 何时清理、清理什么
+
+- **日志增长不需要人工清理。** 轮转 + 总量上限已经兜住目录大小。改造前参考机器上 105 个按天文件累计到 1.5 GB（单日最大 105 MB）。
+- **按天保留**是可选的第二层策略：合规要求「即使没到体积上限也要删除 N 天前日志」时，启用既有保留任务（`cortexce.retention.enabled=true`、`cortexce.retention.logs-days=N`）。它与 prompts / observations / summaries 共用同一个调度器和 dry-run 模式。
+- **需要手工清理的只有** `~/.claude-mem/logs/claude-mem-*.log`。同目录的 `settings.json`、`.env`、`cursor-projects.json`、`transcript-watch.json` 是几 KB 的配置/状态文件，不是缓存，删除会丢配置。
+- **另一处增长是数据库行**：用 `cortexce.retention.*`（先 `dry-run=true` 看计数）而不是手工删表。
+
+#### 查看日志
 
 ```bash
 # Docker 日志
@@ -802,11 +813,11 @@ docker compose logs -f claude-mem
 # 实时跟踪日志
 docker compose logs -f --tail=100 claude-mem
 
-# 日志文件
-docker exec claude-mem-java tail -f /app/logs/claude-mem.log
+# 结构化文件（最新内容在日期命名文件里）
+tail -f ~/.claude-mem/logs/claude-mem-$(date +%F).log
 
 # 搜索日志
-docker exec claude-mem-java grep "ERROR" /app/logs/claude-mem.log
+grep "ERROR" ~/.claude-mem/logs/claude-mem-$(date +%F).log
 ```
 
 #### 结构化日志

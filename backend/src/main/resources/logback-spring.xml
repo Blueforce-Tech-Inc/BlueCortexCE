@@ -12,6 +12,9 @@
 
     <!-- 从 Spring 配置读取日志目录 -->
     <springProperty name="LOG_DIR" source="claudemem.log.dir" defaultValue="${user.home}/.claude-mem/logs"/>
+    <!-- 单个日志文件上限与目录总量上限（见 cortexce.logging.*） -->
+    <springProperty name="LOG_MAX_FILE_SIZE" source="cortexce.logging.max-file-size" defaultValue="100MB"/>
+    <springProperty name="LOG_TOTAL_SIZE_CAP" source="cortexce.logging.total-size-cap" defaultValue="1GB"/>
     <property name="APP_NAME" value="claude-mem"/>
 
     <!-- Console Appender (开发环境) -->
@@ -25,6 +28,8 @@
     <!-- Claude-Mem File Appender (TS 兼容格式) -->
     <appender name="CLAUDE_MEM_FILE" class="com.ablueforce.cortexce.logging.ClaudeMemLogAppender">
         <logDir>${LOG_DIR}</logDir>
+        <maxFileSize>${LOG_MAX_FILE_SIZE}</maxFileSize>
+        <totalSizeCap>${LOG_TOTAL_SIZE_CAP}</totalSizeCap>
     </appender>
 
     <!-- 标准 Rolling File Appender (用于第三方工具分析) -->

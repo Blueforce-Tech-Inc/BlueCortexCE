@@ -819,23 +819,47 @@ curl http://localhost:37777/actuator/health | jq
 
 ### 6.2 Application Logs
 
-#### Log Configuration
+#### Where the files live and how they are bounded
+
+The service writes structured logs to `${CLAUDEMEM_LOG_DIR}` (default
+`~/.claude-mem/logs`):
+
+| File | Written by | Bound |
+|------|------------|-------|
+| `claude-mem-YYYY-MM-DD.log` | `ClaudeMemLogAppender`; also what `GET /api/logs` reads | rotates at `cortexce.logging.max-file-size` (100 MB) |
+| `claude-mem-YYYY-MM-DD.<timestamp>.log` | rotated parts of the file above | deleted oldest-first until the directory fits `cortexce.logging.total-size-cap` (1 GB) |
+
+Rotation keeps the **date-named file as the active, newest file**: when it reaches the
+limit it is renamed to a timestamped part and a fresh active file starts. That is why
+`/api/logs` keeps returning recent lines after a rotation.
 
 ```yaml
-# application.yml
-logging:
-  level:
-    root: INFO
-    com.claudemem: INFO
-    org.springframework.web: WARN
-    org.hibernate.SQL: WARN
-  file:
-    name: ${CLAUDEMEM_LOG_DIR}/claude-mem.log
-    max-size: 10MB
-    max-history: 30
+cortexce:
+  logging:
+    max-file-size: ${CORTEXCE_LOG_MAX_FILE_SIZE:100MB}
+    total-size-cap: ${CORTEXCE_LOG_TOTAL_SIZE_CAP:1GB}
 ```
 
-#### Viewing Logs
+The cleanup runs at startup and after every rotation, so the directory can exceed the
+cap by at most one active file (≤ `max-file-size`) between rotations.
+
+#### When to clean, and what
+
+- **Nothing has to be deleted for log growth.** Rotation plus the total-size cap bound
+  the directory with no operator action. On the reference machine, 105 unbounded daily
+  files had reached 1.5 GB before this existed.
+- **Age-based deletion** is the optional second policy. Enable the existing retention
+  job (`cortexce.retention.enabled=true`, `cortexce.retention.logs-days=N`) when a policy
+  requires removing log files older than N days even when they fit the size cap. The
+  same scheduler and dry-run mode handle prompts, observations and summaries.
+- **What to clean manually**: `~/.claude-mem/logs/claude-mem-*.log` only. The other
+  entries in that directory (`settings.json`, `.env`, `cursor-projects.json`,
+  `transcript-watch.json`) are small configuration/state files, not caches; deleting
+  them loses settings.
+- **Database rows** are the other growing store; use `cortexce.retention.*` (start with
+  `dry-run=true` and read the counts) rather than deleting rows by hand.
+
+#### Viewing logs
 
 ```bash
 # Docker logs
@@ -844,11 +868,11 @@ docker compose logs -f claude-mem
 # Real-time log tail
 docker compose logs -f --tail=100 claude-mem
 
-# Log file
-docker exec claude-mem-java tail -f /app/logs/claude-mem.log
+# Structured file (newest lines live in the date-named file)
+tail -f ~/.claude-mem/logs/claude-mem-$(date +%F).log
 
 # Search logs
-docker exec claude-mem-java grep "ERROR" /app/logs/claude-mem.log
+grep "ERROR" ~/.claude-mem/logs/claude-mem-$(date +%F).log
 ```
 
 #### Structured Logging

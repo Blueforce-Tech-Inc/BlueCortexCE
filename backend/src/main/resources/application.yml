@@ -38,6 +38,16 @@ cortexce:
       refill-per-second: ${CORTEXCE_HTTP_RATE_LIMIT_REFILL_PER_SECOND:100}
 
   # ==========================================================================
+  # Log file limits (round H3)
+  # ==========================================================================
+  logging:
+    # The claude-mem-<date>.log appender rotates at this size and deletes the oldest
+    # parts once the directory exceeds total-size-cap. 105 daily files reaching 1.5 GB
+    # on this machine were the motivation; the defaults bound the directory at 1 GB.
+    max-file-size: ${CORTEXCE_LOG_MAX_FILE_SIZE:100MB}
+    total-size-cap: ${CORTEXCE_LOG_TOTAL_SIZE_CAP:1GB}
+
+  # ==========================================================================
   # Age-based retention (round 20)
   # ==========================================================================
   retention:
@@ -297,6 +307,16 @@ claudemem:
   # Log directory for structured logs (TS-compatible format)
   # Default: ~/.claude-mem/logs
   log.dir: ${CLAUDEMEM_LOG_DIR:${user.home}/.claude-mem/logs}
+  # Server-Sent Events (/stream)
+  sse:
+    # Browser reconnect interval; also the hard lifetime of one connection.
+    timeout-ms: ${CLAUDEMEM_SSE_TIMEOUT_MS:1800000}
+    # Live connection cap. Beyond it /stream answers 503 in the standard error envelope.
+    # 200 was measured as the supported figure (50 + 200 clients held 10 minutes).
+    max-connections: ${CLAUDEMEM_SSE_MAX_CONNECTIONS:200}
+    # Comment frame cadence. Keeps idle streams alive through proxies and discovers a
+    # silently closed client within one interval instead of at the 30-minute timeout.
+    heartbeat-ms: ${CLAUDEMEM_SSE_HEARTBEAT_MS:15000}
   # Stale message recovery settings
   stale-message:
     # Minutes after which a processing message is considered stale
