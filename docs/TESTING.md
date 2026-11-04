@@ -70,7 +70,8 @@ Located in `scripts/` directory:
 | `eval-retrieval-quality.py` | Manual retrieval-quality harness (real embeddings, disposable database): hit@1 / hit@5 / MRR for every candidate-generation rule, with the production SQL copied verbatim. Never runs in CI. |
 | `upgrade-rehearsal.sh` | Manual old-database upgrade rehearsal: stops Flyway at V12, seeds pre-V13 rows with embeddings and Chinese text, upgrades in place to V25, checks row counts / ids / V13 links / Chinese search, then restores the V12 dump as the rollback proof. Never runs in CI. |
 | `hook-payload-e2e.sh` | Manual hook E2E through `proxy/wrapper.js` with real Claude Code payloads (UserPromptSubmit / PostToolUse / SessionEnd): field mapping, persistence, duplicate PostToolUse dedupe, summary generation, and graceful failure against an unreachable service. Never runs in CI. |
-| `webui-browser-e2e.sh` | Browser E2E at the viewer level: boots the real backend on a disposable database, seeds 60 observations, then drives headless Chromium (Playwright) to prove the bundled viewer renders cards, reads `files_modified`, pages through the whole feed via `hasMore`, shows a record created after load once refreshed, and keeps a settings toggle after change → save → refresh. Playwright is a test-only dependency. Runs as step 9 of `verify-local.sh` (SKIP when Playwright is absent) and in the `browser-e2e` CI job, where a missing install fails instead of skipping. |
+| `webui-browser-e2e.sh` | Browser E2E at the viewer level: boots the real backend on a disposable database, seeds 60 observations, then drives headless Chromium (Playwright) to prove the bundled viewer renders cards, reads `files_modified`, pages through the whole feed via `hasMore`, merges an SSE broadcast without a refresh, shows a record created after load once refreshed, and keeps a settings toggle after change → save → refresh. Playwright is a test-only dependency. Runs as step 9 of `verify-local.sh` (SKIP when Playwright is absent) and in the `browser-e2e` CI job, where a missing install fails instead of skipping. |
+| `check-viewer-bundle.sh` | Compares the viewer committed under `backend/.../static` with a fresh build of `webui/src`, built in a temp copy so the submodule stays untouched. Exit 0 match, 1 drift (prints per-file hashes and rebuild steps), 2 `webui/node_modules` missing. Called at the start of step 9 of `verify-local.sh`. |
 | `run-all-e2e.sh` | Orchestrator — runs the 10 local E2E suites defined here in one pass (excludes Docker suites and test-llm-provider.sh). **Suite 5/10, `mcp-streamable-e2e-test.sh`, is conditional**: it is skipped unless the server exposes Streamable HTTP on `/mcp` (a `POST` of an `initialize` request to `/mcp` must answer 200). The backend's default MCP transport is SSE, so on a default install this orchestrator runs **9** suites and reports 1 skipped — that is expected, not a failure. |
 
 **Prerequisites:** Same as regression tests (backend running, database configured).
@@ -131,11 +132,15 @@ baseline deliberately (`--write-baseline`) only after adding tests.
    published EN/ZH API references against the live server.
 8. runs the proxy E2E against that server and fails if `node --test` reported
    any skipped test (this is the proxy-forwarding part of L3).
-9. drives the bundled viewer in a real Chromium (Playwright): page rendering,
-   `files_modified` on the card, `hasMore` pagination, refresh visibility, and a
-   settings toggle round trip. When Playwright or its Chromium build is missing
-   the step prints `SKIP` and continues; `REQUIRE_BROWSER_E2E=1` turns that SKIP
-   into a failure, and the dedicated CI job always requires it.
+9. verifies the committed viewer bundle is byte-identical to a fresh build of
+   `webui/src` (`scripts/check-viewer-bundle.sh`, built in a temp copy so the
+   submodule is never modified), then drives that bundle in a real Chromium
+   (Playwright): page rendering, `files_modified` on the card, `hasMore`
+   pagination, an SSE-only row written while the page stays open, refresh
+   visibility, and a settings toggle round trip. When Playwright/Chromium or
+   `webui/node_modules` is missing the step prints `SKIP` and continues;
+   `REQUIRE_BROWSER_E2E=1` turns that SKIP into a failure, and the dedicated CI
+   job always requires the browser run.
 
 Every step prints its name. On failure the script prints `STEP FAILED: <step>`,
 the command's own reason, and exits non-zero; it never falls through to a later

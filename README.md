@@ -309,8 +309,9 @@ Then either run the browser check alone (it starts its own disposable database
 and backend), or the whole gate:
 
 ```bash
-./scripts/webui-browser-e2e.sh   # rendering, files, hasMore, refresh, settings round trip
-./scripts/verify-local.sh        # step 9 runs the same check; prints SKIP if Playwright is absent
+./scripts/webui-browser-e2e.sh   # rendering, files, hasMore, SSE, refresh, settings round trip
+./scripts/check-viewer-bundle.sh # committed bundle vs a fresh build of webui/src
+./scripts/verify-local.sh        # step 9 runs both; prints SKIP if Playwright or webui deps are absent
 ```
 
 CI runs it in the `browser-e2e` job in `.github/workflows/backend-tests.yml`,

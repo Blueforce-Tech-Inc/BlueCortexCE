@@ -41,10 +41,15 @@ try {
 
   // The viewer keeps a long-lived SSE connection to /stream, so `networkidle`
   // never settles; wait for DOM plus the first rendered card instead.
+  const sseConnected = page.waitForEvent('console', {
+    predicate: message => message.text().includes('[SSE] Connected'),
+    timeout: 30000,
+  });
   await page.goto(`${base}/`, { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForSelector('.card-title', { timeout: 20000 });
+  await sseConnected;
   assert.ok((await page.locator('body').innerText()).includes('Timeline'), 'view tabs render');
-  console.log('PASS: page rendered with observation cards');
+  console.log('PASS: page rendered with observation cards and an SSE connection');
 
   const cards = page.locator('.card-title');
   const firstPage = await cards.count();
@@ -59,12 +64,18 @@ try {
   assert.match(modified, /src\/seed-/, `expected a seeded file path, saw "${modified}"`);
   console.log(`PASS: files_modified readable in the viewer (${modified.trim()})`);
 
-  for (let round = 0; round < 15; round += 1) {
+  // Scroll the feed itself: wheel events depend on the mouse position, which is
+  // flaky in CI, while setting scrollTop is deterministic.
+  for (let round = 0; round < 20; round += 1) {
     if (await page.locator('text=No more items to load').count() > 0) break;
-    await page.mouse.wheel(0, 6000);
-    await page.waitForTimeout(800);
+    await page.evaluate(() => {
+      const feed = document.querySelector('.feed');
+      if (feed) feed.scrollTop = feed.scrollHeight;
+      window.scrollTo(0, document.body.scrollHeight);
+    });
+    await page.waitForTimeout(500);
   }
-  await page.waitForSelector('text=No more items to load', { timeout: 20000 });
+  await page.waitForSelector('text=No more items to load', { timeout: 30000 });
   const lastPage = await cards.count();
   assert.equal(lastPage, seedCount, `pagination should reach all ${seedCount} rows, saw ${lastPage}`);
   console.log(`PASS: hasMore pagination reached all ${lastPage} rows`);
@@ -73,6 +84,28 @@ try {
   assert.equal(paged.items.length, 5, 'limit honoured');
   assert.equal(paged.hasMore, true, 'hasMore must stay true while rows remain');
   console.log('PASS: /api/observations keeps the {items,hasMore} envelope');
+
+  // SSE: write through the API while the page stays open. The viewer must merge
+  // the broadcast row without a reload (the only /stream path browsers exercise).
+  const liveTitle = `Browser e2e live ${Date.now()}`;
+  const liveCreated = await page.request.post(`${base}/api/ingest/observation`, {
+    data: {
+      content_session_id: 'browser-e2e-session',
+      project_path: project,
+      type: 'change',
+      title: liveTitle,
+      subtitle: 'Created after the page was already open',
+      facts: ['The SSE broadcast should surface this title without a refresh'],
+      concepts: ['what-changed', 'pattern'],
+      files_modified: [`${project}/src/browser-live.ts`],
+    },
+  });
+  assert.equal(liveCreated.status(), 200, `live observation create returned ${liveCreated.status()}`);
+  await page.waitForSelector(`text=${liveTitle}`, { timeout: 20000 });
+  const afterLive = await cards.count();
+  assert.ok(afterLive >= lastPage + 1,
+    `SSE should append a live card without a reload, saw ${afterLive} after ${lastPage}`);
+  console.log('PASS: a new observation appears over SSE without a refresh');
 
   const title = `Browser e2e record ${new Date().toISOString()}`;
   const created = await page.request.post(`${base}/api/ingest/observation`, {

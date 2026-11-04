@@ -20,14 +20,17 @@
 #      published EN/ZH API reference against the live server);
 #   8. run the proxy E2E against that server and refuse a skipped run (this is
 #      the proxy-forwarding part of L3);
-#   9. drive the bundled viewer in a real Chromium: page rendering, files,
-#      hasMore pagination, refresh visibility and a settings toggle round trip.
-#      Playwright/Chromium is optional locally (a missing install prints SKIP);
-#      REQUIRE_BROWSER_E2E=1 turns that SKIP into a failure for CI.
+#   9. verify the committed viewer bundle is a fresh build of webui/src, then
+#      drive that bundle in a real Chromium: page rendering, files, hasMore
+#      pagination, an SSE-only live row, refresh visibility and a settings
+#      toggle round trip. Playwright/Chromium and webui/node_modules are
+#      optional locally (a missing install prints SKIP); REQUIRE_BROWSER_E2E=1
+#      turns those SKIPs into failures for CI.
 #
 # Every step prints its name. A failure prints the step, the command's own
 # reason, and exits non-zero. Nothing here treats "skipped" as success, except
-# the browser step above, whose SKIP is explicit and opt-out-able.
+# the two explicitly-enabled browser checks above, whose SKIPs are printed and
+# can be made fatal with REQUIRE_BROWSER_E2E=1.
 #
 # Usage:
 #   ./scripts/verify-local.sh
@@ -434,12 +437,31 @@ note "proxy E2E ran and reported 0 skipped"
 # --------------------------------------------------------------------------
 # 9. browser E2E
 #
-# The only step that proves the bundled viewer actually renders. Playwright is a
-# test-only dependency: when it or its Chromium build is absent this prints an
-# explicit SKIP instead of pretending to pass; CI sets REQUIRE_BROWSER_E2E=1 so
-# the absence is a failure there.
+# Verify the committed viewer bundle is a fresh build of webui/src, then drive
+# it in a real browser (see scripts/browser/webui-viewer-e2e.mjs).
+# Playwright is a test-only dependency: when it, Chromium, or webui deps are
+# absent this prints an explicit SKIP instead of pretending to pass; CI sets
+# REQUIRE_BROWSER_E2E=1 so the absence is a failure there.
 # --------------------------------------------------------------------------
-step "9/9 Browser E2E (Playwright + Chromium: rendering, hasMore, files, settings round trip)"
+step "9/9 Browser E2E (bundle parity + Playwright rendering, hasMore, files, SSE, settings)"
+
+BROWSER_BUNDLE_STATUS=0
+BROWSER_BUNDLE_OUTPUT="$("$ROOT/scripts/check-viewer-bundle.sh" 2>&1)" || BROWSER_BUNDLE_STATUS=$?
+case "$BROWSER_BUNDLE_STATUS" in
+  0)
+    note "viewer bundle matches a fresh build of webui/src"
+    ;;
+  2)
+    if [[ "$REQUIRE_BROWSER_E2E" == "1" ]]; then
+      fail "viewer bundle parity" "webui/node_modules is missing and REQUIRE_BROWSER_E2E=1." \
+           "Install once: (cd webui && npm install)"
+    fi
+    note "SKIP: webui/node_modules is missing, so bundle drift was not checked."
+    ;;
+  *)
+    fail "viewer bundle drift" "$BROWSER_BUNDLE_OUTPUT"
+    ;;
+esac
 
 BROWSER_PROBE="$(cd "$ROOT/scripts/browser" && node --input-type=module -e '
 import { chromium } from "playwright";
@@ -470,10 +492,10 @@ else
          "$(tail -n 40 "$LOG_DIR/webui-browser-e2e.log")"
 
   PASS_LINES="$(grep -c '^PASS:' "$LOG_DIR/webui-browser-e2e.log" || true)"
-  [[ "$PASS_LINES" -ge 7 ]] \
-    || fail "browser E2E" "the run reported only ${PASS_LINES} PASS lines; expected at least 7." \
+  [[ "$PASS_LINES" -ge 8 ]] \
+    || fail "browser E2E" "the run reported only ${PASS_LINES} PASS lines; expected at least 8." \
          "$(tail -n 40 "$LOG_DIR/webui-browser-e2e.log")"
-  BROWSER_RESULT="E2E PASS (${PASS_LINES} checks: rendering, files, hasMore, refresh, settings)"
+  BROWSER_RESULT="E2E PASS (${PASS_LINES} checks: rendering, files, hasMore, SSE, refresh, settings)"
   note "browser E2E PASS (${PASS_LINES} checks, settings round trip included)"
 fi
 
