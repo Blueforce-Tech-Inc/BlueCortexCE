@@ -305,11 +305,6 @@ public class AppSettings {
         return parseCommaSeparated(getContextObservationConcepts());
     }
 
-    @JsonIgnore
-    public List<String> getExcludedProjectsList() {
-        return parseCommaSeparated(getExcludedProjects());
-    }
-
     // ===== Setters =====
 
     public void setModel(String model) { this.model = model; }
@@ -395,14 +390,20 @@ public class AppSettings {
         map.put("CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES", getEnvOrDefault("CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES", contextObservationTypes));
         map.put("CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS", getEnvOrDefault("CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS", contextObservationConcepts));
         map.put("CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS", getContextMaxObservationsInt());
-        map.put("CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS", isContextShowReadTokens());
-        map.put("CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS", isContextShowWorkTokens());
-        map.put("CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT", isContextShowSavingsAmount());
-        map.put("CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_PERCENT", isContextShowSavingsPercent());
-        map.put("CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY", isContextShowLastSummary());
-        map.put("CLAUDE_MEM_CONTEXT_SHOW_LAST_MESSAGE", isContextShowLastMessage());
-        map.put("CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED", isFolderClaudemdEnabled());
-        map.put("CLAUDE_MEM_EXCLUDED_PROJECTS", getExcludedProjectsList());
+        // The viewer's Settings type (webui/src/ui/viewer/types.ts) declares every
+        // value as a string, and the settings modal compares these with
+        // `=== 'true'` (ContextSettingsModal.tsx). Returning JSON booleans makes an
+        // enabled toggle render as off, so send the env-style strings instead.
+        map.put("CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS", getContextShowReadTokens());
+        map.put("CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS", getContextShowWorkTokens());
+        map.put("CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT", getContextShowSavingsAmount());
+        map.put("CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_PERCENT", getContextShowSavingsPercent());
+        map.put("CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY", getContextShowLastSummary());
+        map.put("CLAUDE_MEM_CONTEXT_SHOW_LAST_MESSAGE", getContextShowLastMessage());
+        map.put("CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED", getFolderClaudemdEnabled());
+        // SettingsDefaultsManager.ts types this as a comma-separated string, and
+        // isProjectExcluded() splits a string; a JSON array breaks that reader.
+        map.put("CLAUDE_MEM_EXCLUDED_PROJECTS", getExcludedProjects());
         map.put("CLAUDE_MEM_DATA_DIR", getDataDir());
         return map;
     }

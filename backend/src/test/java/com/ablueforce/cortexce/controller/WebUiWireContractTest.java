@@ -163,4 +163,59 @@ class WebUiWireContractTest {
             assertInstanceOf(String.class, snapshot.get(key), key + " must be a string for the viewer");
         }
     }
+
+    @Test
+    @DisplayName("every GET /api/settings value has the type webui/src expects")
+    void settingsSnapshotTypesMatchTheViewerContract() {
+        // webui/src/ui/viewer/types.ts declares every value as a string, and
+        // ContextSettingsModal.tsx / ContextConfigLoader.ts read the toggles with
+        // `=== 'true'`. A JSON boolean never equals that string, so a toggle that is
+        // enabled in settings.json renders as off. Environment overrides are applied
+        // by the getters, so assert types, not literal values.
+        AppSettings settings = new AppSettings();
+        settings.setContextShowReadTokens("true");
+        settings.setContextShowWorkTokens("true");
+        settings.setContextShowSavingsAmount("true");
+        settings.setContextShowSavingsPercent("true");
+        settings.setContextShowLastSummary("true");
+        settings.setContextShowLastMessage("true");
+        settings.setFolderClaudemdEnabled("true");
+        settings.setExcludedProjects("vendor,tmp");
+
+        Map<String, Object> snapshot = settings.toMap();
+
+        // Mirrors webui/src/ui/viewer/types.ts (all strings), plus the Java-only
+        // CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS that the viewer does not read.
+        Map<String, Class<?>> expected = new java.util.LinkedHashMap<>();
+        for (String key : List.of(
+                "CLAUDE_MEM_MODE",
+                "CLAUDE_MEM_BACKEND",
+                "CLAUDE_MEM_PROVIDER",
+                "CLAUDE_MEM_MODEL",
+                "CLAUDE_MEM_LOG_LEVEL",
+                "CLAUDE_MEM_CONTEXT_OBSERVATIONS",
+                "CLAUDE_MEM_CONTEXT_FULL_COUNT",
+                "CLAUDE_MEM_CONTEXT_FULL_FIELD",
+                "CLAUDE_MEM_CONTEXT_SESSION_COUNT",
+                "CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES",
+                "CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS",
+                "CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS",
+                "CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS",
+                "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT",
+                "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_PERCENT",
+                "CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY",
+                "CLAUDE_MEM_CONTEXT_SHOW_LAST_MESSAGE",
+                "CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED",
+                "CLAUDE_MEM_EXCLUDED_PROJECTS",
+                "CLAUDE_MEM_DATA_DIR")) {
+            expected.put(key, String.class);
+        }
+        expected.put("CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS", Integer.class);
+
+        assertEquals(expected.keySet(), snapshot.keySet(),
+            "GET /api/settings gained or lost a key; classify its type for the viewer first");
+        expected.forEach((key, type) ->
+            assertInstanceOf(type, snapshot.get(key),
+                key + " must serialize as " + type.getSimpleName() + " for webui/src"));
+    }
 }
