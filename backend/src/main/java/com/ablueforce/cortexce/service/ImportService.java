@@ -467,15 +467,38 @@ public class ImportService implements LogHelper {
         });
         standaloneObservationImportLock.lock(standaloneLockKeys);
 
-        List<ObservationEntity> existingConversationObs = conversationIds.isEmpty()
-            ? List.of()
-            : observationRepository.findByConversationIdIn(new java.util.ArrayList<>(conversationIds));
+        // Duplicate detection is bounded by the titles in this batch. Loading every
+        // observation of the conversation (findByConversationIdIn) pulled three 1024-d
+        // vectors and four JSON columns per row into a transaction: a 1,000-row import
+        // against a 195k-row conversation exhausted a 1 GB heap. The projection below
+        // returns seven scalars for rows whose title is in the batch, so allocation
+        // follows the batch size, not the table size. See
+        // docs/archive/2026-11-05_write-path-scale.md.
+        List<String> conversationTitles = observations.stream()
+            .filter(data -> data.standaloneKind() == null)
+            .map(ObservationImportData::title)
+            .filter(title -> title != null && !title.isBlank())
+            .distinct()
+            .toList();
+        List<ObservationRepository.ImportDedupRow> existingConversationObs =
+            conversationIds.isEmpty() || conversationTitles.isEmpty()
+                ? List.of()
+                : observationRepository.findImportDedupRowsByConversationIdsAndTitles(
+                    conversationIds, conversationTitles);
         List<UUID> standaloneScopeIds = standaloneScopeByData.values().stream().distinct().toList();
         List<String> standaloneKinds = standaloneScopeByData.keySet().stream()
             .map(ObservationImportData::standaloneKind).distinct().toList();
-        List<ObservationEntity> existingStandaloneObs = standaloneScopeIds.isEmpty()
-            ? List.of()
-            : observationRepository.findByMemoryScopeIdInAndStandaloneKindIn(standaloneScopeIds, standaloneKinds);
+        List<String> standaloneTitles = observations.stream()
+            .filter(data -> data.standaloneKind() != null)
+            .map(ObservationImportData::title)
+            .filter(title -> title != null && !title.isBlank())
+            .distinct()
+            .toList();
+        List<ObservationRepository.ImportDedupRow> existingStandaloneObs =
+            standaloneScopeIds.isEmpty() || standaloneTitles.isEmpty()
+                ? List.of()
+                : observationRepository.findImportDedupRowsByStandaloneScopeAndTitles(
+                    standaloneScopeIds, standaloneKinds, standaloneTitles);
 
         Set<ObservationImportKey> duplicateKeys = java.util.stream.Stream
             .concat(existingConversationObs.stream(), existingStandaloneObs.stream())
@@ -685,6 +708,15 @@ public class ImportService implements LogHelper {
         return new ObservationImportKey(null, observation.getMemoryScopeId(), observation.getStandaloneKind(),
             observation.getPlatformSource(), observation.getContentSessionId(), observation.getTitle(),
             observation.getCreatedAtEpoch());
+    }
+
+    private static ObservationImportKey observationImportKey(ObservationRepository.ImportDedupRow row) {
+        if (row.getConversationId() != null) {
+            return new ObservationImportKey(row.getConversationId(), null, null, null, null,
+                row.getTitle(), row.getCreatedAtEpoch());
+        }
+        return new ObservationImportKey(null, row.getMemoryScopeId(), row.getStandaloneKind(),
+            row.getPlatformSource(), row.getContentSessionId(), row.getTitle(), row.getCreatedAtEpoch());
     }
 
     private static ObservationImportKey standaloneObservationImportKey(UUID memoryScopeId,

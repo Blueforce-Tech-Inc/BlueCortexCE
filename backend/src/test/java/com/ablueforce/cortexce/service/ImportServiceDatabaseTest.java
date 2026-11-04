@@ -132,6 +132,30 @@ class ImportServiceDatabaseTest {
     }
 
     @Test
+    void bulkImportDeduplicatesOnlyWithinTheOwningConversation() {
+        String projectPath = projectPath();
+        SessionEntity first = createSession("claude", "dedup-a-" + UUID.randomUUID(), projectPath);
+        SessionEntity second = createSession("claude", "dedup-b-" + UUID.randomUUID(), projectPath);
+        String sharedTitle = "shared import title";
+        List<ImportService.ObservationImportData> batch = List.of(
+            conversationObservation("claude", first.getContentSessionId(), projectPath, sharedTitle),
+            conversationObservation("claude", second.getContentSessionId(), projectPath, sharedTitle));
+
+        var firstImport = importService.importObservations(batch);
+        assertThat(firstImport.imported()).isEqualTo(2);
+        assertThat(firstImport.duplicates()).isZero();
+        assertThat(firstImport.errors()).isZero();
+        firstImport.importedIds().stream().map(UUID::fromString).forEach(createdObservationIds::add);
+
+        // The dedup lookup is bounded by the batch titles, so it must still find both
+        // rows and must not merge them: the key includes the owning conversation.
+        var secondImport = importService.importObservations(batch);
+        assertThat(secondImport.imported()).isZero();
+        assertThat(secondImport.duplicates()).isEqualTo(2);
+        assertThat(secondImport.errors()).isZero();
+    }
+
+    @Test
     void importsStandaloneRowsWithoutInventingConversationsAndDeduplicatesOnReimport() {
         var data = standaloneManualObservation();
 

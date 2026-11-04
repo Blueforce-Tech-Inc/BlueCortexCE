@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -826,9 +827,67 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         long createdAtEpoch
     );
 
-    List<ObservationEntity> findByMemoryScopeIdInAndStandaloneKindIn(
-        List<UUID> memoryScopeIds,
-        List<String> standaloneKinds
+    /**
+     * Scalar columns needed to decide whether an import row is a duplicate.
+     *
+     * <p>An interface projection, not the entity: a bulk import used to pull every
+     * observation of the conversation into a transaction and compare titles in Java.
+     * Each row carries three 1024-d vectors plus JSON columns, so a 1,000-row import
+     * against a large table allocated the whole conversation and died with
+     * {@code OutOfMemoryError} (measured at 195k rows with a 1 GB heap). These two
+     * queries are bounded by the titles being imported, so cost follows the batch
+     * size instead of the table size.
+     */
+    interface ImportDedupRow {
+        UUID getConversationId();
+
+        UUID getMemoryScopeId();
+
+        String getStandaloneKind();
+
+        String getPlatformSource();
+
+        String getContentSessionId();
+
+        String getTitle();
+
+        Long getCreatedAtEpoch();
+    }
+
+    @Query("""
+        SELECT o.conversationId AS conversationId,
+               o.memoryScopeId AS memoryScopeId,
+               o.standaloneKind AS standaloneKind,
+               o.platformSource AS platformSource,
+               o.contentSessionId AS contentSessionId,
+               o.title AS title,
+               o.createdAtEpoch AS createdAtEpoch
+        FROM ObservationEntity o
+        WHERE o.conversationId IN :conversationIds
+          AND o.title IN :titles
+        """)
+    List<ImportDedupRow> findImportDedupRowsByConversationIdsAndTitles(
+        @Param("conversationIds") Collection<UUID> conversationIds,
+        @Param("titles") Collection<String> titles
+    );
+
+    @Query("""
+        SELECT o.conversationId AS conversationId,
+               o.memoryScopeId AS memoryScopeId,
+               o.standaloneKind AS standaloneKind,
+               o.platformSource AS platformSource,
+               o.contentSessionId AS contentSessionId,
+               o.title AS title,
+               o.createdAtEpoch AS createdAtEpoch
+        FROM ObservationEntity o
+        WHERE o.memoryScopeId IN :memoryScopeIds
+          AND o.standaloneKind IN :standaloneKinds
+          AND o.title IN :titles
+        """)
+    List<ImportDedupRow> findImportDedupRowsByStandaloneScopeAndTitles(
+        @Param("memoryScopeIds") Collection<UUID> memoryScopeIds,
+        @Param("standaloneKinds") Collection<String> standaloneKinds,
+        @Param("titles") Collection<String> titles
     );
 
     // ==========================================================================
@@ -1148,11 +1207,4 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("kind") String kind,
         @Param("type") String type,
         @Param("limit") int limit);
-
-    /**
-     * Batch fetch observations by session IDs (for bulk import duplicate detection).
-     * Use to check for existing observations in bulk before calling saveAll().
-     */
-    /** Batch lookup by conversation UUID (import duplicate detection). */
-    List<ObservationEntity> findByConversationIdIn(List<UUID> conversationIds);
 }

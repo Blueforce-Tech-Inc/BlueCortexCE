@@ -23,6 +23,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -61,7 +62,8 @@ class ImportServiceIdentityTest {
             .thenReturn(Optional.of(claude));
         when(sessionRepository.findByPlatformSourceAndContentSessionId("codex", "shared-id"))
             .thenReturn(Optional.of(codex));
-        when(observationRepository.findByConversationIdIn(anyList())).thenReturn(List.of());
+        when(observationRepository.findImportDedupRowsByConversationIdsAndTitles(
+            anyCollection(), anyCollection())).thenReturn(List.of());
         when(memoryScopeService.resolveProjectScope("/repo")).thenReturn(scopeId);
         when(observationRepository.saveAll(anyList())).thenAnswer(invocation -> {
             List<ObservationEntity> rows = invocation.getArgument(0);
@@ -103,7 +105,8 @@ class ImportServiceIdentityTest {
         SessionEntity parent = session(conversationId, "claude");
         when(sessionRepository.findByPlatformSourceAndContentSessionId("claude", "vector-id"))
             .thenReturn(Optional.of(parent));
-        when(observationRepository.findByConversationIdIn(anyList())).thenReturn(List.of());
+        when(observationRepository.findImportDedupRowsByConversationIdsAndTitles(
+            anyCollection(), anyCollection())).thenReturn(List.of());
         when(memoryScopeService.resolveProjectScope("/repo")).thenReturn(scopeId);
         when(observationRepository.saveAll(anyList())).thenAnswer(invocation -> {
             List<ObservationEntity> rows = invocation.getArgument(0);
@@ -127,13 +130,15 @@ class ImportServiceIdentityTest {
     void bulkObservationImportDeduplicatesAgainstConversationUuid() {
         UUID conversationId = UUID.randomUUID();
         SessionEntity parent = session(conversationId, "claude");
-        ObservationEntity existing = new ObservationEntity();
-        existing.setConversationId(conversationId);
-        existing.setTitle("same title");
-        existing.setCreatedAtEpoch(42L);
+        ObservationRepository.ImportDedupRow existing =
+            org.mockito.Mockito.mock(ObservationRepository.ImportDedupRow.class);
+        when(existing.getConversationId()).thenReturn(conversationId);
+        when(existing.getTitle()).thenReturn("same title");
+        when(existing.getCreatedAtEpoch()).thenReturn(42L);
         when(sessionRepository.findByPlatformSourceAndContentSessionId("claude", "same-id"))
             .thenReturn(Optional.of(parent));
-        when(observationRepository.findByConversationIdIn(anyList())).thenReturn(List.of(existing));
+        when(observationRepository.findImportDedupRowsByConversationIdsAndTitles(
+            anyCollection(), anyCollection())).thenReturn(List.of(existing));
 
         var result = service.importObservations(List.of(observationData("claude", "same-id")));
 
@@ -156,8 +161,8 @@ class ImportServiceIdentityTest {
         when(memoryScopeService.resolveManualDefault()).thenReturn(manualDefaultScope);
         when(memoryScopeService.resolveProjectScope("manual-memories")).thenReturn(manualProjectScope);
         when(memoryScopeService.resolveProjectScope("/repo")).thenReturn(projectScope);
-        when(observationRepository.findByMemoryScopeIdInAndStandaloneKindIn(anyList(), anyList()))
-            .thenReturn(List.of());
+        when(observationRepository.findImportDedupRowsByStandaloneScopeAndTitles(
+            anyList(), anyList(), anyList())).thenReturn(List.of());
         when(observationRepository.saveAll(anyList())).thenAnswer(invocation -> {
             List<ObservationEntity> rows = invocation.getArgument(0);
             rows.forEach(row -> row.setId(UUID.randomUUID()));
