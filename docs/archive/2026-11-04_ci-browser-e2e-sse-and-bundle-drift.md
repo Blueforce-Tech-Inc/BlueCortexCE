@@ -10,6 +10,7 @@
 |---|---|---|
 | [41796724752](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/actions/runs/41796724752) | `7bb0f3d` | **失败**：`browser-e2e` 在等待 `text=No more items to load` 时超时 20 s；backend 两个 JDK、API docs + proxy、WebUI typecheck 均通过 |
 | [41798694874](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/actions/runs/41798694874) | `82c88d3` | **成功**：四个 job 全绿（Backend JDK 25 1m51s、Backend JDK 21 2m13s、WebUI typecheck 2m7s、Browser E2E 1m27s） |
+| [41800050092](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/actions/runs/41800050092) | `a3bfa08` | **成功**：收尾文档提交（本文件所记录的内容），四个 job 全绿（Browser E2E 1m37s） |
 
 ### 失败根因与修复
 
