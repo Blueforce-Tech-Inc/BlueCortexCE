@@ -66,6 +66,11 @@ POOL_DEPTHS = (40, 100, 200)
 # production depth, so any delta is attributable to vectors the fused top-40
 # never saw. 400 is the corpus-sized ceiling (188 at the time of writing).
 VECTOR_DEPTHS = (100, 200, 400)
+# Round 22: the mirror experiment — widen only the token-coverage list. The
+# 8 hit@5 misses that motivated this batch were mostly lexical-reachable rows
+# that the fused top-40 cut away; 40 is the control, 80/160 double and
+# quadruple the lexical list without touching the vector half.
+LEXICAL_DEPTHS = (40, 80, 160)
 # Round 21: vector:lexical RRF ratios. 1:2 is the production baseline; the
 # sweep asks whether the lexical half really is the bottleneck K3 suggested.
 FUSION_WEIGHTS = (0.5, 1.0, 1.5, 2.0, 3.0)
@@ -367,15 +372,18 @@ def rank_hybrid(query: str, query_vector: str, min_similarity: float,
 def hybrid_pool(query: str, query_vector: str, min_similarity: float,
                 limit: int = PRODUCTION_LIMIT,
                 semantic_limit: int | None = None,
+                lexical_limit: int | None = None,
                 lexical_weight: float = LEXICAL_WEIGHT) -> list[dict]:
     """The fused top-N with the metadata a reranker needs: fused score, time, title.
 
-    `semantic_limit` widens only the vector list; the lexical list and the final
-    fused cut stay at `limit`. That is the round-20 experiment: a relevant row
-    that the vector scan ranked below the fused top-40 can enter without giving
-    the lexical pool more candidates.
+    `semantic_limit` widens only the vector list; `lexical_limit` widens only the
+    lexical list. The final fused cut stays at `limit`. Round 20 used the first
+    to test whether relevant rows the vector scan ranked below the fused top-40
+    are reachable; round 22 uses the second for the mirrored question, because
+    the 8 hit@5 misses that motivated this batch were lexical-heavy.
     """
     semantic_limit = semantic_limit or limit
+    lexical_limit = lexical_limit or limit
     rows = psql(TOKEN_QUERY.format(query=sql_quote(query)) + f"""
         , qtotal AS (SELECT greatest(count(*), 1) AS n FROM qb),
         text_cov AS (
@@ -399,7 +407,7 @@ def hybrid_pool(query: str, query_vector: str, min_similarity: float,
             LIMIT {semantic_limit}
         ),
         lexical_ranked AS (
-            SELECT id, row_number() OVER (ORDER BY matched DESC, id) AS rank FROM text_cov LIMIT {limit}
+            SELECT id, row_number() OVER (ORDER BY matched DESC, id) AS rank FROM text_cov LIMIT {lexical_limit}
         ),
         fused AS (
             SELECT id, SUM(score) AS score
@@ -993,6 +1001,35 @@ def render_report(result: dict, corpus_path: Path) -> str:
         )
     lines += [
         "",
+        "## Lexical-only candidate expansion (round 22)",
+        "",
+        "Token-coverage list widened; vector list and fused cut stay at production depth 40.",
+        "Delta and the 95% interval are paired query-level bootstrap values against the",
+        "7-day-decayed production baseline.",
+        "",
+        "| lexical depth | relevant reachable | mean rows | hit@1 (+7d) | hit@5 (+7d) | "
+        "MRR (+7d) | d hit@1 [95% CI] | d hit@5 [95% CI] | d MRR [95% CI] | mean ms | p95 ms |",
+        "|---:|---:|---:|---:|---:|---:|---|---|---|---:|---:|",
+    ]
+    round22 = result.get("round22") or {}
+    for depth in round22.get("lexical_depths") or []:
+        item = round22["depths"][str(depth)]
+        decayed = item["summary"]
+        sizes = [row[f"lexdeep_{depth}_size"] for row in result["rows"]]
+
+        def interval(metric):
+            value = item["delta"][metric]
+            return f"{value['delta']:+.3f} [{value['ci_low']:+.3f}, {value['ci_high']:+.3f}]"
+
+        lines.append(
+            f"| {depth} | {round22['lexical_reachable'][str(depth)]}/"
+            f"{round22['relevant_total']} | {statistics.fmean(sizes):.1f} | "
+            f"{decayed['hit@1']:.3f} | {decayed['hit@5']:.3f} | {decayed['mrr']:.3f} | "
+            f"{interval('hit@1')} | {interval('hit@5')} | {interval('mrr')} | "
+            f"{item['latency_ms']['mean']:.1f} | {item['latency_ms']['p95']:.1f} |"
+        )
+    lines += [
+        "",
         "## Language split (round 16 contrast set)",
         "",
         "| language | queries | hybrid hit@1 | hybrid hit@5 | hybrid MRR | merge+recency hit@1 |",
@@ -1074,6 +1111,9 @@ def main() -> int:
     parser.add_argument("--vector-depths",
                         default=",".join(str(d) for d in VECTOR_DEPTHS),
                         help="comma-separated vector-only candidate depths (round 20)")
+    parser.add_argument("--lexical-depths",
+                        default=",".join(str(d) for d in LEXICAL_DEPTHS),
+                        help="comma-separated lexical-only candidate depths (round 22)")
     parser.add_argument("--fusion-weights",
                         default=",".join(str(w) for w in FUSION_WEIGHTS),
                         help="comma-separated lexical weights in RRF (round 21)")
@@ -1081,6 +1121,8 @@ def main() -> int:
     args = parser.parse_args()
     pool_depths = tuple(int(value) for value in args.pool_depths.split(",") if value.strip())
     vector_depths = tuple(int(value) for value in args.vector_depths.split(",") if value.strip())
+    lexical_depths = tuple(int(value) for value in args.lexical_depths.split(",")
+                           if value.strip())
     fusion_weights = tuple(float(value) for value in args.fusion_weights.split(",")
                            if value.strip())
 
@@ -1166,6 +1208,24 @@ def main() -> int:
             row[f"vecdeep_{depth}"] = metrics([item["id"] for item in deep_pool], relevant)
             row[f"vecdeep_{depth}_decay7d"] = metrics(
                 [item["id"] for item in rerank_time_decay(deep_pool, reference_ms, 7)],
+                relevant)
+        # Round 22: widen only the lexical list. Same production top-40 cut and
+        # 7-day decay, so any delta is attributable to coverage rows the fused
+        # cut never saw.
+        lexical_reachable = rank_fulltext(query["text"], max(lexical_depths))
+        for depth in lexical_depths:
+            row[f"lexical_{depth}_reachable"] = len(
+                relevant & set(lexical_reachable[:depth]))
+            started = time.perf_counter()
+            lexical_pool = hybrid_pool(query["text"], vector_literal(vector), 0.5,
+                                       limit=PRODUCTION_LIMIT, lexical_limit=depth)
+            row["latency_ms"][f"lexdeep_{depth}"] = (
+                time.perf_counter() - started) * 1000
+            row[f"lexdeep_{depth}_size"] = len(lexical_pool)
+            row[f"lexdeep_{depth}"] = metrics(
+                [item["id"] for item in lexical_pool], relevant)
+            row[f"lexdeep_{depth}_decay7d"] = metrics(
+                [item["id"] for item in rerank_time_decay(lexical_pool, reference_ms, 7)],
                 relevant)
         # Round 21: RRF weight sweep and the vector-primary/lexical-fallback
         # alternative. Both reuse the production top-40 cut and 7-day decay, so
@@ -1284,6 +1344,8 @@ def main() -> int:
     summary_names += [f"pool_{depth}_decay7d" for depth in pool_depths]
     summary_names += [f"vecdeep_{depth}" for depth in vector_depths]
     summary_names += [f"vecdeep_{depth}_decay7d" for depth in vector_depths]
+    summary_names += [f"lexdeep_{depth}" for depth in lexical_depths]
+    summary_names += [f"lexdeep_{depth}_decay7d" for depth in lexical_depths]
     summary_names += [f"weight_{weight:g}" for weight in fusion_weights]
     summary_names += [f"weight_{weight:g}_decay7d" for weight in fusion_weights]
     summary_names += ["vector_primary", "vector_primary_decay7d", "repeat_2", "repeat_3"]
@@ -1306,6 +1368,7 @@ def main() -> int:
         "rows": rows,
     }
     latency_keys = (["pool"] + [f"vecdeep_{depth}" for depth in vector_depths]
+                    + [f"lexdeep_{depth}" for depth in lexical_depths]
                     + [f"weight_{weight:g}" for weight in fusion_weights])
     result["latency_ms"] = {
         key: {"mean": round(statistics.fmean(row["latency_ms"][key] for row in rows), 2),
@@ -1325,6 +1388,24 @@ def main() -> int:
             str(depth): sum(row[f"vector_{depth}_reachable"] for row in rows)
             for depth in vector_depths},
         "relevant_total": sum(len(row["relevant"]) for row in rows),
+    }
+    result["round22"] = {
+        "baseline_key": "hybrid_decay_7d",
+        "lexical_depths": list(lexical_depths),
+        "lexical_reachable": {
+            str(depth): sum(row[f"lexical_{depth}_reachable"] for row in rows)
+            for depth in lexical_depths},
+        "relevant_total": sum(len(row["relevant"]) for row in rows),
+        "depths": {
+            str(depth): {
+                "summary": result["summary"][f"lexdeep_{depth}_decay7d"],
+                "delta": {metric: bootstrap_delta(rows, "hybrid_decay_7d",
+                                                  f"lexdeep_{depth}_decay7d", metric)
+                          for metric in ("hit@1", "hit@5", "mrr")},
+                "latency_ms": result["latency_ms"][f"lexdeep_{depth}"],
+            }
+            for depth in lexical_depths
+        },
     }
     result["round21"] = {
         "baseline_key": "hybrid_decay_7d",
@@ -1497,6 +1578,7 @@ def main() -> int:
     )
     result["diagnosis"] = diagnosis
     round21 = result["round21"]
+    round22 = result["round22"]
     weight_text = "; ".join(
         f"{weight}: hit@1 {item['summary']['hit@1']:.3f}, hit@5 {item['summary']['hit@5']:.3f}, "
         f"MRR {item['summary']['mrr']:.3f}, delta hit@5 "
@@ -1519,6 +1601,25 @@ def main() -> int:
         f"hit@5 {round21['repeat_noise']['hit@5']:.3f}, MRR {round21['repeat_noise']['mrr']:.3f}. "
         f"The paired bootstrap interval is the decision band; a candidate that does not lift "
         f"the lower bound above zero is rejected."
+    )
+    lexical_text = "; ".join(
+        f"{depth}: relevant reachable {round22['lexical_reachable'][str(depth)]}/"
+        f"{round22['relevant_total']}, hit@1 {item['summary']['hit@1']:.3f}, "
+        f"hit@5 {item['summary']['hit@5']:.3f}, MRR {item['summary']['mrr']:.3f}, "
+        f"delta hit@5 {item['delta']['hit@5']['delta']:+.3f} "
+        f"[{item['delta']['hit@5']['ci_low']:+.3f}, {item['delta']['hit@5']['ci_high']:+.3f}], "
+        f"mean {item['latency_ms']['mean']:.1f} ms"
+        for depth, item in round22["depths"].items())
+    diagnosis += (
+        f" Round 22 lexical-only expansion (the mirror of round 20): {lexical_text}. "
+        f"The production SQL already filters both halves by project/scope before ranking, so a "
+        f"scope pre-filter is the baseline rather than a candidate. Because the vector half "
+        f"reaches {round20['vector_reachable'][str(max(vector_depths))]}/"
+        f"{round20['relevant_total']} relevant rows and the lexical half reaches "
+        f"{round22['lexical_reachable'][str(max(lexical_depths))]}/"
+        f"{round22['relevant_total']}, the misses are already candidates; deepening either list "
+        f"or bucketing candidates by time cannot recover them. The limiter is RRF's 1/(60+rank) "
+        f"discount plus the top-40 fused cut, not candidate generation."
     )
     result["diagnosis"] = diagnosis
 
