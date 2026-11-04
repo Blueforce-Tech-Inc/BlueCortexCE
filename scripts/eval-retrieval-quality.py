@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import statistics
@@ -168,6 +169,11 @@ def embed(texts: list[str], batch: int = 16) -> list[list[float]]:
 
 def vector_literal(vector: list[float]) -> str:
     return "[" + ",".join(f"{value:.7f}" for value in vector) + "]"
+
+
+def cosine(left: list[float], right: list[float]) -> float:
+    dot = sum(a * b for a, b in zip(left, right))
+    return dot / (math.sqrt(sum(a * a for a in left)) * math.sqrt(sum(b * b for b in right)))
 
 
 def sql_quote(text: str) -> str:
@@ -385,6 +391,7 @@ def hybrid_pool(query: str, query_vector: str, min_similarity: float,
         )
         SELECT json_build_object(
                    'id', f.id, 'score', f.score,
+                   'cosine', 1.0 - (o.embedding_1024 <=> cast({sql_quote(query_vector)} as vector)),
                    'epoch', o.created_at_epoch, 'title', o.title)::text
         FROM fused f
         JOIN mem_observations o ON o.id = f.id
@@ -433,6 +440,97 @@ def rerank_dedupe(pool: list[dict]) -> list[dict]:
             newest[key] = item
     keep = {item["id"] for item in newest.values()}
     return [item for item in pool if item["id"] in keep]
+
+
+# ---------------------------------------------------------------------------
+# Round 17 experiments: intent/type weighting, bilingual synonym expansion and
+# embedding rerank of the fused top-20. Each is a generic rule with fixed
+# parameters; none of them was tuned by sweeping values against these 90 queries.
+# ---------------------------------------------------------------------------
+
+# Intent is read from ordinary task verbs, not from corpus labels. A request that
+# asks to create something should favour rows the assistant wrote; a request that
+# asks to fix or change something should favour rows it edited.
+WRITE_CUES = ("新增", "创建", "新建", "实现", "添加", "加一个", "写一个", "补一个",
+              "create", "add ", "implement", "new file", "introduce")
+EDIT_CUES = ("修复", "改成", "改为", "调整", "重构", "删掉", "移除", "替换", "回退",
+             "fix", "change", "refactor", "update", "modify", "replace", "remove",
+             "rename", "migrate")
+TYPE_BOOST = 1.10
+
+
+def classify_intent(query: str) -> str:
+    lowered = query.lower()
+    writes = sum(1 for cue in WRITE_CUES if cue in lowered)
+    edits = sum(1 for cue in EDIT_CUES if cue in lowered)
+    if writes == 0 and edits == 0:
+        return "neutral"
+    return "write" if writes > edits else "edit"
+
+
+def observation_kind(title: str) -> str:
+    """The corpus title records whether the tool call wrote or changed a file."""
+    return "write" if (title or "").strip().lower().startswith("created") else "edit"
+
+
+def rerank_intent_type(pool: list[dict], intent: str) -> list[dict]:
+    """Boost rows whose kind matches the request intent, preserving fused order otherwise."""
+    if intent == "neutral":
+        return list(pool)
+    return sorted(
+        pool,
+        key=lambda item: (-(float(item["score"]) * (TYPE_BOOST
+                             if observation_kind(item.get("title") or "") == intent else 1.0)),
+                          item["id"]),
+    )
+
+
+# Generic bilingual vocabulary: the request is Chinese, the observations are
+# English code, and V24 indexes them as CJK bigrams plus ASCII tokens, so the two
+# sides share almost no token. The map is software terminology, not corpus phrases.
+SYNONYMS = {
+    "修复": ["fix"], "报错": ["error"], "异常": ["exception"], "队列": ["queue"],
+    "缓存": ["cache"], "索引": ["index"], "检索": ["search", "retrieval"],
+    "查询": ["query"], "迁移": ["migration", "migrate"], "认证": ["auth", "authentication"],
+    "权限": ["permission", "authorization"], "并发": ["concurrency", "concurrent"],
+    "测试": ["test"], "部署": ["deploy", "deployment"], "配置": ["config", "configuration"],
+    "日志": ["log"], "指标": ["metric", "metrics"], "监控": ["monitor"],
+    "文档": ["doc", "documentation"], "接口": ["api", "endpoint"], "数据库": ["database", "db"],
+    "事务": ["transaction"], "超时": ["timeout"], "重试": ["retry"], "分页": ["pagination", "page"],
+    "锁": ["lock"], "字段": ["column", "field"], "校验": ["validate", "validation"],
+    "解析": ["parse"], "回滚": ["rollback"], "备份": ["backup"], "恢复": ["restore"],
+    "批量": ["batch"], "压缩": ["compress"], "去重": ["dedupe"], "排序": ["sort", "order"],
+}
+MAX_EXPANSIONS = 12
+
+
+def expand_query(query: str) -> str:
+    """Append at most MAX_EXPANSIONS English equivalents for terms present in the query."""
+    extra: list[str] = []
+    for term, replacements in SYNONYMS.items():
+        if term in query:
+            for replacement in replacements:
+                if replacement not in extra:
+                    extra.append(replacement)
+    return query + " " + " ".join(extra[:MAX_EXPANSIONS]) if extra else query
+
+
+def rerank_by_cosine(pool: list[dict], key: str) -> list[dict]:
+    """Pure embedding rerank of the fused pool."""
+    return sorted(pool, key=lambda item: (-float(item.get(key) or 0.0), item["id"]))
+
+
+def rerank_title_blend(pool: list[dict], title_scores: dict[str, float],
+                       weight: float = 0.5, limit: int = TOP_K) -> list[dict]:
+    """RRF over the fused order and the title-embedding order (weight fixed at 0.5)."""
+    by_title = sorted(pool, key=lambda item: (-title_scores.get(item["id"], 0.0), item["id"]))
+    title_rank = {item["id"]: index for index, item in enumerate(by_title, start=1)}
+    fused_rank = {item["id"]: index for index, item in enumerate(pool, start=1)}
+    score = {item["id"]: 1.0 / (60 + fused_rank[item["id"]])
+             + weight / (60 + title_rank[item["id"]]) for item in pool}
+    ordered = sorted(pool, key=lambda item: (-score[item["id"]], item["id"]))
+    return ordered[:limit]
+
 
 
 def rank_hybrid_additive(query: str, query_vector: str, min_similarity: float,
@@ -648,6 +746,14 @@ def render_report(result: dict, corpus_path: Path) -> str:
         "hybrid_decay_365d": "hybrid + recency 365 d half-life",
         "hybrid_dedupe": "hybrid + near-duplicate merge",
         "hybrid_dedupe_decay30d": "merge + recency 30 d",
+        "hybrid_decay7d_intent": "decay 7d + intent/kind boost",
+        "hybrid_synonym_decay7d": "synonym expansion + decay 7d",
+        "hybrid_synonym_intent_decay7d": "synonym + intent + decay 7d",
+        "hybrid_synonym_both_decay7d": "synonym (lexical+vector) + decay 7d",
+        "hybrid_synonym_both_dedupe_decay7d": "synonym both + merge + decay 7d",
+        "hybrid_decay7d_body_rerank": "decay 7d + body embedding rerank",
+        "hybrid_decay7d_title_rerank": "decay 7d + title embedding rerank",
+        "hybrid_decay7d_title_blend": "decay 7d + title RRF blend",
     }
     for name, summary in result["summary"].items():
         lines.append(
@@ -679,9 +785,10 @@ def render_report(result: dict, corpus_path: Path) -> str:
         "",
         "| query | relevant | vector | vector-head120 | vector-tail120 | lexical | "
         "lexical-ts-rank | english-tsvector | add-w0.25 | hybrid (RRF w2) | add-w0.75 | "
-        "add-w1.0 | rrf-k60 | identifier-or | decay30d | merge | merge+decay |",
+        "add-w1.0 | rrf-k60 | identifier-or | decay30d | merge | merge+decay | "
+        "intent | synonym7d | body-rerank | title-rerank | title-blend |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
-        "---:|---:|---:|",
+        "---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in result["rows"]:
         def rank(key: str) -> str:
@@ -697,7 +804,10 @@ def render_report(result: dict, corpus_path: Path) -> str:
             f"{rank('hybrid_w0.25')} | {rank('hybrid')} | {rank('hybrid_w0.75')} | "
             f"{rank('hybrid_w1.0')} | {rank('rrf')} | {rank('identifier_or')} | "
             f"{rank('hybrid_decay_30d')} | {rank('hybrid_dedupe')} | "
-            f"{rank('hybrid_dedupe_decay30d')} |"
+            f"{rank('hybrid_dedupe_decay30d')} | "
+            f"{row['intent']} | {rank('hybrid_synonym_decay7d')} | "
+            f"{rank('hybrid_decay7d_body_rerank')} | {rank('hybrid_decay7d_title_rerank')} | "
+            f"{rank('hybrid_decay7d_title_blend')} |"
         )
     lines.append("")
     return "\n".join(lines)
@@ -727,6 +837,10 @@ def main() -> int:
     print("embedding focused query variants")
     head_vectors = embed([query["text"][:120] for query in queries])
     tail_vectors = embed([query["text"][-120:] for query in queries])
+    print("embedding observation titles")
+    title_vectors = embed([observation["title"] for observation in observations])
+    print("embedding synonym-expanded queries")
+    expanded_vectors = embed([expand_query(query["text"]) for query in queries])
 
     create_database()
     migrate()
@@ -750,7 +864,8 @@ def main() -> int:
     observed_at = {obs["id"]: obs.get("observed_at") for obs in observations}
     now_ms = int(time.time() * 1000)
     rows = []
-    for query, vector, head, tail in zip(queries, query_vectors, head_vectors, tail_vectors):
+    for query, vector, head, tail, expanded_vector in zip(
+            queries, query_vectors, head_vectors, tail_vectors, expanded_vectors):
         relevant = {uuid_for(item) for item in query["relevant"] if item in corpus_ids}
         # The request's own clock: hide observations that did not exist yet, and
         # measure recency from the moment the user asked.
@@ -759,6 +874,10 @@ def main() -> int:
         reference_ms = max(relevant_epochs) if relevant_epochs else int(
             query.get("asked_at") or now_ms)
         CURRENT_CUTOFF = reference_ms
+        title_scores = {
+            uuid_for(observation["id"]): cosine(vector, title_vector)
+            for observation, title_vector in zip(observations, title_vectors)
+        }
         row = {"id": query["id"], "text": query["text"],
                "language": query.get("language", "unknown"), "relevant": sorted(relevant)}
         for name, function in names.items():
@@ -779,12 +898,50 @@ def main() -> int:
         row["hybrid_dedupe_decay30d"] = metrics(
             [item["id"] for item in rerank_time_decay(deduped, reference_ms, 30)], relevant)
         row["dedupe_hidden_relevant"] = len(relevant - {item["id"] for item in deduped})
+
+        # Round 17: all three experiments start from the 7-day-decayed pool, the
+        # configuration production already uses, so the delta is attributable to
+        # the new rule rather than to a different base.
+        decayed7 = rerank_time_decay(pool, reference_ms, 7)
+        intent = classify_intent(query["text"])
+        row["intent"] = intent
+        row["hybrid_decay7d_intent"] = metrics(
+            [item["id"] for item in rerank_intent_type(decayed7, intent)], relevant)
+
+        expanded = expand_query(query["text"])
+        row["expanded_terms"] = len(expanded.split()) - len(query["text"].split())
+        expanded_pool = hybrid_pool(expanded, vector_literal(vector), 0.5)
+        expanded_decayed = rerank_time_decay(expanded_pool, reference_ms, 7)
+        row["hybrid_synonym_decay7d"] = metrics(
+            [item["id"] for item in expanded_decayed], relevant)
+        row["hybrid_synonym_intent_decay7d"] = metrics(
+            [item["id"] for item in rerank_intent_type(expanded_decayed, intent)], relevant)
+        both_pool = hybrid_pool(expanded, vector_literal(expanded_vector), 0.5)
+        both_decayed = rerank_time_decay(both_pool, reference_ms, 7)
+        row["hybrid_synonym_both_decay7d"] = metrics(
+            [item["id"] for item in both_decayed], relevant)
+        row["hybrid_synonym_both_dedupe_decay7d"] = metrics(
+            [item["id"] for item in rerank_time_decay(
+                rerank_dedupe(both_pool), reference_ms, 7)], relevant)
+
+        for item in decayed7:
+            item["title_cosine"] = title_scores[item["id"]]
+        row["hybrid_decay7d_body_rerank"] = metrics(
+            [item["id"] for item in rerank_by_cosine(decayed7, "cosine")], relevant)
+        row["hybrid_decay7d_title_rerank"] = metrics(
+            [item["id"] for item in rerank_by_cosine(decayed7, "title_cosine")], relevant)
+        row["hybrid_decay7d_title_blend"] = metrics(
+            [item["id"] for item in rerank_title_blend(decayed7, title_scores)], relevant)
         rows.append(row)
     CURRENT_CUTOFF = 0
 
     summary_names = list(names) + ["vector_head120", "vector_tail120"]
     summary_names += [f"hybrid_decay_{half_life}d" for half_life in DECAY_HALF_LIVES]
     summary_names += ["hybrid_dedupe", "hybrid_dedupe_decay30d"]
+    summary_names += ["hybrid_decay7d_intent", "hybrid_synonym_decay7d",
+                      "hybrid_synonym_intent_decay7d", "hybrid_synonym_both_decay7d",
+                      "hybrid_synonym_both_dedupe_decay7d", "hybrid_decay7d_body_rerank",
+                      "hybrid_decay7d_title_rerank", "hybrid_decay7d_title_blend"]
     result = {
         "corpus": {"observations": len(observations), "queries": len(queries),
                    "path": str(corpus_path.relative_to(ROOT)),
@@ -813,6 +970,15 @@ def main() -> int:
     dedupe_summary = result["summary"]["hybrid_dedupe"]
     combined_summary = result["summary"]["hybrid_dedupe_decay30d"]
     hidden_relevant = sum(row["dedupe_hidden_relevant"] for row in rows)
+    r17_names = ("hybrid_decay7d_intent", "hybrid_synonym_decay7d",
+                 "hybrid_synonym_intent_decay7d", "hybrid_synonym_both_decay7d",
+                 "hybrid_synonym_both_dedupe_decay7d", "hybrid_decay7d_body_rerank",
+                 "hybrid_decay7d_title_rerank", "hybrid_decay7d_title_blend")
+    r17 = {name: result["summary"][name] for name in r17_names}
+    intents = {value: sum(1 for row in rows if row["intent"] == value)
+               for value in ("write", "edit", "neutral")}
+    expanded_queries = sum(1 for row in rows if row["expanded_terms"] > 0)
+    baseline = decay[7]
     languages_text = ", ".join(
         f"{language} {count}" for language, count in result["corpus"]["languages"].items())
     diagnosis = (
@@ -840,7 +1006,34 @@ def main() -> int:
         f"{dedupe_summary['hit@1']:.3f}, hit@5 {dedupe_summary['hit@5']:.3f}, MRR "
         f"{dedupe_summary['mrr']:.3f}; it hid a relevant row for {hidden_relevant} queries. "
         f"Merge then 30-day decay gives {combined_summary['hit@1']:.3f} / "
-        f"{combined_summary['hit@5']:.3f} / {combined_summary['mrr']:.3f}."
+        f"{combined_summary['hit@5']:.3f} / {combined_summary['mrr']:.3f}. "
+        f"Round 17 starts from the 7-day-decayed pool ({baseline['hit@1']:.3f} / "
+        f"{baseline['hit@5']:.3f} / {baseline['mrr']:.3f}). Intent split is "
+        f"{intents['write']} write / {intents['edit']} edit / {intents['neutral']} neutral; "
+        f"intent-aware kind boost ({TYPE_BOOST}x) gives {r17['hybrid_decay7d_intent']['hit@1']:.3f} "
+        f"/ {r17['hybrid_decay7d_intent']['hit@5']:.3f} / {r17['hybrid_decay7d_intent']['mrr']:.3f}. "
+        f"Bilingual synonym expansion fired on {expanded_queries} of {len(rows)} queries and gives "
+        f"{r17['hybrid_synonym_decay7d']['hit@1']:.3f} / "
+        f"{r17['hybrid_synonym_decay7d']['hit@5']:.3f} / "
+        f"{r17['hybrid_synonym_decay7d']['mrr']:.3f}; with the intent boost "
+        f"{r17['hybrid_synonym_intent_decay7d']['hit@1']:.3f} / "
+        f"{r17['hybrid_synonym_intent_decay7d']['hit@5']:.3f} / "
+        f"{r17['hybrid_synonym_intent_decay7d']['mrr']:.3f}. Expanding the vector half too "
+        f"(lexical+vector) gives {r17['hybrid_synonym_both_decay7d']['hit@1']:.3f} / "
+        f"{r17['hybrid_synonym_both_decay7d']['hit@5']:.3f} / "
+        f"{r17['hybrid_synonym_both_decay7d']['mrr']:.3f}; adding the near-duplicate merge "
+        f"{r17['hybrid_synonym_both_dedupe_decay7d']['hit@1']:.3f} / "
+        f"{r17['hybrid_synonym_both_dedupe_decay7d']['hit@5']:.3f} / "
+        f"{r17['hybrid_synonym_both_dedupe_decay7d']['mrr']:.3f}. Embedding rerank of the fused "
+        f"top-20: body cosine {r17['hybrid_decay7d_body_rerank']['hit@1']:.3f} / "
+        f"{r17['hybrid_decay7d_body_rerank']['hit@5']:.3f} / "
+        f"{r17['hybrid_decay7d_body_rerank']['mrr']:.3f}, title cosine "
+        f"{r17['hybrid_decay7d_title_rerank']['hit@1']:.3f} / "
+        f"{r17['hybrid_decay7d_title_rerank']['hit@5']:.3f} / "
+        f"{r17['hybrid_decay7d_title_rerank']['mrr']:.3f}, title blend "
+        f"{r17['hybrid_decay7d_title_blend']['hit@1']:.3f} / "
+        f"{r17['hybrid_decay7d_title_blend']['hit@5']:.3f} / "
+        f"{r17['hybrid_decay7d_title_blend']['mrr']:.3f}."
     )
     result["diagnosis"] = diagnosis
 
