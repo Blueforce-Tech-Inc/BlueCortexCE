@@ -1249,6 +1249,59 @@ Measured on 2026-11-04 against a 100,000-observation database (158 MB): dump
 3.5 MB in 0.5 s, checksum 0.3 s, restore 4.7–6.3 s, counts 0.6–1.0 s, retrieval
 0.4–0.5 s — 8–10 s end to end. `VALIDATE_FLYWAY=1` adds about 3.2 s (jar boot).
 
+#### Data Integrity Audit (Scheduled)
+
+`scripts/data-integrity-audit.py` is a read-only inspection of the rows the
+application assumes are consistent. It reports nine classes, each with a sample
+and an executable repair statement:
+
+| Check | What it catches |
+|-------|-----------------|
+| `orphan_observations` / `orphan_summaries` | `conversation_id` has no parent in `mem_sessions` |
+| `scope_project_mismatch` | a project-scope row whose `scope_key` is another project (it would appear in that project's search) |
+| `conversation_project_mismatch` | an observation's `project_path` disagrees with its conversation |
+| `embedding_state_mismatch` | `ready` without a vector (invisible to semantic search) or a vector behind `failed`/`skipped` (never retried) |
+| `duplicate_hash_unsuppressed` | equal `content_hash` in the same conversation inside the 30-second dedupe window |
+| `stuck_processing` | `processing` older than `--stuck-minutes` (default 15) |
+| `pending_backlog` | pending count above `--backlog-max` (100) or head older than `--backlog-age-minutes` (60) |
+| `summary_snapshot_missing_obs` | a summary input snapshot names an observation that no longer exists |
+
+The default is **dry-run**: nothing is written and the repair SQL is printed and
+stored in the JSON report. `--apply` runs only the safe repairs (embedding state,
+stuck rows); `--apply-destructive` also deletes orphan/duplicate rows and rewrites
+scope links, and must be reviewed first. Exit codes: `0` clean, `1` findings,
+`2` could not inspect (container, database, or schema problem).
+
+```bash
+# Daily, read-only, on the live database
+python3 scripts/data-integrity-audit.py --database claude_mem \
+  --json "$HOME/.claude-mem/integrity-audit/audit-$(date +%Y%m%d_%H%M%S).json"
+
+# Weekly, on the copy the backup drill just restored (stage exit 10 on findings)
+SOURCE_DB=claude_mem INTEGRITY_AUDIT=1 ./scripts/backup-restore-drill.sh
+```
+
+**How often**: daily on the live database (sub-second at 100k rows) because
+`stuck_processing` and `pending_backlog` are leading indicators, and weekly on
+the restored copy through `INTEGRITY_AUDIT=1` to prove the backup also carries
+consistent data. Run once after every restore and after any manual SQL surgery.
+
+**Where**: reports go next to the backup reports,
+`${HOME}/.claude-mem/backup-drill/reports/integrity-drill-<stamp>.json` when run
+by the drill, or `${HOME}/.claude-mem/integrity-audit/` from cron; prune with
+`find ... -mtime +30 -delete`. Every report embeds `repair_sql`, so the
+investigation does not depend on this document staying in sync.
+
+**On findings**: take a dump first, read the sample ids and the `detail` field, and
+run the repair SQL with `--apply` on a restored copy before touching production.
+Orphan and duplicate deletes are destructive; `conversation_project_mismatch` and
+`summary_snapshot_missing_obs` are review-only (the audit deliberately refuses to
+guess which side is right), so fix them by hand or regenerate the summary.
+`pending_backlog` is not repaired by the audit: check the worker log and provider
+health instead. The detection is verified against seeded dirty rows by
+`python3 scripts/test-data-integrity-audit.py`, which must pass after any schema
+change.
+
 ### 8.2 Data Recovery
 
 #### Full Recovery

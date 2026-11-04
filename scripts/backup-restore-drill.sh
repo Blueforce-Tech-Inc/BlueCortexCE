@@ -32,6 +32,10 @@
 #   REPORT_KEEP        how many reports to keep (default 30)
 #   VALIDATE_FLYWAY    1 = boot the jar and assert Flyway validation (default 0)
 #   VALIDATION_PORT    port for that boot (default 37990)
+#   INTEGRITY_AUDIT    1 = run data-integrity-audit.py on the restored copy and
+#                      fail the run when it finds violations (default 0)
+#   AUDIT_JSON         where the integrity report goes
+#                      (default <REPORT_DIR>/integrity-drill-<timestamp>.json)
 #   DUMP_DIR           where the dump is written (default ${TMPDIR:-/tmp})
 #   KEEP_DUMP          1 = keep the verified dump as the backup and prune older
 #                      dumps in DUMP_DIR (default follows KEEP)
@@ -41,7 +45,7 @@
 # Exit status (the first failing stage wins):
 #   0 pass        2 precondition     3 dump          4 checksum / archive
 #   5 restore     6 row-count parity 7 retrieval     8 Flyway validation
-#   9 unexpected
+#   10 integrity  9 unexpected
 # =============================================================================
 
 set -euo pipefail
@@ -66,12 +70,15 @@ REPORT_DIR="${REPORT_DIR:-${HOME}/.claude-mem/backup-drill/reports}"
 REPORT_KEEP="${REPORT_KEEP:-30}"
 VALIDATE_FLYWAY="${VALIDATE_FLYWAY:-0}"
 VALIDATION_PORT="${VALIDATION_PORT:-37990}"
+INTEGRITY_AUDIT="${INTEGRITY_AUDIT:-0}"
+AUDIT_JSON="${AUDIT_JSON:-${REPORT_DIR}/integrity-drill-${STAMP}.json}"
 
 # Accumulated facts for the report; every value defaults so a failed run still
 # writes a complete report.
 DUMP_MS=0; DUMP_BYTES=0; DUMP_SHA=""
 CHECKSUM_MS=0; RESTORE_MS=0; COUNTS_MS=0; RETRIEVAL_MS=0; FLYWAY_MS=0
 FLYWAY_STATE="skipped"; FLYWAY_DETAIL=""
+INTEGRITY_MS=0; INTEGRITY_STATE="skipped"; INTEGRITY_FINDINGS=""; INTEGRITY_JSON=""
 SRC_SIZE=""; DST_SIZE=""
 SRC_HITS=""; DST_HITS=""; PROBE_ID=""; PROBE_TITLE=""
 FAIL_STAGE=""; FAIL_REASON=""
@@ -108,6 +115,8 @@ write_report() { # write_report <exit-code>
   REPORT_COUNTS_MS="$COUNTS_MS" REPORT_RETRIEVAL_MS="$RETRIEVAL_MS" \
   REPORT_FLYWAY_MS="$FLYWAY_MS" REPORT_FLYWAY_STATE="$FLYWAY_STATE" \
   REPORT_FLYWAY_DETAIL="$FLYWAY_DETAIL" \
+  REPORT_INTEGRITY_MS="$INTEGRITY_MS" REPORT_INTEGRITY_STATE="$INTEGRITY_STATE" \
+  REPORT_INTEGRITY_FINDINGS="$INTEGRITY_FINDINGS" REPORT_INTEGRITY_JSON="$INTEGRITY_JSON" \
   REPORT_SRC_SIZE="$SRC_SIZE" REPORT_DST_SIZE="$DST_SIZE" \
   REPORT_ZH_QUERY="$ZH_QUERY" REPORT_SRC_HITS="$SRC_HITS" REPORT_DST_HITS="$DST_HITS" \
   REPORT_PROBE_ID="$PROBE_ID" REPORT_PROBE_TITLE="$PROBE_TITLE" \
@@ -162,6 +171,12 @@ report = {
             "state": os.environ.get("REPORT_FLYWAY_STATE", "skipped"),
             "ms": num("REPORT_FLYWAY_MS"),
             "detail": os.environ.get("REPORT_FLYWAY_DETAIL", ""),
+        },
+        "integrity": {
+            "state": os.environ.get("REPORT_INTEGRITY_STATE", "skipped"),
+            "ms": num("REPORT_INTEGRITY_MS"),
+            "findings": num("REPORT_INTEGRITY_FINDINGS"),
+            "report": os.environ.get("REPORT_INTEGRITY_JSON", ""),
         },
     },
     "tables": tables,
@@ -387,6 +402,41 @@ RETRIEVAL_MS=$(elapsed "$RETRIEVAL_START")
 log "probe observation ${PROBE_ID} title restored: ${PROBE_TITLE}"
 
 # ---------------------------------------------------------------------------
-# 7. Verdict — on_exit writes the report, drops the copy and exits
+# 7. Data-integrity audit on the restored copy (optional)            exit 10
+#
+# Restoring proves the bytes are there; the audit proves the restored rows still
+# satisfy the invariants the application relies on. It is read-only, so a bad
+# restore reports without changing the copy.
+# ---------------------------------------------------------------------------
+if [ "$INTEGRITY_AUDIT" = "1" ]; then
+  mkdir -p "$(dirname "$AUDIT_JSON")" 2>/dev/null || true
+  AUDIT_LOG="${AUDIT_JSON%.json}.log"
+  INTEGRITY_START=$(ms_now)
+  set +e
+  python3 "$ROOT/scripts/data-integrity-audit.py" --database "$RESTORE_DB" \
+    --container "$CONTAINER" --user "$DB_USER" --json "$AUDIT_JSON" > "$AUDIT_LOG" 2>&1
+  AUDIT_CODE=$?
+  set -e
+  INTEGRITY_MS=$(elapsed "$INTEGRITY_START")
+  INTEGRITY_JSON="$AUDIT_JSON"
+  if [ "$AUDIT_CODE" = "0" ]; then
+    INTEGRITY_STATE="pass"
+    rm -f "$AUDIT_LOG"
+    log "integrity audit passed in ${INTEGRITY_MS} ms"
+  elif [ "$AUDIT_CODE" = "1" ]; then
+    INTEGRITY_STATE="findings"
+    INTEGRITY_FINDINGS="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['findings'])" "$AUDIT_JSON" 2>/dev/null || echo "?")"
+    tail -n 30 "$AUDIT_LOG" >&2 || true
+    fail 10 integrity \
+      "the restored copy has ${INTEGRITY_FINDINGS} integrity finding(s); see ${AUDIT_JSON} (log ${AUDIT_LOG})"
+  else
+    INTEGRITY_STATE="error"
+    tail -n 20 "$AUDIT_LOG" >&2 || true
+    fail 10 integrity "the integrity audit could not inspect ${RESTORE_DB}; see ${AUDIT_LOG}"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# 8. Verdict — on_exit writes the report, drops the copy and exits
 # ---------------------------------------------------------------------------
 exit 0

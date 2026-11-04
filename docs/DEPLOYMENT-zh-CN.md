@@ -1179,6 +1179,38 @@ echo "Backup completed: backup_$DATE.sql.gz"
 
 2026-11-04 实测（10 万条 observation，158 MB 库）：dump 3.5 MB / 0.5 s，checksum 0.3 s，恢复 4.7–6.3 s，行数比对 0.6–1.0 s，检索 0.4–0.5 s，端到端 8–10 s；`VALIDATE_FLYWAY=1` 额外约 3.2 s（启动 jar）。
 
+#### 数据完整性巡检（可定时）
+
+`scripts/data-integrity-audit.py` 对应用默认成立的不变量做**只读**扫描，报告 9 类问题，每类都带样本与可直接执行的修复语句：
+
+| 检查项 | 抓什么 |
+|--------|--------|
+| `orphan_observations` / `orphan_summaries` | `conversation_id` 在 `mem_sessions` 里没有父行 |
+| `scope_project_mismatch` | project scope 的 `scope_key` 与 `project_path` 不一致（该行会串到别的项目检索结果） |
+| `conversation_project_mismatch` | observation 的 `project_path` 与会话不一致 |
+| `embedding_state_mismatch` | `ready` 却没有向量（语义检索永远看不到），或 `failed`/`skipped` 却带着向量（永不重试） |
+| `duplicate_hash_unsuppressed` | 同一会话、相同 `content_hash`、落在 30 秒去重窗口内 |
+| `stuck_processing` | `processing` 超过 `--stuck-minutes`（默认 15 分钟） |
+| `pending_backlog` | pending 数量超过 `--backlog-max`（100）或队头超过 `--backlog-age-minutes`（60 分钟） |
+| `summary_snapshot_missing_obs` | summary 输入快照引用了已不存在的 observation |
+
+默认是 **dry-run**：不写库，只打印修复 SQL 并写入 JSON 报告。`--apply` 仅执行安全修复（embedding 状态、卡住的队列行）；`--apply-destructive` 才会删除孤儿/重复行并改写 scope 链接，执行前必须人工复核。退出码：`0` 干净、`1` 有发现、`2` 无法巡检（容器/库/schema 问题）。
+
+```bash
+# 每天，只读，跑在线库
+python3 scripts/data-integrity-audit.py --database claude_mem \
+  --json "$HOME/.claude-mem/integrity-audit/audit-$(date +%Y%m%d_%H%M%S).json"
+
+# 每周，跑备份脚本刚恢复出来的副本（有发现时该阶段退出码 10）
+SOURCE_DB=claude_mem INTEGRITY_AUDIT=1 ./scripts/backup-restore-drill.sh
+```
+
+**多久跑一次**：在线库每天一次（10 万行亚秒级），因为 `stuck_processing` 与 `pending_backlog` 是前置指标；每周通过 `INTEGRITY_AUDIT=1` 跑一次恢复副本，证明备份里的数据也是一致的。每次恢复后、任何手工 SQL 操作后各补跑一次。
+
+**放在哪里**：报告与备份报告放在一起——备份脚本触发时是 `${HOME}/.claude-mem/backup-drill/reports/integrity-drill-<时间戳>.json`；cron 触发时放 `${HOME}/.claude-mem/integrity-audit/`，用 `find ... -mtime +30 -delete` 清理 30 天前的报告。报告内嵌 `repair_sql`，排查不依赖本文档是否同步。
+
+**发现后怎么处置**：先打一份 dump，读样本 id 与 `detail`，在恢复副本上用 `--apply` 验证修复 SQL 后再动生产。孤儿与重复行删除是破坏性操作；`conversation_project_mismatch` 和 `summary_snapshot_missing_obs` 只报告不自动修（哪一侧正确需要人判断），请手工修正或重新生成 summary。`pending_backlog` 不由巡检修复：去查 worker 日志与 provider 健康。检测逻辑由 `python3 scripts/test-data-integrity-audit.py` 用脏数据自测，任何 schema 变更后必须重跑并通过。
+
 ### 8.2 数据恢复
 
 #### 完整恢复
