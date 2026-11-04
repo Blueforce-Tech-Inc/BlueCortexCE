@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.controller;
 
+import com.ablueforce.cortexce.common.ErrorResponses;
 import com.ablueforce.cortexce.service.ContextService;
 import com.ablueforce.cortexce.service.CursorService;
 import com.ablueforce.cortexce.service.CursorService.CursorProjectEntry;
@@ -72,17 +73,11 @@ public class CursorController {
         String workspacePath = request.workspacePath();
 
         if (projectName == null || projectName.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", "projectName is required"
-            ));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "projectName is required"));
         }
 
         if (workspacePath == null || workspacePath.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", "workspacePath is required"
-            ));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "workspacePath is required"));
         }
 
         try {
@@ -95,10 +90,7 @@ public class CursorController {
             ));
         } catch (Exception e) {
             log.error("Failed to register Cursor project {}: {}", projectName, e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", "Failed to register project: " + e.getMessage()
-            ));
+            return ResponseEntity.status(500).body(ErrorResponses.body("internal_error", "Failed to register project: " + e.getMessage()));
         }
     }
 
@@ -186,10 +178,7 @@ public class CursorController {
         CursorProjectEntry entry = cursorService.getProject(projectName);
 
         if (entry == null) {
-            return ResponseEntity.status(404).body(Map.of(
-                "success", false,
-                "error", "Project not registered: " + projectName
-            ));
+            return ResponseEntity.status(404).body(ErrorResponses.body("not_found", "Project not registered: " + projectName));
         }
 
         try {
@@ -229,10 +218,7 @@ public class CursorController {
             }
         } catch (Exception e) {
             log.error("Failed to update Cursor context for project {}: {}", projectName, e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", "Failed to update context: " + e.getMessage()
-            ));
+            return ResponseEntity.status(500).body(ErrorResponses.body("internal_error", "Failed to update context: " + e.getMessage()));
         }
     }
 
@@ -267,19 +253,13 @@ public class CursorController {
         String context = request.context();
 
         if (context == null || context.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", "context is required"
-            ));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "context is required"));
         }
 
         CursorProjectEntry entry = cursorService.getProject(projectName);
 
         if (entry == null) {
-            return ResponseEntity.status(404).body(Map.of(
-                "success", false,
-                "error", "Project not registered: " + projectName
-            ));
+            return ResponseEntity.status(404).body(ErrorResponses.body("not_found", "Project not registered: " + projectName));
         }
 
         try {
@@ -298,10 +278,7 @@ public class CursorController {
             }
         } catch (Exception e) {
             log.error("Failed to write custom context for project {}: {}", projectName, e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", "Failed to write context: " + e.getMessage()
-            ));
+            return ResponseEntity.status(500).body(ErrorResponses.body("internal_error", "Failed to write context: " + e.getMessage()));
         }
     }
 

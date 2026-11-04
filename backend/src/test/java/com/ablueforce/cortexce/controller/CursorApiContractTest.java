@@ -159,8 +159,8 @@ class CursorApiContractTest {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
 
         Map<String, Object> body = asMap(response.getBody());
-        assertEquals(Boolean.FALSE, body.get("success"));
-        assertEquals("projectName is required", body.get("error"));
+        assertEquals("invalid_request", asMap(body.get("error")).get("code"));
+        assertEquals("projectName is required", asMap(body.get("error")).get("message"));
     }
 
     @Test
@@ -171,8 +171,8 @@ class CursorApiContractTest {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
 
         Map<String, Object> body = asMap(response.getBody());
-        assertEquals(Boolean.FALSE, body.get("success"));
-        assertEquals("workspacePath is required", body.get("error"));
+        assertEquals("invalid_request", asMap(body.get("error")).get("code"));
+        assertEquals("workspacePath is required", asMap(body.get("error")).get("message"));
     }
 
     // -------------------------------------------------- published example

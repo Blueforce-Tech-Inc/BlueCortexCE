@@ -83,11 +83,31 @@ public final class ApiResponses {
     // Error Response
     // =========================================================================
 
-    @Schema(description = "Standard error response")
+    @Schema(description = "Standard error response (single envelope for every failure)")
     public record ErrorResponse(
         @JsonProperty("error")
-        @Schema(description = "Error message", example = "Missing required field: session_id")
-        String error
+        @Schema(description = "Machine-readable error object")
+        ApiError error,
+        @JsonProperty("message")
+        @Schema(description = "Compatibility mirror of error.message; the Viewer UI reads this string field",
+            example = "Missing required field: session_id")
+        String message
+    ) {}
+
+    @Schema(description = "Machine-readable error payload")
+    public record ApiError(
+        @JsonProperty("code")
+        @Schema(description = "Stable error code",
+            example = "invalid_request",
+            allowableValues = {"invalid_request", "unauthorized", "forbidden", "not_found",
+                "conflict", "rate_limited", "internal_error"})
+        String code,
+        @JsonProperty("message")
+        @Schema(description = "Human-readable explanation")
+        String message,
+        @JsonProperty("details")
+        @Schema(description = "Optional structured context, e.g. retry_after or validation issues")
+        Object details
     ) {}
 
     // =========================================================================

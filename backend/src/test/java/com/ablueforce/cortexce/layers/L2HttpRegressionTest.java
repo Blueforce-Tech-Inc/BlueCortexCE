@@ -193,7 +193,7 @@ class L2HttpRegressionTest extends HttpLayerTestSupport {
                 json(java.util.Map.of("tool_name", "Read")));
         assertEquals(HttpStatus.BAD_REQUEST, missingSession.getStatusCode());
         assertEquals("Missing required field: session_id",
-                json(missingSession).path("error").asText());
+                json(missingSession).path("error").path("message").asText());
 
         ResponseEntity<String> missingTool = post("/api/ingest/tool-use",
                 json(java.util.Map.of("session_id", sessionId)));

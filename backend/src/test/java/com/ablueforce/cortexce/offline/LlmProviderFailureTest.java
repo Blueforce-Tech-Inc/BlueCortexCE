@@ -437,33 +437,36 @@ class LlmProviderFailureTest {
             sessionManagementService);
 
         embeddingModel.failWith(new IllegalStateException("401 Unauthorized: invalid_api_key"));
-        ResponseEntity<ApiResponses.SearchResponse> degraded = controller.search(
+        ResponseEntity<?> degraded = controller.search(
             fixture.projectPath(), "qzxvbnmpplkjh", null, null, null, 20, 0, null);
+        ApiResponses.SearchResponse degradedBody = (ApiResponses.SearchResponse) degraded.getBody();
 
         assertThat(degraded.getStatusCode().value()).isEqualTo(200);
-        assertThat(degraded.getBody()).isNotNull();
-        assertThat(degraded.getBody().strategy()).isEqualTo("tsvector");
+        assertThat(degradedBody).isNotNull();
+        assertThat(degradedBody.strategy()).isEqualTo("tsvector");
         // A token that exists nowhere: the text half cannot find it, so an empty
         // result proves the request degraded instead of pretending to succeed.
-        assertThat(degraded.getBody().observations()).isEmpty();
+        assertThat(degradedBody.observations()).isEmpty();
 
         embeddingModel.succeed();
-        ResponseEntity<ApiResponses.SearchResponse> recovered = controller.search(
+        ResponseEntity<?> recovered = controller.search(
             fixture.projectPath(), "qzxvbnmpplkjh", null, null, null, 20, 0, null);
+        ApiResponses.SearchResponse recoveredBody = (ApiResponses.SearchResponse) recovered.getBody();
 
         assertThat(recovered.getStatusCode().value()).isEqualTo(200);
-        assertThat(recovered.getBody()).isNotNull();
-        assertThat(recovered.getBody().strategy()).isEqualTo("hybrid");
-        assertThat(recovered.getBody().fellBack()).isFalse();
+        assertThat(recoveredBody).isNotNull();
+        assertThat(recoveredBody.strategy()).isEqualTo("hybrid");
+        assertThat(recoveredBody.fellBack()).isFalse();
         // The similarity floor still applies on the hybrid path: a token that exists nowhere
         // must not resurrect the only row in the project just because it is the only candidate.
-        assertThat(recovered.getBody().observations()).isEmpty();
+        assertThat(recoveredBody.observations()).isEmpty();
 
         // A related query still returns the row through the text half of the hybrid search.
-        ResponseEntity<ApiResponses.SearchResponse> related = controller.search(
+        ResponseEntity<?> related = controller.search(
             fixture.projectPath(), "offline deterministic observation", null, null, null, 20, 0, null);
-        assertThat(related.getBody()).isNotNull();
-        assertThat(related.getBody().observations()).extracting(ObservationEntity::getTitle)
+        ApiResponses.SearchResponse relatedBody = (ApiResponses.SearchResponse) related.getBody();
+        assertThat(relatedBody).isNotNull();
+        assertThat(relatedBody.observations()).extracting(ObservationEntity::getTitle)
             .contains(OfflineAiTestModels.OBSERVATION_TITLE);
     }
 

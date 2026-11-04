@@ -314,19 +314,25 @@ def compare(reference_en, reference_zh, served):
 # --------------------------------------------------------------------------
 # response contracts
 #
-# The endpoint list is not the whole contract. Two things below it drifted
+# The endpoint list is not the whole contract. Three things below it drifted
 # silently before and are checked here:
 #
 #   * every error response is a JSON object carrying a message field -- not an
-#     HTML error page, not an empty body. The three shapes the server currently
-#     produces are printed, so a new shape is visible even though this script
-#     does not unify them (unifying would change the published contract).
+#     HTML error page, not an empty body -- and, since round 18, exactly the
+#     unified envelope {error: {code, message[, details]}, message}. The three
+#     shapes the server used to produce are now one; a handler that regresses
+#     to a bare string or to Spring's default body fails here.
+#   * every documented error example uses that same envelope, in both
+#     languages. A reference that still advertises the old shape fails too.
 #   * the response fields the WebUI reads directly (items/hasMore on the
 #     observation list, status/checks on health) exist and have the right type.
 #     These are pinned by tests as well; the check here catches a server that
 #     starts but no longer honours them.
 # --------------------------------------------------------------------------
-MESSAGE_KEYS = ("error", "message", "detail")
+ERROR_CODES = {
+    "invalid_request", "unauthorized", "forbidden", "not_found",
+    "conflict", "rate_limited", "internal_error",
+}
 
 
 def _parse_json(raw):
@@ -334,6 +340,59 @@ def _parse_json(raw):
         return json.loads(raw)
     except (TypeError, ValueError):
         return None
+
+
+def _error_envelope_problems(payload):
+    """Problems with a failure body that claims the unified envelope."""
+    problems = []
+    error = payload.get("error")
+    if not isinstance(error, dict):
+        problems.append(
+            "error must be an object with code/message, got %s"
+            % ("absent" if error is None else type(error).__name__))
+        return problems
+    code = error.get("code")
+    if not isinstance(code, str) or not code:
+        problems.append("error.code must be a non-empty string")
+    elif code not in ERROR_CODES:
+        problems.append("error.code %r is not one of %s"
+                        % (code, ", ".join(sorted(ERROR_CODES))))
+    message = error.get("message")
+    if not isinstance(message, str) or not message:
+        problems.append("error.message must be a non-empty string")
+    if not isinstance(payload.get("message"), str):
+        problems.append(
+            "top-level 'message' must mirror error.message as a string (Viewer UI contract)")
+    return problems
+
+
+def validate_documented_errors(markdown):
+    """Every error example in a reference must use the unified envelope."""
+    problems = []
+    for block in re.findall(r"```json\s*(.*?)```", markdown, re.S):
+        payload = _parse_json(block.strip())
+        if isinstance(payload, dict) and "error" in payload:
+            for problem in _error_envelope_problems(payload):
+                problems.append("documented example: %s" % problem)
+    in_fence = False
+    for number, line in enumerate(markdown.splitlines(), 1):
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        # Inside a json block the block parser above owns the checks; multi-line
+        # objects would otherwise trip the single-line rule below.
+        if in_fence or not re.search(r'"error"\s*:', line):
+            continue
+        # Changelog rows are historical records and are not rewritten.
+        if line.lstrip().startswith("| 20"):
+            continue
+        if not re.search(r'"error"\s*:\s*\{', line):
+            problems.append(
+                "line %d: documented error is not the unified envelope (bare string)" % number)
+        elif not re.search(r'"code"\s*:', line) or not re.search(r'"message"\s*:', line):
+            problems.append(
+                "line %d: documented error object lacks code or message" % number)
+    return problems
 
 
 def validate_probe(name, status, expected, raw):
@@ -348,11 +407,8 @@ def validate_probe(name, status, expected, raw):
         return ["%s: response is not a JSON object" % name]
 
     if expected >= 400:
-        if not any(key in payload for key in MESSAGE_KEYS):
-            problems.append(
-                "%s: error body carries none of %s (keys: %s)"
-                % (name, "/".join(MESSAGE_KEYS), ", ".join(sorted(payload)))
-            )
+        problems.extend("%s: %s" % (name, problem)
+                        for problem in _error_envelope_problems(payload))
     elif name == "GET /api/health":
         # The liveness payload is {service,status,timestamp}; readiness carries checks.
         if not isinstance(payload.get("status"), str):
@@ -530,11 +586,49 @@ def self_test():
             "an error body with a message field",
             "unknown route", 404, 404,
             b'{"error":"Not Found","path":"/x"}',
+            True,
+        ),
+        (
+            "the unified error envelope",
+            "unknown route", 404, 404,
+            b'{"error":{"code":"not_found","message":"Resource not found"},'
+            b'"message":"Resource not found"}',
             False,
+        ),
+        (
+            "an error envelope missing the top-level message mirror",
+            "unknown route", 404, 404,
+            b'{"error":{"code":"not_found","message":"Resource not found"}}',
+            True,
+        ),
+        (
+            "an unknown error code",
+            "unknown route", 404, 404,
+            b'{"error":{"code":"oops","message":"Resource not found"},'
+            b'"message":"Resource not found"}',
+            True,
         ),
     ]
     for name, probe, status, expected, raw, expect_problem in probe_cases:
         problems = validate_probe(probe, status, expected, raw)
+        if bool(problems) != expect_problem:
+            failures.append(
+                "%s: expected %s, the checker reported %s"
+                % (name, "a problem" if expect_problem else "no problem", problems)
+            )
+
+    # The references' own error examples must use the unified envelope.
+    doc_cases = [
+        ("a documented bare error string",
+         '```json\n{"error": "Bad Request"}\n```\n',
+         True),
+        ("a documented unified envelope",
+         '```json\n{"error": {"code": "invalid_request", "message": "Bad Request"},'
+         ' "message": "Bad Request"}\n```\n',
+         False),
+    ]
+    for name, sample_doc, expect_problem in doc_cases:
+        problems = validate_documented_errors(sample_doc)
         if bool(problems) != expect_problem:
             failures.append(
                 "%s: expected %s, the checker reported %s"
@@ -546,7 +640,7 @@ def self_test():
         for failure in failures:
             print("  - %s" % failure)
         return 1
-    print("SELF-TEST PASSED (%d cases)" % (len(cases) + 2 + len(probe_cases)))
+    print("SELF-TEST PASSED (%d cases)" % (len(cases) + 2 + len(probe_cases) + len(doc_cases)))
     return 0
 
 
@@ -607,6 +701,10 @@ def main(argv):
 
     response_problems, shapes = contract_probes(base)
     problems += response_problems
+
+    for name, text in documents.items():
+        for problem in validate_documented_errors(text):
+            problems.append("%s: %s" % (name, problem))
 
     print("server            : %s" % base)
     print("served operations : %d (%d REST + %d transport)"

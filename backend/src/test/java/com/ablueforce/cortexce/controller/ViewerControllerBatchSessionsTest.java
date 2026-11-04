@@ -46,9 +46,9 @@ class ViewerControllerBatchSessionsTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static List<Map<String, Object>> body(ResponseEntity<List<Map<String, Object>>> response) {
+    private static List<Map<String, Object>> body(ResponseEntity<?> response) {
         assertThat(response.getStatusCode().value()).isEqualTo(200);
-        return response.getBody();
+        return (List<Map<String, Object>>) response.getBody();
     }
 
     private static List<String> contentIds(List<Map<String, Object>> rows) {

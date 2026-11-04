@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.controller;
 
+import com.ablueforce.cortexce.common.ErrorResponses;
 import com.ablueforce.cortexce.dto.ApiResponses.*;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.entity.SummaryEntity;
@@ -82,7 +83,7 @@ public class ContextController {
         description = "Generates context from observations for one or more projects. Returns plain text context for stdout injection and updateFiles array if CLAUDE.md needs updating.")
     @ApiResponse(responseCode = "200", description = "Context generated successfully",
         content = @Content(schema = @Schema(implementation = ContextInjectResponse.class)))
-    public ResponseEntity<ContextInjectResponse> injectContext(
+    public ResponseEntity<Object> injectContext(
             @Parameter(description = "Comma-separated project paths for context injection (e.g., '/path/to/project1,/path/to/project2'). Empty string uses current working directory.", required = false, example = "/Users/dev/my-project")
             @RequestParam(required = false, defaultValue = "") String projects) {
 
@@ -155,7 +156,8 @@ public class ContextController {
             return ResponseEntity.ok(new ContextInjectResponse(finalContext, updateFiles));
         } catch (Exception e) {
             log.error("Failed to inject context: {}", e.getClass().getSimpleName());
-            return ResponseEntity.status(500).body(null);
+            return ResponseEntity.status(500).body(ErrorResponses.body(
+                "internal_error", "Failed to inject context"));
         }
     }
 
@@ -282,7 +284,7 @@ public class ContextController {
         content = @Content(schema = @Schema(implementation = GenerateContextResponse.class)))
     @RequestBody(description = "Context generation payload", required = true,
         content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.ContextGenerateRequest.class)))
-    public ResponseEntity<GenerateContextResponse> generateContext(
+    public ResponseEntity<Object> generateContext(
             @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ContextGenerateRequest body) {
         String projectPath = body.projectPath();
         if (projectPath == null || projectPath.isEmpty()) {
@@ -295,7 +297,8 @@ public class ContextController {
         } catch (Exception e) {
             log.error("Failed to generate context for project {}: {}",
                 projectPath, e.getClass().getSimpleName());
-            return ResponseEntity.status(500).body(null);
+            return ResponseEntity.status(500).body(ErrorResponses.body(
+                "internal_error", "Failed to generate context"));
         }
     }
 

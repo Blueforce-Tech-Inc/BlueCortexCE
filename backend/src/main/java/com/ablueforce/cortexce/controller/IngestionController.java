@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.controller;
 
+import com.ablueforce.cortexce.common.ErrorResponses;
 import com.ablueforce.cortexce.config.Constants;
 import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.identity.ExternalSessionRef;
@@ -114,7 +115,7 @@ public class IngestionController {
         description = "Tool use event request",
         required = true,
         content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.ToolUseRequest.class)))
-    public ResponseEntity<Map<String, String>> handleToolUse(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ToolUseRequest body) {
+    public ResponseEntity<Object> handleToolUse(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ToolUseRequest body) {
         String contentSessionId = body.sessionId();
         String toolName = body.toolName();
         
@@ -127,10 +128,10 @@ public class IngestionController {
 
         // P2: Validate required fields
         if (contentSessionId == null || contentSessionId.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Missing required field: session_id"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Missing required field: session_id"));
         }
         if (toolName == null || toolName.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Missing required field: tool_name"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Missing required field: tool_name"));
         }
 
         log.debug("Tool use: session={}, tool={}", contentSessionId, toolName);
@@ -141,13 +142,13 @@ public class IngestionController {
         try {
             ref = ExternalSessionRef.of(body.platformSource(), contentSessionId);
         } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", e.getMessage()));
         }
         String rateLimitKey = "tool-use:" + ref.logKey();
         if (!rateLimitService.tryAcquire(rateLimitKey)) {
             log.warn("Rate limit exceeded for session: {}", ref.logKey());
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(Map.of("error", "Rate limit exceeded", "retry_after", String.valueOf(rateLimitService.getResetSeconds(rateLimitKey))));
+                .body(ErrorResponses.body("rate_limited", "Rate limit exceeded", Map.of("retry_after", String.valueOf(rateLimitService.getResetSeconds(rateLimitKey)))));
         }
 
         SessionEntity session = sessionManagementService.getOrCreate(ref, cwd, null);
@@ -193,20 +194,20 @@ public class IngestionController {
         description = "Session end event request",
         required = true,
         content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.SessionEndRequest.class)))
-    public ResponseEntity<Map<String, String>> handleSessionEnd(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.SessionEndRequest body) {
+    public ResponseEntity<Object> handleSessionEnd(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.SessionEndRequest body) {
         String contentSessionId = body.sessionId();
         String lastAssistantMessage = body.lastAssistantMessage();
 
         // Validate session_id (consistent with handleUserPrompt)
         if (contentSessionId == null || contentSessionId.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Missing required field: session_id"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Missing required field: session_id"));
         }
 
         ExternalSessionRef ref;
         try {
             ref = ExternalSessionRef.of(body.platformSource(), contentSessionId);
         } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", e.getMessage()));
         }
 
         // SessionEnd is a terminal, resolve-only event: it must never create a conversation.
@@ -216,7 +217,7 @@ public class IngestionController {
         if (resolved.isEmpty()) {
             log.debug("Session end for unknown conversation: {}", ref.logKey());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", "Session not found"));
+                .body(ErrorResponses.body("not_found", "Session not found"));
         }
         UUID conversationId = resolved.get().getId();
         log.debug("Session end: conversation={} ({})", conversationId, ref.logKey());
@@ -228,7 +229,7 @@ public class IngestionController {
             job = summaryJobService.enqueueSessionSummaryJob(conversationId, lastAssistantMessage);
         } catch (SummaryJobService.IllegalJobStateException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(Map.of("error", e.getMessage()));
+                .body(ErrorResponses.body("conflict", e.getMessage()));
         }
         pendingMessageEventPublisher.publishPendingMessageEvent(
             job.getId(), SummaryJobService.TYPE_SUMMARIZE);
@@ -263,7 +264,7 @@ public class IngestionController {
         description = "User prompt event request",
         required = true,
         content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.UserPromptRequest.class)))
-    public ResponseEntity<Map<String, String>> handleUserPrompt(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.UserPromptRequest body) {
+    public ResponseEntity<Object> handleUserPrompt(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.UserPromptRequest body) {
         String contentSessionId = body.sessionId();
         String promptText = body.promptText();
         String cwd = body.cwd();
@@ -271,7 +272,7 @@ public class IngestionController {
 
         // P1: Validate session_id is provided
         if (contentSessionId == null || contentSessionId.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Missing required field: session_id"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Missing required field: session_id"));
         }
 
         // P1: Sanitize promptText to prevent injection
@@ -294,7 +295,7 @@ public class IngestionController {
         try {
             ref = ExternalSessionRef.of(body.platformSource(), contentSessionId);
         } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", e.getMessage()));
         }
         SessionEntity session = sessionManagementService.getOrCreate(ref, cwd, promptText);
 
@@ -348,11 +349,10 @@ public class IngestionController {
         String projectPath = body.projectPath() != null ? body.projectPath() : body.cwd();
 
         if (contentSessionId == null || contentSessionId.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "error", "Missing required field: content_session_id (or session_id)"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Missing required field: content_session_id (or session_id)"));
         }
         if (projectPath == null || projectPath.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Missing required field: project_path"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Missing required field: project_path"));
         }
 
         // Create ParsedObservation with public fields (not setters)
@@ -381,7 +381,7 @@ public class IngestionController {
         try {
             ref = ExternalSessionRef.of(body.platformSource(), contentSessionId);
         } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", e.getMessage()));
         }
         SessionEntity session = sessionManagementService.getOrCreate(ref, projectPath, parsed.title);
 

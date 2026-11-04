@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.controller;
 
+import com.ablueforce.cortexce.common.ErrorResponses;
 import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.identity.ExternalSessionRef;
 import com.ablueforce.cortexce.identity.PlatformSource;
@@ -134,13 +135,13 @@ public class SessionController {
 
         // P1: Validate required fields
         if (contentSessionId == null || contentSessionId.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Missing required field: session_id"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Missing required field: session_id"));
         }
         if (projectPath == null || projectPath.isBlank()) {
             projectPath = projectPathFromCwd; // fallback to cwd for API compatibility
         }
         if (projectPath == null || projectPath.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Missing required field: project_path (or cwd)"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Missing required field: project_path (or cwd)"));
         }
 
         // Log worktree info if present
@@ -158,7 +159,7 @@ public class SessionController {
         try {
             ref = ExternalSessionRef.of(platformSource, contentSessionId);
         } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", e.getMessage()));
         }
 
         SessionEntity session;
@@ -167,7 +168,7 @@ public class SessionController {
         } catch (Exception e) {
             log.error("Failed to initialize conversation (exception_type={})", e.getClass().getSimpleName());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Failed to initialize session"));
+                .body(ErrorResponses.body("internal_error", "Failed to initialize session"));
         }
         
         // Phase 3: Set userId on session (null is OK — means single-user mode)
@@ -260,7 +261,7 @@ public class SessionController {
 
             if (session.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Session not found", "session_id", sessionId));
+                    .body(ErrorResponses.body("not_found", "Session not found", Map.of("session_id", sessionId)));
             }
 
             SessionEntity s = session.get();
@@ -274,7 +275,7 @@ public class SessionController {
         } catch (Exception e) {
             log.error("Failed to get conversation (exception_type={})", e.getClass().getSimpleName());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Failed to get session"));
+                .body(ErrorResponses.body("internal_error", "Failed to get session"));
         }
     }
 
@@ -288,11 +289,11 @@ public class SessionController {
                 ExternalSessionRef.of(platformSource, contentSessionId));
             if (session.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Session not found"));
+                    .body(ErrorResponses.body("not_found", "Session not found"));
             }
             return ResponseEntity.ok(toGetSessionResponse(session.get()));
         } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", e.getMessage()));
         }
     }
 
@@ -356,7 +357,7 @@ public class SessionController {
             .orElse(null);
         if (session == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", "Session not found: " + sessionId));
+                .body(ErrorResponses.body("not_found", "Session not found: " + sessionId));
         }
         
         String oldUserId = session.getUserId();
@@ -391,7 +392,7 @@ public class SessionController {
                 ExternalSessionRef.of(platformSource, contentSessionId));
             if (resolved.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Session not found"));
+                    .body(ErrorResponses.body("not_found", "Session not found"));
             }
             SessionEntity session = resolved.get();
             String oldUserId = session.getUserId();
@@ -408,7 +409,7 @@ public class SessionController {
             return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.UpdateSessionUserIdResponse(
                 "ok", session.getContentSessionId(), body.userId() != null ? body.userId() : ""));
         } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", e.getMessage()));
         }
     }
 

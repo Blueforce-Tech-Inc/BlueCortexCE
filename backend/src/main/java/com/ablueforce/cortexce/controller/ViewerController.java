@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.controller;
 
+import com.ablueforce.cortexce.common.ErrorResponses;
 import com.ablueforce.cortexce.config.Constants;
 import com.ablueforce.cortexce.config.AppSettings;
 import com.ablueforce.cortexce.config.ModeConfig.Mode;
@@ -368,7 +369,7 @@ public class ViewerController {
         @ApiResponse(responseCode = "500", description = "Search failed due to internal error",
             content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<com.ablueforce.cortexce.dto.ApiResponses.SearchResponse> search(
+    public ResponseEntity<Object> search(
         @Parameter(description = "Project path to search within (required)", required = true, example = "/Users/dev/my-project")
         @RequestParam String project,
         @Parameter(description = "Search query text for semantic search. If empty, returns all observations matching filters.", required = false, example = "how to fix authentication bug")
@@ -412,12 +413,8 @@ public class ViewerController {
             ));
         } catch (Exception e) {
             log.error("Search failed for project {}: {}", project, e.getClass().getSimpleName());
-            return ResponseEntity.status(500).body(new com.ablueforce.cortexce.dto.ApiResponses.SearchResponse(
-                List.of(),
-                null,
-                false,
-                0
-            ));
+            return ResponseEntity.status(500).body(ErrorResponses.body(
+                "internal_error", "Search failed"));
         }
     }
 
@@ -439,7 +436,7 @@ public class ViewerController {
         @ApiResponse(responseCode = "200", description = "Observations retrieved",
             content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse.class)))
     })
-    public ResponseEntity<com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse> batchGetObservations(
+    public ResponseEntity<Object> batchGetObservations(
         @io.swagger.v3.oas.annotations.parameters.RequestBody(
             description = "Batch observation retrieval request",
             required = true,
@@ -517,9 +514,8 @@ public class ViewerController {
             ));
         } catch (Exception e) {
             log.error("Batch get observations failed: {}", e.getMessage());
-            return ResponseEntity.status(500).body(new com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse(
-                List.of(), 0
-            ));
+            return ResponseEntity.status(500).body(ErrorResponses.body(
+                "internal_error", "Batch get observations failed"));
         }
     }
 
@@ -584,10 +580,7 @@ public class ViewerController {
             @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ModeSwitchRequest request) {
         String modeId = request.mode();
         if (modeId == null || modeId.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", "Mode ID is required"
-            ));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Mode ID is required"));
         }
 
         try {
@@ -600,10 +593,7 @@ public class ViewerController {
             ));
         } catch (Exception e) {
             log.warn("Failed to set mode '{}': {}", modeId, e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", "Failed to load mode: " + e.getMessage()
-            ));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Failed to load mode: " + e.getMessage()));
         }
     }
 
@@ -641,10 +631,7 @@ public class ViewerController {
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             log.error("Failed to save settings: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", e.getMessage()
-            ));
+            return ResponseEntity.status(500).body(ErrorResponses.body("internal_error", e.getMessage()));
         }
     }
 
@@ -699,7 +686,7 @@ public class ViewerController {
         long maxRangeMs = 365L * 24 * 60 * 60 * 1000;
         if (end - start > maxRangeMs) {
             log.warn("Timeline date range exceeds 1 year: {} days", (end - start) / (24 * 60 * 60 * 1000));
-            return ResponseEntity.badRequest().body(Map.of("error", "Date range exceeds 1 year maximum"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Date range exceeds 1 year maximum"));
         }
 
         try {
@@ -716,9 +703,7 @@ public class ViewerController {
             return ResponseEntity.ok(timeline);
         } catch (Exception e) {
             log.error("Timeline query failed for project {}: {}", project, e.getClass().getSimpleName());
-            return ResponseEntity.status(500).body(Map.of(
-                "error", "Timeline query failed"
-            ));
+            return ResponseEntity.status(500).body(ErrorResponses.body("internal_error", "Timeline query failed"));
         }
     }
 
@@ -741,7 +726,7 @@ public class ViewerController {
         @ApiResponse(responseCode = "500", description = "Search failed due to internal error",
             content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<com.ablueforce.cortexce.dto.ApiResponses.SearchByFileResponse> searchByFile(
+    public ResponseEntity<Object> searchByFile(
         @Parameter(description = "Project path to search within", required = true, example = "/Users/dev/my-project")
         @RequestParam String project,
         @Parameter(description = "File or folder path to search for (must be absolute path)", required = true, example = "/Users/dev/my-project/src/auth/login.ts")
@@ -787,9 +772,8 @@ public class ViewerController {
             ));
         } catch (Exception e) {
             log.error("Search by file failed for project={}, filePath={}: {}", project, filePath, e.getMessage());
-            return ResponseEntity.status(500).body(new com.ablueforce.cortexce.dto.ApiResponses.SearchByFileResponse(
-                List.of(), 0, filePath, isFolder
-            ));
+            return ResponseEntity.status(500).body(ErrorResponses.body(
+                "internal_error", "Search by file failed"));
         }
     }
 
@@ -807,7 +791,7 @@ public class ViewerController {
         content = @Content(array = @ArraySchema(
             arraySchema = @Schema(type = "array", example = "[{\"id\":\"550e8400-e29b-41d4-a716-446655440000\",\"content_session_id\":\"session-1\",\"project\":\"/path\",\"user_prompt\":\"hello\",\"started_at_epoch\":1709000000000,\"completed_at_epoch\":1709000060000,\"status\":\"completed\"}]"),
             schema = @Schema(type = "object"))))
-    public ResponseEntity<List<Map<String, Object>>> batchGetSessions(
+    public ResponseEntity<Object> batchGetSessions(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with 'contentSessionIds' field containing a list of Claude Code session ID strings", required = true)
             @org.springframework.web.bind.annotation.RequestBody Map<String, Object> request
     ) {
@@ -863,7 +847,8 @@ public class ViewerController {
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Batch get sessions failed: {}", e.getMessage());
-            return ResponseEntity.status(500).body(List.of());
+            return ResponseEntity.status(500).body(ErrorResponses.body(
+                "internal_error", "Batch get sessions failed"));
         }
     }
 

@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.controller;
 
+import com.ablueforce.cortexce.common.ErrorResponses;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.service.StructuredExtractionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -64,9 +65,7 @@ public class ExtractionController {
 
         // templateName from @PathVariable is never null (Spring returns 404 before this method)
         if (projectPath == null || projectPath.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "error", "projectPath is required"
-            ));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "projectPath is required"));
         }
 
         try {
@@ -90,9 +89,7 @@ public class ExtractionController {
         } catch (Exception e) {
             log.error("Failed to get latest extraction for template {}: {}",
                 templateName, e.getClass().getSimpleName());
-            return ResponseEntity.status(500).body(Map.of(
-                "error", "Failed to get extraction"
-            ));
+            return ResponseEntity.status(500).body(ErrorResponses.body("internal_error", "Failed to get extraction"));
         }
     }
 
@@ -123,7 +120,7 @@ public class ExtractionController {
 
         // templateName from @PathVariable is never null
         if (projectPath == null || projectPath.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "projectPath is required"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "projectPath is required"));
         }
         if (limit < 1) limit = 1;
         if (limit > 100) limit = 100;
@@ -143,9 +140,7 @@ public class ExtractionController {
         } catch (Exception e) {
             log.error("Failed to get extraction history for template {}: {}",
                 templateName, e.getClass().getSimpleName());
-            return ResponseEntity.status(500).body(Map.of(
-                "error", "Failed to get extraction history"
-            ));
+            return ResponseEntity.status(500).body(ErrorResponses.body("internal_error", "Failed to get extraction history"));
         }
     }
 
@@ -168,9 +163,7 @@ public class ExtractionController {
             @Parameter(description = "Absolute project path to run extraction for", required = true, example = "/Users/dev/my-project")
             @RequestParam String projectPath) {
         if (projectPath == null || projectPath.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "error", "projectPath is required"
-            ));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "projectPath is required"));
         }
 
         try {
@@ -182,9 +175,7 @@ public class ExtractionController {
         } catch (Exception e) {
             log.error("Failed to trigger extraction for project {}: {}",
                 projectPath, e.getClass().getSimpleName());
-            return ResponseEntity.status(500).body(Map.of(
-                "error", "Failed to trigger extraction"
-            ));
+            return ResponseEntity.status(500).body(ErrorResponses.body("internal_error", "Failed to trigger extraction"));
         }
     }
 }

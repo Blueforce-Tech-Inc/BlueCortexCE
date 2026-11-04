@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.controller;
 
+import com.ablueforce.cortexce.common.ErrorResponses;
 import com.ablueforce.cortexce.config.ModeConfig.Mode;
 import com.ablueforce.cortexce.config.ModeConfig.ObservationType;
 import com.ablueforce.cortexce.config.ModeConfig.ObservationConcept;
@@ -69,19 +70,20 @@ public class ModeController {
      */
     @PutMapping
     @Operation(summary = "Set active mode",
-        description = "Switches the active mode at runtime. Supports base modes (e.g., 'code') and inherited modes (e.g., 'code--zh'). An empty or missing mode_id is rejected with 400 and an empty body; an unknown mode_id is not rejected — the default mode stays active and the response echoes the requested id.")
+        description = "Switches the active mode at runtime. Supports base modes (e.g., 'code') and inherited modes (e.g., 'code--zh'). An empty, missing, or unknown mode_id is rejected with 400 and the unified error envelope.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Mode switched successfully",
             content = @Content(schema = @Schema(type = "object", example = "{\"mode_id\":\"code\",\"name\":\"Code\",\"description\":\"Tracks code evolution\",\"version\":\"1.0\",\"observation_types\":[],\"observation_concepts\":[]}"))),
-        @ApiResponse(responseCode = "400", description = "Empty or missing mode_id provided. The body is empty (0 bytes). An unknown (non-empty) mode_id is not rejected here — the default mode stays active and the response echoes the requested id.",
-            content = @Content(schema = @Schema(example = "")))
+        @ApiResponse(responseCode = "400", description = "Empty, missing, or unknown mode_id. Answers the unified error envelope with error.code = invalid_request.",
+            content = @Content(schema = @Schema(type = "object", example = "{\"error\":{\"code\":\"invalid_request\",\"message\":\"modeId is required\"},\"message\":\"modeId is required\"}")))
     })
-    public ResponseEntity<ModeResponse> setActiveMode(
+    public ResponseEntity<Object> setActiveMode(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Mode switch payload. Fields: mode_id (required, mode ID to activate, e.g. 'code' or 'code--zh')", required = true)
             @org.springframework.web.bind.annotation.RequestBody ActiveModeSwitchRequest request) {
         String modeId = request.modeId();
         if (modeId == null || modeId.isBlank()) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(ErrorResponses.body(
+                "invalid_request", "modeId is required"));
         }
         
         try {
@@ -97,9 +99,7 @@ public class ModeController {
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
-                .body(new ModeResponse(
-                    modeId, "error", "Invalid mode: " + modeId, null, null, null
-                ));
+                .body(ErrorResponses.body("invalid_request", "Invalid mode: " + modeId));
         }
     }
 

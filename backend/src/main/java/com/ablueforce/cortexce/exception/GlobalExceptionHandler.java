@@ -1,0 +1,115 @@
+package com.ablueforce.cortexce.exception;
+
+import com.ablueforce.cortexce.common.ErrorResponses;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Turns framework-level failures into the same error envelope handlers already return.
+ *
+ * <p>Spring used to answer type-conversion failures, missing parameters and unknown routes
+ * with its default body ({@code timestamp/status/error/path}), so a client saw a different
+ * JSON shape depending on which layer failed. This advice renders those failures as
+ * {@link ErrorResponses} with the HTTP status preserved.
+ *
+ * <p>Messages stay generic where the underlying exception could leak internals: an uncaught
+ * exception answers {@code 500 internal_error} with a fixed message. Handlers that already
+ * catch their failures and return a specific message keep doing so.
+ */
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    /**
+     * Framework failures that already carry an HTTP status: {@link ResponseStatusException},
+     * unsupported media type, and not-acceptable. The status is preserved; only the body is
+     * rewritten into the envelope.
+     */
+    @ExceptionHandler({ResponseStatusException.class,
+        org.springframework.web.HttpMediaTypeNotSupportedException.class,
+        org.springframework.web.HttpMediaTypeNotAcceptableException.class})
+    public ResponseEntity<Object> handleFramework(Exception exception) {
+        int status = 500;
+        if (exception instanceof ResponseStatusException statusException) {
+            status = statusException.getStatusCode().value();
+        } else if (exception instanceof org.springframework.web.ErrorResponse errorResponse) {
+            status = errorResponse.getStatusCode().value();
+        }
+        String message = statusPhrase(status);
+        if (exception instanceof ResponseStatusException statusException
+            && statusException.getReason() != null && !statusException.getReason().isBlank()) {
+            message = statusException.getReason();
+        }
+        return ResponseEntity.status(status)
+            .body(ErrorResponses.body(ErrorResponses.codeForStatus(status), message));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Object> handleValidation(MethodArgumentNotValidException exception) {
+        List<Map<String, String>> issues = new ArrayList<>();
+        for (FieldError error : exception.getBindingResult().getFieldErrors()) {
+            issues.add(Map.of("field", error.getField(),
+                "message", error.getDefaultMessage() == null ? "invalid" : error.getDefaultMessage()));
+        }
+        return ResponseEntity.badRequest().body(ErrorResponses.body(
+            ErrorResponses.INVALID_REQUEST, "Request validation failed", Map.of("issues", issues)));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<Object> handleMissingParameter(MissingServletRequestParameterException exception) {
+        return ResponseEntity.badRequest().body(ErrorResponses.body(
+            ErrorResponses.INVALID_REQUEST,
+            "Missing required parameter: " + exception.getParameterName()));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Object> handleTypeMismatch(MethodArgumentTypeMismatchException exception) {
+        return ResponseEntity.badRequest().body(ErrorResponses.body(
+            ErrorResponses.INVALID_REQUEST,
+            "Invalid value for parameter: " + exception.getName()));
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<Object> handleUnreadableBody(Exception exception) {
+        return ResponseEntity.badRequest().body(ErrorResponses.body(
+            ErrorResponses.INVALID_REQUEST, "Malformed or unreadable request body"));
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Object> handleMethodNotSupported(Exception exception) {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+            .body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "Method not allowed"));
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<Object> handleNoResource(Exception exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(ErrorResponses.body(ErrorResponses.NOT_FOUND, "Resource not found"));
+    }
+
+    private static String statusPhrase(int status) {
+        HttpStatus resolved = HttpStatus.resolve(status);
+        return resolved == null ? "Error" : resolved.getReasonPhrase();
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Object> handleUnexpected(Exception exception) {
+        log.error("Unhandled exception", exception);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(ErrorResponses.body(ErrorResponses.INTERNAL_ERROR, "Internal server error"));
+    }
+}

@@ -55,7 +55,8 @@ class SessionControllerFailureDisclosureTest {
             "session-1", "/work", null, null, null, null, null, "claude"));
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        assertEquals(Map.of("error", "Failed to initialize session"), response.getBody());
+        assertEquals(com.ablueforce.cortexce.common.ErrorResponses.body(
+            "internal_error", "Failed to initialize session"), response.getBody());
         assertFalse(logs.list.stream().anyMatch(event -> event.getFormattedMessage().contains(CANARY)));
     }
 
@@ -67,7 +68,8 @@ class SessionControllerFailureDisclosureTest {
         ResponseEntity<Object> response = controller.getSession("session-1");
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        assertEquals(Map.of("error", "Failed to get session"), response.getBody());
+        assertEquals(com.ablueforce.cortexce.common.ErrorResponses.body(
+            "internal_error", "Failed to get session"), response.getBody());
         assertFalse(logs.list.stream().anyMatch(event -> event.getFormattedMessage().contains(CANARY)));
     }
 }

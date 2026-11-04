@@ -74,9 +74,23 @@ Content-Type: application/json
 
 ## Authentication
 
-**No authentication is required** for the current version. All endpoints are open on `localhost:37777`.
+Authentication is **optional and off by default**. With no `cortexce.security.api-token`
+configured, every endpoint is open on `127.0.0.1:37777` — the local-first default.
 
-> ⚠️ **Production Warning**: If exposing to the public internet, add an authentication layer (e.g., API Key, JWT).
+Set `cortexce.security.api-token` (or the `CORTEXCE_API_TOKEN` environment variable) before
+exposing the service to any other host. Then:
+
+- every mutating request under `/api/**` (POST/PUT/PATCH/DELETE) requires
+  `Authorization: Bearer <token>`;
+- `GET /api/logs/**` requires the same header;
+- ordinary reads, `/api/health`, and `/stream` stay open, because the Viewer UI's
+  `EventSource` cannot attach headers.
+
+A missing or wrong token answers `401` with `WWW-Authenticate: Bearer` and
+`{"error": {"code": "unauthorized", ...}, "message": "..."}`. Comparison is constant-time.
+`403` is reserved for a future "authenticated but not allowed" check and is not emitted today.
+
+> ⚠️ **Before exposing the service beyond localhost, you must configure the token.**
 
 ## Response Formats
 
@@ -100,45 +114,36 @@ Content-Type: application/json
 
 ### Error Response
 
-**There are two error body shapes, and which one you get depends on who
-produced the error.** There is no global `@ControllerAdvice` in this backend, so
-framework-level failures are rendered by Spring's default error handling while
-handler-thrown failures are whatever the handler put in the map.
-
-**Framework errors** — type-conversion failures on a query parameter, an
-unknown path, a method the path does not accept, a path variable that will not
-convert:
+Every failure uses **one envelope**. `error.code` is a stable machine-readable token,
+`error.message` explains the failure, `error.details` carries optional structured context,
+and the top-level `message` mirrors the message for clients that read a plain string.
 
 ```json
 {
-  "timestamp": "2026-10-03T07:33:19.797+00:00",
-  "status": 400,
-  "error": "Bad Request",
-  "path": "/api/observations"
+  "error": {
+    "code": "invalid_request",
+    "message": "Missing required field: content_session_id (or session_id)"
+  },
+  "message": "Missing required field: content_session_id (or session_id)"
 }
 ```
 
-Note `status` is the **numeric** HTTP status, not a string, and `error` is
-Spring's short reason phrase (`Bad Request`, `Not Found`, `Method Not
-Allowed`) rather than a description of what was wrong with your input.
+The HTTP status keeps its usual meaning:
 
-**Handler errors** — a missing required field, an empty `projectPath`, and
-similar validation the endpoint performs itself:
+| `error.code` | HTTP status | Meaning |
+|---|---|---|
+| `invalid_request` | 400 | Malformed or missing input |
+| `unauthorized` | 401 | Missing or invalid bearer token |
+| `forbidden` | 403 | Authenticated but not allowed (reserved, not emitted today) |
+| `not_found` | 404 | Unknown route, session, or resource |
+| `conflict` | 409 | Conflicting state |
+| `rate_limited` | 429 | Rate limited; `details.retry_after` in seconds |
+| `internal_error` | 500 | Unexpected server failure |
 
-```json
-{
-  "error": "Missing required field: content_session_id (or session_id)"
-}
-```
-
-Only `error` is present, and it carries the actionable message. This is the
-shape most of the per-endpoint error examples in this reference use.
-
-**There is no `code` field.** An earlier revision of this section showed
-`{"error": ..., "status": "failed", "code": "ERROR_CODE"}`; that shape is not
-produced by any endpoint. If you are writing a client, read `error` — it is
-the one key both shapes carry — and treat `status` as present-or-absent
-depending on which layer failed.
+Framework failures (unconvertible query parameters, unknown routes, unsupported methods)
+and handler-thrown failures both use this shape. An earlier revision of this section
+documented two incompatible bodies — Spring's default
+`{timestamp, status, error, path}` and a bare error string. Both are gone.
 
 ### Query Parameter Conventions
 
@@ -281,9 +286,9 @@ Content-Type: application/json
 ```
 
 **Error Responses**:
-- `400` — `{"error": "Missing required field: session_id"}` (missing or blank `session_id`)
-- `400` — `{"error": "Missing required field: project_path (or cwd)"}` (both `project_path` and `cwd` absent/blank)
-- `500` — `{"error": "Failed to initialize session"}` (internal error)
+- `400` — `{"error": {"code": "invalid_request", "message": "Missing required field: session_id"}, "message": "Missing required field: session_id"}` (missing or blank `session_id`)
+- `400` — `{"error": {"code": "invalid_request", "message": "Missing required field: project_path (or cwd)"}, "message": "Missing required field: project_path (or cwd)"}` (both `project_path` and `cwd` absent/blank)
+- `500` — `{"error": {"code": "internal_error", "message": "Failed to initialize session"}, "message": "Failed to initialize session"}` (internal error)
 
 ### Get Session
 
@@ -315,8 +320,8 @@ curl http://localhost:37777/api/session/abc-123-def
 **Error Response** (`404 Not Found`):
 ```json
 {
-  "error": "Session not found",
-  "session_id": "abc-123-def"
+  "error": {"code": "not_found", "message": "Session not found"}, "message": "Session not found",
+  "details": {"session_id": "abc-123-def"}
 }
 ```
 
@@ -630,7 +635,7 @@ Triggers memory refinement for a project. Refinement re-evaluates observation qu
 **Error Response** (`400 Bad Request`):
 ```json
 {
-  "error": "project is required"
+  "error": {"code": "invalid_request", "message": "project is required"}, "message": "project is required"
 }
 ```
 
@@ -729,7 +734,7 @@ Content-Type: application/json
 ```
 
 **Error Responses**:
-- `400` — `{"error": "task is required"}` (missing or blank `task` field)
+- `400` — `{"error": {"code": "invalid_request", "message": "task is required"}, "message": "task is required"}` (missing or blank `task` field)
 
 **How `userId` scoping actually behaves.** `userId` is a *session* attribute;
 `mem_observations` has no user column, so the filter resolves the id to that
@@ -801,7 +806,7 @@ Content-Type: application/json
 ```
 
 **Error Responses**:
-- `400` — `{"error": "task is required"}` (missing or blank `task` field)
+- `400` — `{"error": {"code": "invalid_request", "message": "task is required"}, "message": "task is required"}` (missing or blank `task` field)
 
 ### Get Quality Distribution
 
@@ -829,16 +834,18 @@ Returns the quality distribution (high/medium/low/unknown counts) for observatio
 ```
 
 **Error Responses**:
-- `400` — `{"error": "project is required"}` (missing or blank `project` param)
+- `400` — `{"error": {"code": "invalid_request", "message": "project is required"}, "message": "project is required"}` (missing or blank `project` param)
 - `500`:
 ```json
 {
-  "project": "/Users/dev/my-project",
-  "error": "Failed to get quality distribution: ...",
-  "high": 0,
-  "medium": 0,
-  "low": 0,
-  "unknown": 0
+  "error": {"code": "internal_error", "message": "Failed to get quality distribution: ..."}, "message": "Failed to get quality distribution: ...",
+  "details": {
+    "project": "/Users/dev/my-project",
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "unknown": 0
+  }
 }
 ```
 
@@ -909,7 +916,7 @@ Manually triggers structured data extraction. Runs **synchronously** — the res
 **Error Response** (`500 Internal Server Error`):
 ```json
 {
-  "error": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: user_preference"
+  "error": {"code": "internal_error", "message": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: user_preference"}, "message": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: user_preference"
 }
 ```
 
@@ -1417,7 +1424,7 @@ Persists settings to the settings file. Supports any `CLAUDE_MEM_*` prefixed fie
 ```json
 {
   "success": false,
-  "error": "Failed to save settings: ..."
+  "error": {"code": "internal_error", "message": "Failed to save settings: ..."}, "message": "Failed to save settings: ..."
 }
 ```
 
@@ -1938,7 +1945,7 @@ Returns observations grouped by date for the viewer UI timeline. Supports date r
 **Error Response** (`400 Bad Request`):
 ```json
 {
-  "error": "Date range exceeds 1 year maximum"
+  "error": {"code": "invalid_request", "message": "Date range exceeds 1 year maximum"}, "message": "Date range exceeds 1 year maximum"
 }
 ```
 
@@ -2288,7 +2295,7 @@ Clears today's log file. If today's log file doesn't exist, returns a distinct m
 ```
 
 **Error Responses**:
-- `500` — `{"error": "Failed to clear log file"}` (IO error)
+- `500` — `{"error": {"code": "internal_error", "message": "Failed to clear log file"}, "message": "Failed to clear log file"}` (IO error)
 
 ## Health & Version
 
@@ -2531,6 +2538,13 @@ eventSource.onmessage = (event) => {
 
 **Timeout**: 30 minutes (configurable via `claudemem.sse.timeout-ms`)
 
+**Event contract**: the five event names (`initial_load`, `processing_status`,
+`new_prompt`, `new_observation`, `new_summary`) and the payload fields shown
+above plus `prompt` / `observation` / `summary` objects (each carrying `id`, and
+`prompt_text` for prompts, `title` for observations) are pinned by
+`L2SseContractTest`. Renaming an event or dropping a field fails that test
+before it can silently break the Viewer.
+
 **Connection limit**: a single backend instance accepts at most **100 concurrent**
 `/stream` connections (`Constants.MAX_SSE_CONNECTIONS`). Beyond that, new
 connections are rejected — and as currently implemented they are rejected with
@@ -2689,7 +2703,7 @@ Errors arrive in exactly **two shapes**:
 **1. Application errors** — a single free-text message, no `code` field:
 
 ```json
-{ "error": "observationId is required" }
+{ "error": {"code": "invalid_request", "message": "observationId is required"}, "message": "observationId is required" }
 ```
 
 The message is hand-written per endpoint and is **not** a stable contract; match on
@@ -2702,7 +2716,7 @@ the HTTP status, not on the wording.
 {
   "timestamp": "2026-10-06T08:28:06.016+00:00",
   "status": 400,
-  "error": "Bad Request",
+  "error": {"code": "invalid_request", "message": "Bad Request"}, "message": "Bad Request",
   "path": "/api/memory/observations/not-a-uuid"
 }
 ```

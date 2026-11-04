@@ -252,11 +252,12 @@ class OfflineAiChainIntegrationTest {
             mock(TimelineService.class),
             sessionManagementService);
 
-        ResponseEntity<ApiResponses.SearchResponse> response = controller.search(
+        ResponseEntity<?> response = controller.search(
             fixture.projectPath(), NEVER_PRESENT_TOKEN, null, null, null, 20, 0, null);
+        ApiResponses.SearchResponse responseBody = (ApiResponses.SearchResponse) response.getBody();
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
-        ApiResponses.SearchResponse body = response.getBody();
+        ApiResponses.SearchResponse body = responseBody;
         assertThat(body).isNotNull();
         assertThat(body.strategy()).isEqualTo("hybrid");
         assertThat(body.fellBack()).isFalse();
@@ -265,10 +266,11 @@ class OfflineAiChainIntegrationTest {
         assertThat(body.observations()).isEmpty();
 
         // A related query still returns the row through the text half of the hybrid search.
-        ResponseEntity<ApiResponses.SearchResponse> related = controller.search(
+        ResponseEntity<?> related = controller.search(
             fixture.projectPath(), OfflineAiTestModels.OBSERVATION_TITLE, null, null, null, 20, 0, null);
-        assertThat(related.getBody()).isNotNull();
-        assertThat(related.getBody().observations()).extracting(ObservationEntity::getTitle)
+        ApiResponses.SearchResponse relatedBody = (ApiResponses.SearchResponse) related.getBody();
+        assertThat(relatedBody).isNotNull();
+        assertThat(relatedBody.observations()).extracting(ObservationEntity::getTitle)
             .contains(OfflineAiTestModels.OBSERVATION_TITLE);
 
         // The same unrelated query without a vector has no lexical hit at all. Without this

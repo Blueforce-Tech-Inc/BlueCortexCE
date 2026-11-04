@@ -74,9 +74,23 @@ Content-Type: application/json
 
 ## 认证
 
-**当前版本无认证要求**。所有端点在 `localhost:37777` 上开放访问。
+认证是**可选的，默认关闭**。未配置 `cortexce.security.api-token` 时，所有端点在
+`127.0.0.1:37777` 上开放访问——这是本地优先的默认行为。
 
-> ⚠️ **生产环境警告**: 如果暴露到公网，请添加认证层（如 API Key、JWT 等）。
+**对外暴露（绑定到非 localhost）之前必须配置** `cortexce.security.api-token`
+（或环境变量 `CORTEXCE_API_TOKEN`）。配置后：
+
+- `/api/**` 下的所有写操作（POST/PUT/PATCH/DELETE）要求
+  `Authorization: Bearer <token>`；
+- `GET /api/logs/**` 要求同一请求头；
+- 普通读操作、`/api/health` 与 `/stream` 保持开放——Viewer UI 的
+  `EventSource` 无法附加请求头。
+
+缺少 token 或 token 错误一律返回 `401`，带 `WWW-Authenticate: Bearer`，响应体为
+`{"error": {"code": "unauthorized", ...}, "message": "..."}`。比较使用常量时间。
+`403` 保留给将来的「已认证但无权限」场景，当前不会产生。
+
+> ⚠️ **服务暴露到 localhost 之外前，必须配置 token。**
 
 ---
 
@@ -102,41 +116,35 @@ Content-Type: application/json
 
 ### 错误响应
 
-**错误响应体有两种形态，取决于错误由谁产生。** 后端**没有全局
-`@ControllerAdvice`**，因此框架层失败由 Spring 的默认错误处理渲染，而 handler
-自己抛出的失败则是 handler 放进 map 里的内容。
-
-**框架错误** —— 查询参数类型转换失败、未知路径、该路径不接受的方法、无法转换的
-路径变量：
+所有失败都使用**同一个信封**。`error.code` 是稳定的机器可读标识，`error.message`
+是人类可读说明，`error.details` 是可选的结构化上下文；顶层的 `message` 是
+`error.message` 的镜像，供只读字符串字段的客户端使用。
 
 ```json
 {
-  "timestamp": "2026-10-03T07:33:19.797+00:00",
-  "status": 400,
-  "error": "Bad Request",
-  "path": "/api/observations"
+  "error": {
+    "code": "invalid_request",
+    "message": "Missing required field: content_session_id (or session_id)"
+  },
+  "message": "Missing required field: content_session_id (or session_id)"
 }
 ```
 
-注意 `status` 是**数字**形式的 HTTP 状态码而非字符串，且 `error` 是 Spring 的
-简短原因短语（`Bad Request`、`Not Found`、`Method Not Allowed`），**不是**对你
-输入哪里不对的描述。
+HTTP 状态码语义保持不变：
 
-**Handler 错误** —— 缺必填字段、`projectPath` 为空等由端点自身完成的校验：
+| `error.code` | HTTP 状态码 | 含义 |
+|---|---|---|
+| `invalid_request` | 400 | 输入缺失或格式错误 |
+| `unauthorized` | 401 | 缺少或错误的 Bearer token |
+| `forbidden` | 403 | 已认证但无权限（保留，当前不产生） |
+| `not_found` | 404 | 未知路由、会话或资源 |
+| `conflict` | 409 | 状态冲突 |
+| `rate_limited` | 429 | 触发限流；`details.retry_after` 为秒数 |
+| `internal_error` | 500 | 服务端意外失败 |
 
-```json
-{
-  "error": "Missing required field: content_session_id (or session_id)"
-}
-```
-
-此时**只有** `error` 一个键，而它携带的正是可操作的信息。本参考中各端点下的错误
-示例大多采用这一形态。
-
-**不存在 `code` 字段。** 本节早前版本写的是
-`{"error": ..., "status": "failed", "code": "ERROR_CODE"}`，**没有任何端点会产生
-该形态**。写客户端时请读 `error`——它是两种形态**唯一共有**的键——并把 `status`
-当作「取决于哪一层失败，可能存在也可能不存在」。
+框架层失败（查询参数无法转换、未知路由、不支持的方法）与 handler 抛出的失败都使用
+这一形态。本节早前版本记录过两种互不兼容的响应体——Spring 默认的
+`{timestamp, status, error, path}` 与裸的错误字符串——两者都已移除。
 
 ### 查询参数约定
 
@@ -269,9 +277,9 @@ body 是纯文本 `Error: Failed to generate context preview`；两个 timeline 
 ```
 
 **错误响应**:
-- `400` — `{"error": "Missing required field: session_id"}`（`session_id` 缺失或为空）
-- `400` — `{"error": "Missing required field: project_path (or cwd)"}`（`project_path` 和 `cwd` 均缺失或为空）
-- `500` — `{"error": "Failed to initialize session"}`（内部错误）
+- `400` — `{"error": {"code": "invalid_request", "message": "Missing required field: session_id"}, "message": "Missing required field: session_id"}`（`session_id` 缺失或为空）
+- `400` — `{"error": {"code": "invalid_request", "message": "Missing required field: project_path (or cwd)"}, "message": "Missing required field: project_path (or cwd)"}`（`project_path` 和 `cwd` 均缺失或为空）
+- `500` — `{"error": {"code": "internal_error", "message": "Failed to initialize session"}, "message": "Failed to initialize session"}`（内部错误）
 
 ---
 
@@ -309,8 +317,8 @@ curl http://localhost:37777/api/session/abc-123-def
 **错误响应**:
 ```json
 {
-  "error": "Session not found",
-  "session_id": "abc-123-def"
+  "error": {"code": "not_found", "message": "Session not found"}, "message": "Session not found",
+  "details": {"session_id": "abc-123-def"}
 }
 ```
 
@@ -420,8 +428,8 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 ```
 
 **错误响应**:
-- `400` — `{"error": "Missing required field: session_id"}` 或 `{"error": "Missing required field: tool_name"}`（缺少必填字段）
-- `429` — `{"error": "Rate limit exceeded", "retry_after": "45"}`（速率限制）
+- `400` — `{"error": {"code": "invalid_request", "message": "Missing required field: session_id"}, "message": "Missing required field: session_id"}` 或 `{"error": "Missing required field: tool_name"}`（缺少必填字段）
+- `429` — `{"error": {"code": "rate_limited", "message": "Rate limit exceeded"}, "message": "Rate limit exceeded", "retry_after": "45"}`（速率限制）
 
 **速率限制**: 10 次/60秒/会话
 
@@ -460,7 +468,7 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 ```
 
 **错误响应**:
-- `400` — `{"error": "Missing required field: session_id"}`（缺少必填字段）
+- `400` — `{"error": {"code": "invalid_request", "message": "Missing required field: session_id"}, "message": "Missing required field: session_id"}`（缺少必填字段）
 
 ---
 
@@ -502,7 +510,7 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 ```
 
 **错误响应**:
-- `400` — `{"error": "Missing required field: session_id"}`（缺少必填字段）
+- `400` — `{"error": {"code": "invalid_request", "message": "Missing required field: session_id"}, "message": "Missing required field: session_id"}`（缺少必填字段）
 
 ---
 
@@ -561,8 +569,8 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 ```
 
 **错误响应**:
-- `400` — `{"error": "Missing required field: content_session_id (or session_id)"}`（缺少必填字段）
-- `400` — `{"error": "Missing required field: project_path"}`（缺少必填字段）
+- `400` — `{"error": {"code": "invalid_request", "message": "Missing required field: content_session_id (or session_id)"}, "message": "Missing required field: content_session_id (or session_id)"}`（缺少必填字段）
+- `400` — `{"error": {"code": "invalid_request", "message": "Missing required field: project_path"}, "message": "Missing required field: project_path"}`（缺少必填字段）
 
 ---
 
@@ -590,7 +598,7 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 **错误响应** (`400 Bad Request`):
 ```json
 {
-  "error": "project is required"
+  "error": {"code": "invalid_request", "message": "project is required"}, "message": "project is required"
 }
 ```
 
@@ -637,7 +645,7 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 ```
 
 **错误响应**:
-- `400` — `{"error": "task is required"}`（`task` 字段缺失或为空）
+- `400` — `{"error": {"code": "invalid_request", "message": "task is required"}, "message": "task is required"}`（`task` 字段缺失或为空）
 
 **`userId` 限定的真实行为**：`userId` 是**会话**属性；`mem_observations` 没有用户列，
 因此该过滤是先把 id 解析成该用户的会话 id 集合，再只检索这些会话。活体实测（项目内
@@ -700,7 +708,7 @@ Java、Python 与 JS 都会省略非正数 `count` 从而回落到后端默认�
 ```
 
 **错误响应**:
-- `400` — `{"error": "task is required"}`（`task` 字段缺失或为空）
+- `400` — `{"error": {"code": "invalid_request", "message": "task is required"}, "message": "task is required"}`（`task` 字段缺失或为空）
 
 #### GET `/api/memory/quality-distribution`
 
@@ -724,16 +732,18 @@ Java、Python 与 JS 都会省略非正数 `count` 从而回落到后端默认�
 ```
 
 **错误响应**:
-- `400` — `{"error": "project is required"}`（`project` 参数缺失或为空）
+- `400` — `{"error": {"code": "invalid_request", "message": "project is required"}, "message": "project is required"}`（`project` 参数缺失或为空）
 - `500`:
 ```json
 {
-  "project": "/Users/dev/my-project",
-  "error": "Failed to get quality distribution: ...",
-  "high": 0,
-  "medium": 0,
-  "low": 0,
-  "unknown": 0
+  "error": {"code": "internal_error", "message": "Failed to get quality distribution: ..."}, "message": "Failed to get quality distribution: ...",
+  "details": {
+    "project": "/Users/dev/my-project",
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "unknown": 0
+  }
 }
 ```
 
@@ -852,7 +862,7 @@ curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/Users/dev/m
 **错误响应** (`500 Internal Server Error`):
 ```json
 {
-  "error": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: user_preference"
+  "error": {"code": "internal_error", "message": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: user_preference"}, "message": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: user_preference"
 }
 ```
 
@@ -1374,7 +1384,7 @@ curl http://localhost:37777/api/settings
 ```json
 {
   "success": false,
-  "error": "Failed to save settings: ..."
+  "error": {"code": "internal_error", "message": "Failed to save settings: ..."}, "message": "Failed to save settings: ..."
 }
 ```
 
@@ -1932,7 +1942,7 @@ curl "http://localhost:37777/api/timeline?project=/Users/dev/myproject"
 **错误响应**:
 ```json
 {
-  "error": "Date range exceeds 1 year maximum"
+  "error": {"code": "invalid_request", "message": "Date range exceeds 1 year maximum"}, "message": "Date range exceeds 1 year maximum"
 }
 ```
 
@@ -2269,7 +2279,7 @@ curl -X POST http://localhost:37777/api/logs/clear
 ```
 
 **错误响应**:
-- `500` — `{"error": "Failed to clear log file"}`（IO 错误）
+- `500` — `{"error": {"code": "internal_error", "message": "Failed to clear log file"}, "message": "Failed to clear log file"}`（IO 错误）
 
 ---
 
@@ -2524,6 +2534,12 @@ eventSource.onmessage = (event) => {
 
 **超时**: 30 分钟（可配置）
 
+**事件契约**：五个事件名（`initial_load`、`processing_status`、`new_prompt`、
+`new_observation`、`new_summary`）以及上面展示的载荷字段，外加 `prompt` /
+`observation` / `summary` 对象（各自带 `id`；prompt 带 `prompt_text`，observation 带
+`title`），均由 `L2SseContractTest` 固定。重命名事件或删除字段会让该测试先失败，
+而不是在运行时静默破坏 Viewer。
+
 **连接数上限**：单个后端实例最多接受 **100 条并发** `/stream` 连接
 （`Constants.MAX_SSE_CONNECTIONS`）。超出后新连接会被拒绝——而按当前实现，拒绝时返回的是
 **`500`** 且**响应体为空**，并非 `503` 或 `429`。请把这个 `500` 当作「已达容量上限、
@@ -2637,7 +2653,7 @@ actuator 的暴露范围在 `management.endpoints.web.exposure.include`（`healt
 **1. 应用错误** —— 单个自由文本消息，**无 `code` 字段**：
 
 ```json
-{ "error": "observationId is required" }
+{ "error": {"code": "invalid_request", "message": "observationId is required"}, "message": "observationId is required" }
 ```
 
 该消息由各端点逐条手写，**不是稳定契约**；请按 HTTP 状态码分支，不要匹配文案。
@@ -2649,7 +2665,7 @@ actuator 的暴露范围在 `management.endpoints.web.exposure.include`（`healt
 {
   "timestamp": "2026-10-06T08:28:06.016+00:00",
   "status": 400,
-  "error": "Bad Request",
+  "error": {"code": "invalid_request", "message": "Bad Request"}, "message": "Bad Request",
   "path": "/api/memory/observations/not-a-uuid"
 }
 ```

@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.controller;
 
+import com.ablueforce.cortexce.common.ErrorResponses;
 import com.ablueforce.cortexce.common.LogMarkers;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -176,7 +177,7 @@ public class LogsController {
         @ApiResponse(responseCode = "500", description = "Failed to clear log file due to IO error",
             content = @Content(schema = @Schema(type = "object", example = "{\"error\":\"Failed to clear log file\"}")))
     })
-    public ResponseEntity<Map<String, String>> clearLogs(
+    public ResponseEntity<Object> clearLogs(
             @RequestHeader(value = "X-Log-Token", required = false) String token) {
         assertLogApiAllowed(token);
         Path todayLog = getLogFile(0);
@@ -187,7 +188,7 @@ public class LogsController {
             } catch (IOException e) {
                 log.error(LogMarkers.FAILURE + "Failed to clear log file: {}", todayLog, e);
                 return ResponseEntity.internalServerError()
-                        .body(Map.of("error", "Failed to clear log file"));
+                        .body(ErrorResponses.body("invalid_request", "Failed to clear log file"));
             }
 
             return ResponseEntity.ok(Map.of(

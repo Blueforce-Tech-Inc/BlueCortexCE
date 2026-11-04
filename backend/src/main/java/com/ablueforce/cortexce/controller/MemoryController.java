@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.controller;
 
+import com.ablueforce.cortexce.common.ErrorResponses;
 import com.ablueforce.cortexce.service.MemoryRefineService;
 import com.ablueforce.cortexce.service.ConversationWriteService;
 import com.ablueforce.cortexce.service.ExpRagService;
@@ -75,11 +76,11 @@ public class MemoryController {
         @ApiResponse(responseCode = "400", description = "Missing required parameter: project",
             content = @Content(schema = @Schema(type = "object", example = "{\"error\":\"project is required\"}")))
     })
-    public ResponseEntity<Map<String, String>> triggerRefine(
+    public ResponseEntity<Object> triggerRefine(
             @Parameter(description = "Absolute project path to trigger refinement for", required = true, example = "/Users/dev/my-project")
             @RequestParam String project) {
         if (project == null || project.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "project is required"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "project is required"));
         }
         // Publish event for async processing
         eventPublisher.publishManualRefineEvent(project);
@@ -113,7 +114,7 @@ public class MemoryController {
 
         String task = request.task();
         if (task == null || task.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "task is required"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "task is required"));
         }
         String project = request.project();
         int count = request.count() != null ? request.count() : 4;
@@ -149,7 +150,7 @@ public class MemoryController {
             @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ICLPromptRequest request) {
         String task = request.task();
         if (task == null || task.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "task is required"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "task is required"));
         }
         String project = request.project();
         int maxChars = request.maxChars() != null ? Math.max(100, request.maxChars()) : 4000;
@@ -180,7 +181,7 @@ public class MemoryController {
             @Parameter(description = "Absolute project path to query quality distribution for", required = true, example = "/Users/dev/my-project")
             @RequestParam String project) {
         if (project == null || project.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "project is required"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "project is required"));
         }
         try {
             Object[] distribution = observationRepository.getQualityDistribution(project);
@@ -204,14 +205,7 @@ public class MemoryController {
             ));
         } catch (Exception e) {
             log.error("Failed to get quality distribution", e);
-            return ResponseEntity.status(500).body(Map.of(
-                "project", project,
-                "error", "Failed to get quality distribution: " + e.getMessage(),
-                "high", 0L,
-                "medium", 0L,
-                "low", 0L,
-                "unknown", 0L
-            ));
+            return ResponseEntity.status(500).body(ErrorResponses.body("internal_error", "Failed to get quality distribution: " + e.getMessage(), Map.of("project", project, "high", 0L, "medium", 0L, "low", 0L, "unknown", 0L)));
         }
     }
 
@@ -230,33 +224,33 @@ public class MemoryController {
     @ApiResponse(responseCode = "400", description = "Invalid request (missing observationId or feedbackType)",
         content = @Content(schema = @Schema(type = "object", example = "{\"error\":\"observationId is required\"}")))
     @Transactional
-    public ResponseEntity<Map<String, String>> submitFeedback(
+    public ResponseEntity<Object> submitFeedback(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                 description = "Feedback submission request",
                 required = true,
                 content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.FeedbackRequest.class)))
             @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.FeedbackRequest request) {
         if (request.observationId() == null || request.observationId().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "observationId is required"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "observationId is required"));
         }
         if (request.feedbackType() == null || request.feedbackType().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "feedbackType is required"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "feedbackType is required"));
         }
         java.util.UUID obsId;
         try {
             obsId = java.util.UUID.fromString(request.observationId());
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid observationId format: " + request.observationId()));
+            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Invalid observationId format: " + request.observationId()));
         }
         var optObs = observationRepository.findById(obsId);
         if (optObs.isEmpty()) {
-            return ResponseEntity.status(404).body(Map.of("error", "Observation not found: " + request.observationId()));
+            return ResponseEntity.status(404).body(ErrorResponses.body("not_found", "Observation not found: " + request.observationId()));
         }
         var obs = optObs.get();
         conversationWriteService.lockForChildMutation(obs.getConversationId());
         obs = observationRepository.findById(obsId).orElse(null);
         if (obs == null) {
-            return ResponseEntity.status(404).body(Map.of("error", "Observation not found: " + request.observationId()));
+            return ResponseEntity.status(404).body(ErrorResponses.body("not_found", "Observation not found: " + request.observationId()));
         }
         obs.setFeedbackType(request.feedbackType());
         if (request.comment() != null) {
@@ -332,7 +326,7 @@ public class MemoryController {
             } else if (val instanceof String s) {
                 observation.setTitle(s);
             } else {
-                return ResponseEntity.badRequest().body(Map.of("error", "title must be a string"));
+                return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "title must be a string"));
             }
         }
         if (body.containsKey("content") || body.containsKey("narrative")) {
@@ -342,7 +336,7 @@ public class MemoryController {
             } else if (val instanceof String s) {
                 observation.setContent(s);
             } else {
-                return ResponseEntity.badRequest().body(Map.of("error", "content/narrative must be a string"));
+                return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "content/narrative must be a string"));
             }
         }
         if (body.containsKey("subtitle")) {
@@ -352,7 +346,7 @@ public class MemoryController {
             } else if (val instanceof String s) {
                 observation.setSubtitle(s);
             } else {
-                return ResponseEntity.badRequest().body(Map.of("error", "subtitle must be a string"));
+                return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "subtitle must be a string"));
             }
         }
         if (body.containsKey("source")) {
@@ -362,7 +356,7 @@ public class MemoryController {
             } else if (val instanceof String s) {
                 observation.setSource(s);
             } else {
-                return ResponseEntity.badRequest().body(Map.of("error", "source must be a string"));
+                return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "source must be a string"));
             }
         }
 
@@ -374,11 +368,11 @@ public class MemoryController {
             } else if (val instanceof List<?> list) {
                 var result = validateStringList(list, "facts");
                 if (result == null) {
-                    return ResponseEntity.badRequest().body(Map.of("error", "facts must be a list of strings"));
+                    return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "facts must be a list of strings"));
                 }
                 observation.setFacts(result);
             } else {
-                return ResponseEntity.badRequest().body(Map.of("error", "facts must be a list of strings"));
+                return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "facts must be a list of strings"));
             }
         }
         if (body.containsKey("concepts")) {
@@ -388,11 +382,11 @@ public class MemoryController {
             } else if (val instanceof List<?> list) {
                 var result = validateStringList(list, "concepts");
                 if (result == null) {
-                    return ResponseEntity.badRequest().body(Map.of("error", "concepts must be a list of strings"));
+                    return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "concepts must be a list of strings"));
                 }
                 observation.setConcepts(result);
             } else {
-                return ResponseEntity.badRequest().body(Map.of("error", "concepts must be a list of strings"));
+                return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "concepts must be a list of strings"));
             }
         }
 
@@ -406,7 +400,7 @@ public class MemoryController {
                 Map<String, Object> extractedData = (Map<String, Object>) val;
                 observation.setExtractedData(extractedData);
             } else {
-                return ResponseEntity.badRequest().body(Map.of("error", "extractedData must be a JSON object"));
+                return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "extractedData must be a JSON object"));
             }
         }
 
@@ -449,7 +443,7 @@ public class MemoryController {
         @ApiResponse(responseCode = "404", description = "Observation with given UUID not found")
     })
     @Transactional
-    public ResponseEntity<Map<String, String>> deleteObservation(
+    public ResponseEntity<Object> deleteObservation(
             @Parameter(description = "UUID of the observation to delete", required = true, example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable UUID id) {
         ObservationEntity observation = observationRepository.findById(id).orElse(null);

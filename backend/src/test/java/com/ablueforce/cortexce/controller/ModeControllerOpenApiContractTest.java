@@ -125,15 +125,17 @@ class ModeControllerOpenApiContractTest {
     }
 
     @Test
-    @DisplayName("the 400 response declares an empty body — the implementation returns an empty body")
-    void badRequestResponseDeclaresAnEmptyBody() throws Exception {
+    @DisplayName("the 400 response declares the unified error envelope")
+    void badRequestResponseDeclaresTheUnifiedEnvelope() throws Exception {
         io.swagger.v3.oas.annotations.responses.ApiResponse bad = responseFor("400");
         assertTrue(bad.content().length > 0,
-                "the 400 must declare an explicit (empty) body shape — without one springdoc falls back "
+                "the 400 must declare an explicit body shape — without one springdoc falls back "
                         + "to the response type and advertises a JSON body the endpoint never sends");
         String example = bad.content()[0].schema().example();
         assertNotNull(example, "the 400 must declare its own example, not a schema reference");
-        assertEquals("", example, "the 400 example must be empty — the implementation returns no body");
+        assertTrue(example.contains("\"error\""), example);
+        assertTrue(example.contains("\"code\":\"invalid_request\""), example);
+        assertTrue(example.contains("\"message\""), example);
     }
 
     @Test
