@@ -15,6 +15,7 @@ import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.repository.SummaryRepository;
 import com.ablueforce.cortexce.repository.UserPromptRepository;
 import com.ablueforce.cortexce.service.AgentService;
+import com.ablueforce.cortexce.service.ProcessingHeartbeat;
 import com.ablueforce.cortexce.service.ConversationWriteService;
 import com.ablueforce.cortexce.service.ContextCacheService;
 import com.ablueforce.cortexce.service.EmbeddingService;
@@ -93,6 +94,7 @@ import static org.mockito.Mockito.mock;
     OfflineAiTestModels.class,
     SpringAiConfig.class,
     AgentService.class,
+    ProcessingHeartbeat.class,
     SessionManagementService.class,
     MemoryScopeService.class,
     ConversationWriteService.class,
