@@ -29,8 +29,15 @@ public class LlmService {
     private static final Logger log = LoggerFactory.getLogger(LlmService.class);
 
     private final Optional<ChatClient> chatClient;
+    private final ProviderCircuitBreaker circuitBreaker;
 
     public LlmService(List<ChatClient> chatClients) {
+        this(chatClients, new ProviderCircuitBreaker());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public LlmService(List<ChatClient> chatClients, ProviderCircuitBreaker circuitBreaker) {
+        this.circuitBreaker = circuitBreaker;
         // Find first available chat client (prefer auto-configured one)
         this.chatClient = chatClients.stream()
             .filter(c -> {
@@ -106,11 +113,19 @@ public class LlmService {
         UNAVAILABLE,
         /** A 2xx answer with no usable content. Repeating the same prompt cannot help. */
         INVALID_RESPONSE,
+        /**
+         * The provider was not called at all: the circuit breaker is open after a run
+         * of unreachable outcomes. Transient by design — the job returns to the queue
+         * and is retried after the cooldown, so a shutdown-length outage does not
+         * burn the retry budget on calls that were never attempted.
+         */
+        CIRCUIT_OPEN,
         /** Anything the classifier does not recognise. Treated as permanent. */
         UNKNOWN;
 
         public boolean isTransient() {
-            return this == RATE_LIMIT || this == TIMEOUT || this == UNAVAILABLE;
+            return this == RATE_LIMIT || this == TIMEOUT || this == UNAVAILABLE
+                || this == CIRCUIT_OPEN;
         }
     }
 
@@ -159,6 +174,15 @@ public class LlmService {
                 "Set OPENAI_API_KEY environment variable, or configure spring.ai.openai in application.yml, " +
                 "or provide a custom ChatClient bean."));
 
+        // Do not even open a socket while the breaker is open: that is the whole
+        // saving (a failed job returns in milliseconds instead of after the read
+        // timeout, and the queue is consumed at that speed too).
+        if (!circuitBreaker.tryAcquire()) {
+            log.warn("Provider circuit is open; skipping the call (fast fail)");
+            return failure(FailureKind.CIRCUIT_OPEN,
+                "circuit open: provider unreachable, next probe after the cooldown");
+        }
+
         try {
             ChatResponse response = chatClient.prompt()
                 .system(systemPrompt)
@@ -168,14 +192,14 @@ public class LlmService {
 
             if (response == null) {
                 log.error("LLM response is null (provider returned no response)");
-                return failure(FailureKind.INVALID_RESPONSE, "null ChatResponse");
+                return fail(FailureKind.INVALID_RESPONSE, "null ChatResponse");
             }
 
             String content = ChatResponseText.extract(response);
 
             if (content == null || content.isBlank()) {
                 log.error("LLM response contains no usable content (blank answer)");
-                return failure(FailureKind.INVALID_RESPONSE, "blank content");
+                return fail(FailureKind.INVALID_RESPONSE, "blank content");
             }
 
             int totalTokens = 0;
@@ -193,13 +217,20 @@ public class LlmService {
             }
 
             CortexMetrics.llmSuccess();
+            circuitBreaker.onOutcome(null);
             return new LlmResponse(content, totalTokens);
         } catch (Exception e) {
             FailureKind kind = classify(e);
             log.error("LLM call failed (kind={}): {}: {}",
                 kind, e.getClass().getSimpleName(), abbreviate(e.getMessage()));
-            return failure(kind, e.getClass().getSimpleName() + ": " + abbreviate(e.getMessage()));
+            return fail(kind, e.getClass().getSimpleName() + ": " + abbreviate(e.getMessage()));
         }
+    }
+
+    /** Record the outcome with the breaker, then build the failure envelope. */
+    private LlmResponse fail(FailureKind kind, String detail) {
+        circuitBreaker.onOutcome(kind);
+        return failure(kind, detail);
     }
 
     private static LlmResponse failure(FailureKind kind, String detail) {

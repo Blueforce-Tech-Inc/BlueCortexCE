@@ -21,6 +21,8 @@ import com.ablueforce.cortexce.service.ConversationWriteService;
 import com.ablueforce.cortexce.service.EmbeddingService;
 import com.ablueforce.cortexce.service.EmbeddingBackfillService;
 import com.ablueforce.cortexce.service.ExtractionValidationService;
+import com.ablueforce.cortexce.service.GracefulShutdownCoordinator;
+import com.ablueforce.cortexce.service.ProviderCircuitBreaker;
 import com.ablueforce.cortexce.service.LlmService;
 import com.ablueforce.cortexce.service.MemoryScopeService;
 import com.ablueforce.cortexce.service.ModeService;
@@ -91,6 +93,8 @@ import static org.mockito.Mockito.mock;
     SpringAiConfig.class,
     AgentService.class,
     ProcessingHeartbeat.class,
+    GracefulShutdownCoordinator.class,
+    ProviderCircuitBreaker.class,
     SessionManagementService.class,
     MemoryScopeService.class,
     ConversationWriteService.class,
@@ -131,6 +135,7 @@ class LlmProviderFailureTest {
     @Autowired private SessionRepository sessionRepository;
     @Autowired private UserPromptRepository userPromptRepository;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private ProviderCircuitBreaker providerCircuitBreaker;
 
     @MockBean private SSEBroadcaster sseBroadcaster;
     @MockBean private PendingMessageEventPublisher pendingMessageEventPublisher;
@@ -158,6 +163,9 @@ class LlmProviderFailureTest {
     void resetDoubles() {
         chatModel.respondWith(OfflineAiTestModels.ScriptedChatModel.observationXml());
         embeddingModel.succeed();
+        // One breaker instance is shared by the whole context; an earlier test's
+        // timeouts must not make a later test's call fail fast as CIRCUIT_OPEN.
+        providerCircuitBreaker.reset();
     }
 
     @AfterEach

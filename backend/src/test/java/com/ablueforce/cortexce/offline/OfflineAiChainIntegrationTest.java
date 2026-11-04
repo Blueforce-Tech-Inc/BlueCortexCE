@@ -20,6 +20,8 @@ import com.ablueforce.cortexce.service.ConversationWriteService;
 import com.ablueforce.cortexce.service.ContextCacheService;
 import com.ablueforce.cortexce.service.EmbeddingService;
 import com.ablueforce.cortexce.service.ExtractionValidationService;
+import com.ablueforce.cortexce.service.GracefulShutdownCoordinator;
+import com.ablueforce.cortexce.service.ProviderCircuitBreaker;
 import com.ablueforce.cortexce.service.LlmService;
 import com.ablueforce.cortexce.service.MemoryScopeService;
 import com.ablueforce.cortexce.service.ModeService;
@@ -96,6 +98,8 @@ import static org.mockito.Mockito.mock;
     SpringAiConfig.class,
     AgentService.class,
     ProcessingHeartbeat.class,
+    GracefulShutdownCoordinator.class,
+    ProviderCircuitBreaker.class,
     SessionManagementService.class,
     MemoryScopeService.class,
     ConversationWriteService.class,
