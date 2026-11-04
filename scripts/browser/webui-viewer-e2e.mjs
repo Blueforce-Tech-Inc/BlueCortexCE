@@ -11,6 +11,14 @@
  *   3. pagination follows `hasMore` (50 -> all seeded rows, then "No more")
  *   4. a record created after load is visible after a plain refresh
  *   5. a settings toggle keeps its new value after a refresh
+ *   6. a numeric settings field keeps its new value after a refresh
+ *
+ * Card drag-and-drop ordering is deliberately not covered: the viewer (the
+ * `webui/` submodule) renders the feed in created_at_epoch order and has no
+ * drag handlers, no persisted position field, and the backend exposes no
+ * reorder endpoint. There is nothing to drag and nothing that could keep an
+ * order, so an E2E would only assert the absence of the feature. See
+ * docs/archive/2026-11-04_round-i-graceful-shutdown-and-circuit-breaker.md.
  *
  * Playwright is a test-only tool; install it once with
  * `(cd scripts/browser && npm install --no-save playwright && npx playwright install --with-deps chromium)`.
@@ -146,6 +154,27 @@ try {
   const persisted = await page.locator('#show-read-tokens').getAttribute('aria-checked');
   assert.equal(persisted, 'false', `saved toggle must survive a refresh; aria-checked=${persisted}`);
   console.log('PASS: a settings toggle survives change -> save -> refresh');
+
+  // The numeric fields have no id; the first one in the modal is "Observations"
+  // in the Loading section. Change it to any valid value (1-200), save, reload,
+  // and read the input again — this is the per-field edit path, not the toggle.
+  const numericInput = page.locator('.context-settings-modal input[type="number"]').first();
+  const beforeValue = await numericInput.inputValue();
+  const targetValue = beforeValue === '30' ? '25' : '30';
+  await numericInput.fill(targetValue);
+  assert.equal(await numericInput.inputValue(), targetValue,
+    `numeric input must accept the edit, saw ${await numericInput.inputValue()}`);
+  await page.locator('.save-btn').click();
+  await page.waitForSelector('text=✓ Saved', { timeout: 10000 });
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 });
+  await page.waitForSelector('.card-title', { timeout: 20000 });
+  await page.locator('.settings-btn').click();
+  await page.waitForSelector('.context-settings-modal', { timeout: 10000 });
+  const numericPersisted = await page
+    .locator('.context-settings-modal input[type="number"]').first().inputValue();
+  assert.equal(numericPersisted, targetValue,
+    `saved numeric setting must survive a refresh; expected ${targetValue}, saw ${numericPersisted}`);
+  console.log(`PASS: a numeric setting survived ${beforeValue} -> ${targetValue} -> save -> refresh`);
 
   if (pageErrors.length > 0) fail(`PAGE ERROR: ${pageErrors.join('; ')}`, pageErrors);
   if (screenshot) {
