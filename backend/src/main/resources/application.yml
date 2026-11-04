@@ -37,6 +37,21 @@ cortexce:
     log-dir: ${CORTEXCE_RETENTION_LOG_DIR:}
     log-file-prefix: ${CORTEXCE_RETENTION_LOG_PREFIX:claude-mem}
 
+  # ==========================================================================
+  # Optional model rerank of hybrid search results
+  # ==========================================================================
+  search:
+    rerank:
+      # Default off. Measured on 90 real queries: reordering the top five with
+      # thinking disabled raises hit@1 0.833 -> 0.867 at a sequential p95 of
+      # 3.7 s; every failure path returns the fused order unchanged. See
+      # docs/archive/2026-11-04_rerank-real.md before enabling.
+      enabled: ${CORTEXCE_SEARCH_RERANK_ENABLED:false}
+      top-n: ${CORTEXCE_SEARCH_RERANK_TOP_N:5}
+      timeout-ms: ${CORTEXCE_SEARCH_RERANK_TIMEOUT_MS:8000}
+      # true uses the provider's default reasoning (much slower, see the note).
+      thinking: ${CORTEXCE_SEARCH_RERANK_THINKING:false}
+
 # ============================================================================
 # Evo-Memory Feature Flags (Section 6.1.1)
 # ============================================================================

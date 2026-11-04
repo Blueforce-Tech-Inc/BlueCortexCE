@@ -72,9 +72,11 @@ public class SearchService {
     private double recencyHalfLifeDays = 7.0;
 
     private final ObservationRepository observationRepository;
+    private final RerankService rerankService;
 
-    public SearchService(ObservationRepository observationRepository) {
+    public SearchService(ObservationRepository observationRepository, RerankService rerankService) {
         this.observationRepository = observationRepository;
+        this.rerankService = rerankService;
     }
 
     /**
@@ -133,7 +135,7 @@ public class SearchService {
                     );
                     List<ObservationEntity> results = loadScored(rows, true);
                     List<ObservationEntity> filtered = applyPostFilters(results, request, limit);
-                    return new SearchResult(filtered, "hybrid", false);
+                    return new SearchResult(rerankService.rerank(query, filtered), "hybrid", false);
                 } catch (IllegalArgumentException e) {
                     log.warn("Hybrid search rejected for project={}, falling back to tsvector: {}",
                         project, e.getClass().getSimpleName());

@@ -579,6 +579,20 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 因此限定 scope 的运行不会碰到其他项目的行。日志清理不会删除正在写入的活动日志
 （其 mtime 晚于 cutoff），也不会触碰目录之外或前缀不匹配的文件。
 
+#### 检索重排（Round 21）
+
+可选重排会用对话模型重排混合检索的前几条结果。它**默认关闭**；任何失败路径（缺 key、
+超时、非 2xx、无法解析的响应）都原样返回融合排序，所以开启只会增加延迟，不会丢结果。
+在 90 条真实 query 上实测，top-5 关闭 thinking：hit@1 0.833 → 0.867，串行 p95 3.7 秒。
+证据见 `docs/archive/2026-11-04_rerank-real.md`。
+
+| 变量 | 必填 | 默认 | 说明 |
+|------|------|------|------|
+| `CORTEXCE_SEARCH_RERANK_ENABLED` | 否 | `false` | 总开关；关闭时保持融合排序 |
+| `CORTEXCE_SEARCH_RERANK_TOP_N` | 否 | `5` | 参与重排的前 N 条结果 |
+| `CORTEXCE_SEARCH_RERANK_TIMEOUT_MS` | 否 | `8000` | 单次调用超时，超时后回退原排序 |
+| `CORTEXCE_SEARCH_RERANK_THINKING` | 否 | `false` | `true` 使用模型推理（串行 p95 33.5 秒，2.2% 空排序） |
+
 #### Evo-Memory 与结构化抽取调参
 
 `MEMORY_REFINE_ENABLED` 决定精炼开关，但**不决定精炼做什么**——下面三个 `MEMORY_REFINE_*`

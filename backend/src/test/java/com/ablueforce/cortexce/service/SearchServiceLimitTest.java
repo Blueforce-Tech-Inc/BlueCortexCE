@@ -38,7 +38,10 @@ class SearchServiceLimitTest {
     @BeforeEach
     void setUp() {
         repository = mock(ObservationRepository.class);
-        searchService = new SearchService(repository);
+        // Rerank is off here; a disabled service returns the fused order untouched.
+        searchService = new SearchService(repository,
+            new RerankService(java.net.http.HttpClient.newHttpClient(), "http://127.0.0.1", "",
+                "test-model", false, 5, 1000, false));
     }
 
     /** Stub the recent-observations query with exactly {@code rows} distinct observations. */

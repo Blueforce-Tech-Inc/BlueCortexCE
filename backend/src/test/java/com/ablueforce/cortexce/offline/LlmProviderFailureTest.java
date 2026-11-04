@@ -26,6 +26,7 @@ import com.ablueforce.cortexce.service.MemoryScopeService;
 import com.ablueforce.cortexce.service.ModeService;
 import com.ablueforce.cortexce.service.QualityScorer;
 import com.ablueforce.cortexce.service.SSEBroadcaster;
+import com.ablueforce.cortexce.service.RerankService;
 import com.ablueforce.cortexce.service.SearchService;
 import com.ablueforce.cortexce.service.SessionManagementService;
 import com.ablueforce.cortexce.service.SettingsService;
@@ -103,6 +104,7 @@ import static org.mockito.Mockito.mock;
     SummaryJobService.class,
     SummaryResultPersistenceService.class,
     SummaryGenerationService.class,
+    RerankService.class,
     SearchService.class
 })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)

@@ -1,0 +1,180 @@
+{
+  "baseline": {
+    "queries": 90,
+    "hit@1": 0.8333,
+    "hit@5": 0.9111,
+    "mrr": 0.8624,
+    "empty_results": 0
+  },
+  "configurations": {
+    "top20_thinking_on": {
+      "summary": {
+        "queries": 90,
+        "hit@1": 0.8667,
+        "hit@5": 0.9222,
+        "mrr": 0.8874,
+        "empty_results": 0
+      },
+      "gained": [
+        "q-ecacff80-185",
+        "q-ecacff80-227",
+        "q-ecacff80-384",
+        "q-ecacff80-168",
+        "q-ecacff80-186"
+      ],
+      "lost": [
+        "q-ecacff80-21",
+        "q-ecacff80-152"
+      ],
+      "net_queries": 3,
+      "latency": {
+        "concurrent": {
+          "calls": 90,
+          "failures": 2,
+          "failure_rate": 0.0222,
+          "p50_ms": 20784,
+          "p95_ms": 63599,
+          "mean_ms": 24704,
+          "max_ms": 84714
+        },
+        "sequential": {
+          "calls": 15,
+          "failures": 0,
+          "failure_rate": 0.0,
+          "p50_ms": 15874,
+          "p95_ms": 33508,
+          "mean_ms": 17038,
+          "max_ms": 53508
+        }
+      }
+    },
+    "top5_thinking_on": {
+      "summary": {
+        "queries": 90,
+        "hit@1": 0.8444,
+        "hit@5": 0.9111,
+        "mrr": 0.8674,
+        "empty_results": 0
+      },
+      "gained": [
+        "q-ecacff80-24",
+        "q-ecacff80-185",
+        "q-ecacff80-227",
+        "q-ecacff80-168",
+        "q-ecacff80-186"
+      ],
+      "lost": [
+        "q-ecacff80-39",
+        "q-ecacff80-21",
+        "q-ecacff80-121",
+        "q-ecacff80-152"
+      ],
+      "net_queries": 1,
+      "latency": {
+        "concurrent": {
+          "calls": 90,
+          "failures": 0,
+          "failure_rate": 0.0,
+          "p50_ms": 9236,
+          "p95_ms": 34505,
+          "mean_ms": 13024,
+          "max_ms": 74338
+        },
+        "sequential": {
+          "calls": 15,
+          "failures": 0,
+          "failure_rate": 0.0,
+          "p50_ms": 6918,
+          "p95_ms": 24896,
+          "mean_ms": 10014,
+          "max_ms": 27161
+        }
+      }
+    },
+    "top20_thinking_off": {
+      "summary": {
+        "queries": 90,
+        "hit@1": 0.8444,
+        "hit@5": 0.9111,
+        "mrr": 0.8689,
+        "empty_results": 0
+      },
+      "gained": [
+        "q-ecacff80-185",
+        "q-ecacff80-227",
+        "q-ecacff80-384",
+        "q-ecacff80-168",
+        "q-ecacff80-186"
+      ],
+      "lost": [
+        "q-3643d387-26",
+        "q-ecacff80-39",
+        "q-ecacff80-117",
+        "q-ecacff80-154"
+      ],
+      "net_queries": 1,
+      "latency": {
+        "concurrent": {
+          "calls": 90,
+          "failures": 0,
+          "failure_rate": 0.0,
+          "p50_ms": 2651,
+          "p95_ms": 16258,
+          "mean_ms": 3639,
+          "max_ms": 18935
+        },
+        "sequential": {
+          "calls": 30,
+          "failures": 0,
+          "failure_rate": 0.0,
+          "p50_ms": 2562,
+          "p95_ms": 5698,
+          "mean_ms": 3218,
+          "max_ms": 18798
+        }
+      }
+    },
+    "top5_thinking_off": {
+      "summary": {
+        "queries": 90,
+        "hit@1": 0.8667,
+        "hit@5": 0.9111,
+        "mrr": 0.8776,
+        "empty_results": 0
+      },
+      "gained": [
+        "q-ecacff80-24",
+        "q-ecacff80-185",
+        "q-ecacff80-227",
+        "q-ecacff80-168",
+        "q-ecacff80-186"
+      ],
+      "lost": [
+        "q-ecacff80-39",
+        "q-ecacff80-154"
+      ],
+      "net_queries": 3,
+      "latency": {
+        "concurrent": {
+          "calls": 90,
+          "failures": 0,
+          "failure_rate": 0.0,
+          "p50_ms": 1784,
+          "p95_ms": 4135,
+          "mean_ms": 2313,
+          "max_ms": 15919
+        },
+        "sequential": {
+          "calls": 30,
+          "failures": 0,
+          "failure_rate": 0.0,
+          "p50_ms": 1711,
+          "p95_ms": 3693,
+          "mean_ms": 1991,
+          "max_ms": 3813
+        }
+      }
+    }
+  },
+  "decision": "ship behind a default-off switch"
+}

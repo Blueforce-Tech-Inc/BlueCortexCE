@@ -602,6 +602,22 @@ project's rows. Log cleanup never deletes the active file (its mtime is newer
 than the cutoff) and ignores files outside the configured directory or prefix.
 Filesystem cleanup only applies to rolled files, not the database.
 
+#### Search Rerank (Round 21)
+
+The optional rerank reorders the first few hybrid results with the chat model. It
+ships **disabled**, and every failure path (missing key, timeout, non-2xx,
+unparseable body) returns the fused order unchanged, so enabling it can add
+latency but cannot lose a result. Measured on 90 real queries, top-5 with
+thinking disabled: hit@1 0.833 → 0.867, sequential p95 3.7 s. See
+`docs/archive/2026-11-04_rerank-real.md`.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `CORTEXCE_SEARCH_RERANK_ENABLED` | No | `false` | Master switch; off keeps the fused ranking |
+| `CORTEXCE_SEARCH_RERANK_TOP_N` | No | `5` | How many leading results are reordered |
+| `CORTEXCE_SEARCH_RERANK_TIMEOUT_MS` | No | `8000` | Per-call timeout before falling back |
+| `CORTEXCE_SEARCH_RERANK_THINKING` | No | `false` | `true` uses provider reasoning (33.5 s p95, 2.2% empty rankings) |
+
 #### Evo-Memory and Structured Extraction Tuning
 
 `MEMORY_REFINE_ENABLED` switches refinement on, but not what it does — the three
