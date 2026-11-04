@@ -23,9 +23,10 @@
 #   9. verify the committed viewer bundle is a fresh build of webui/src, then
 #      drive that bundle in a real Chromium: page rendering, files, hasMore
 #      pagination, an SSE-only live row, refresh visibility and a settings
-#      toggle round trip. Playwright/Chromium and webui/node_modules are
-#      optional locally (a missing install prints SKIP); REQUIRE_BROWSER_E2E=1
-#      turns those SKIPs into failures for CI.
+#      toggle round trip, token rejections and outage recovery. Playwright/Chromium
+#      and the pinned viewer toolchain (scripts/viewer-build) are optional locally
+#      (a missing install prints SKIP); REQUIRE_BROWSER_E2E=1 turns those SKIPs
+#      into failures for CI.
 #
 # Every step prints its name. A failure prints the step, the command's own
 # reason, and exits non-zero. Nothing here treats "skipped" as success, except
@@ -439,11 +440,11 @@ note "proxy E2E ran and reported 0 skipped"
 #
 # Verify the committed viewer bundle is a fresh build of webui/src, then drive
 # it in a real browser (see scripts/browser/webui-viewer-e2e.mjs).
-# Playwright is a test-only dependency: when it, Chromium, or webui deps are
-# absent this prints an explicit SKIP instead of pretending to pass; CI sets
-# REQUIRE_BROWSER_E2E=1 so the absence is a failure there.
+# Playwright is a test-only dependency: when it, Chromium, or the pinned viewer
+# toolchain are absent this prints an explicit SKIP instead of pretending to pass;
+# CI sets REQUIRE_BROWSER_E2E=1 so the absence is a failure there.
 # --------------------------------------------------------------------------
-step "9/9 Browser E2E (bundle parity + Playwright rendering, hasMore, files, SSE, settings)"
+step "9/9 Browser E2E (bundle parity + Playwright: rendering, hasMore, files, SSE, settings, 401 errors, outage recovery)"
 
 BROWSER_BUNDLE_STATUS=0
 BROWSER_BUNDLE_OUTPUT="$("$ROOT/scripts/check-viewer-bundle.sh" 2>&1)" || BROWSER_BUNDLE_STATUS=$?
@@ -453,10 +454,10 @@ case "$BROWSER_BUNDLE_STATUS" in
     ;;
   2)
     if [[ "$REQUIRE_BROWSER_E2E" == "1" ]]; then
-      fail "viewer bundle parity" "webui/node_modules is missing and REQUIRE_BROWSER_E2E=1." \
-           "Install once: (cd webui && npm install)"
+      fail "viewer bundle parity" "the pinned viewer toolchain is missing and REQUIRE_BROWSER_E2E=1." \
+           "Install once: (cd scripts/viewer-build && npm ci)"
     fi
-    note "SKIP: webui/node_modules is missing, so bundle drift was not checked."
+    note "SKIP: scripts/viewer-build/node_modules is missing, so bundle drift was not checked."
     ;;
   *)
     fail "viewer bundle drift" "$BROWSER_BUNDLE_OUTPUT"

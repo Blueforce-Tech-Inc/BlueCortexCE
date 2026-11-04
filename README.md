@@ -310,8 +310,8 @@ and backend), or the whole gate:
 
 ```bash
 ./scripts/webui-browser-e2e.sh   # rendering, files, hasMore, SSE, refresh, settings, 401 errors, outage recovery
-./scripts/check-viewer-bundle.sh # committed bundle vs a fresh build of webui/src
-./scripts/verify-local.sh        # step 9 runs both; prints SKIP if Playwright or webui deps are absent
+./scripts/check-viewer-bundle.sh # committed bundle vs a fresh build of webui/src (pinned toolchain: cd scripts/viewer-build && npm ci)
+./scripts/verify-local.sh        # step 9 runs both; prints SKIP if Playwright or the pinned viewer deps are absent
 ```
 
 CI runs it in the `browser-e2e` job in `.github/workflows/backend-tests.yml`,

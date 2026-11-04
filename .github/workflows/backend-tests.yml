@@ -194,6 +194,13 @@ jobs:
         working-directory: webui
         run: npm run typecheck
 
+      # The pinned toolchain (own lockfile) reproduces the committed bundle
+      # byte-for-byte; webui/node_modules would resolve newer react patch
+      # versions and produce different minified bytes from identical sources.
+      - name: Install the pinned viewer build toolchain
+        working-directory: scripts/viewer-build
+        run: npm ci --no-audit --no-fund
+
       # The viewer committed under backend/src/main/resources/static must be
       # exactly what webui/src builds now. The check builds in a throwaway
       # copy, so this job still never writes to the submodule; on drift it

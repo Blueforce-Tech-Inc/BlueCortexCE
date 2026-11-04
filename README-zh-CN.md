@@ -302,8 +302,8 @@ npx playwright install --with-deps chromium
 
 ```bash
 ./scripts/webui-browser-e2e.sh   # 渲染、files_modified、hasMore、SSE、刷新、设置往返、401 错误、停服恢复
-./scripts/check-viewer-bundle.sh # 提交的 bundle 与 webui/src 全新构建是否一致
-./scripts/verify-local.sh        # 第 9 步执行两者；未安装 Playwright 或 webui 依赖时打印 SKIP
+./scripts/check-viewer-bundle.sh # 提交的 bundle 与 webui/src 全新构建是否一致（固定工具链：cd scripts/viewer-build && npm ci）
+./scripts/verify-local.sh        # 第 9 步执行两者；未安装 Playwright 或固定查看器构建依赖时打印 SKIP
 ```
 
 CI 由 `.github/workflows/backend-tests.yml` 的 `browser-e2e` job 执行，会安装

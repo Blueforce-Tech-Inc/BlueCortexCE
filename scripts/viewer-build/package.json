@@ -1,0 +1,12 @@
+{
+  "name": "cortexce-viewer-build",
+  "private": true,
+  "description": "Pinned toolchain used only by scripts/check-viewer-bundle.sh. The viewer is built from webui/src with these exact versions so the committed bundle can be reproduced byte-for-byte on any machine; the submodule itself has no lockfile, so `npm install` there resolves newer patch versions and the bundle would drift.",
+  "dependencies": {
+    "ansi-to-html": "0.7.2",
+    "dompurify": "3.4.16",
+    "esbuild": "0.28.2",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  }
+}

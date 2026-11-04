@@ -104,3 +104,6 @@ codex-watcher/dist
 codex-watcher/node_modules
 openclaw-plugin/dist
 memory/.dreams
+
+# Pinned viewer build toolchain (scripts/viewer-build)
+scripts/viewer-build/node_modules
