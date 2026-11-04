@@ -12,8 +12,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-WEBUI="$ROOT/webui"
-STATIC="$ROOT/backend/src/main/resources/static"
+# Overridable so the drift path can be exercised without touching the checkout.
+WEBUI="${VIEWER_WEBUI_DIR:-$ROOT/webui}"
+STATIC="${VIEWER_STATIC_DIR:-$ROOT/backend/src/main/resources/static}"
 
 if [[ ! -f "$WEBUI/package.json" || ! -d "$WEBUI/node_modules/esbuild" || ! -d "$WEBUI/node_modules/react" ]]; then
   echo "SKIP: webui/node_modules is not installed; run (cd webui && npm install) to enable the drift check." >&2

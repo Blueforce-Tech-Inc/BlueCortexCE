@@ -193,3 +193,10 @@ jobs:
       - name: Typecheck (root + viewer)
         working-directory: webui
         run: npm run typecheck
+
+      # The viewer committed under backend/src/main/resources/static must be
+      # exactly what webui/src builds now. The check builds in a throwaway
+      # copy, so this job still never writes to the submodule; on drift it
+      # prints both hashes and the rebuild/redeploy commands.
+      - name: Viewer bundle parity (backend static vs a fresh webui build)
+        run: ./scripts/check-viewer-bundle.sh
