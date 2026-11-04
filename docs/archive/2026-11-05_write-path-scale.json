@@ -1,0 +1,420 @@
+{
+  "write_path": {
+    "database": "cortexce_write_bench",
+    "container": "cortexce-hnsw-bench-pg",
+    "steps": {
+      "default_body_limit": {
+        "no_vector": {
+          "attempts": [
+            {
+              "batch": 10,
+              "http": 200,
+              "bytes": 6466
+            },
+            {
+              "batch": 25,
+              "http": 200,
+              "bytes": 16181
+            },
+            {
+              "batch": 50,
+              "http": 200,
+              "bytes": 32373
+            },
+            {
+              "batch": 100,
+              "http": 200,
+              "bytes": 64736
+            },
+            {
+              "batch": 200,
+              "http": 200,
+              "bytes": 129473
+            },
+            {
+              "batch": 400,
+              "http": 200,
+              "bytes": 258946
+            },
+            {
+              "batch": 800,
+              "http": 200,
+              "bytes": 517893
+            }
+          ],
+          "largest_accepted": 800,
+          "bytes_per_row": 646.6
+        },
+        "vector_1024": {
+          "attempts": [
+            {
+              "batch": 10,
+              "http": 200,
+              "bytes": 113429
+            },
+            {
+              "batch": 25,
+              "http": 200,
+              "bytes": 283498
+            },
+            {
+              "batch": 50,
+              "http": 200,
+              "bytes": 566972
+            },
+            {
+              "batch": 100,
+              "http": 200,
+              "bytes": 1134092
+            },
+            {
+              "batch": 200,
+              "http": 413,
+              "bytes": 2268090
+            }
+          ],
+          "largest_accepted": 100,
+          "bytes_per_row": 11342.9
+        }
+      },
+      "batch_scaling": [
+        {
+          "batch": 100,
+          "runs": [
+            {
+              "batch": 100,
+              "rep": 0,
+              "http": 200,
+              "bytes": 64337,
+              "ms": 0.3,
+              "imported": 100,
+              "rows_per_s": 333.3
+            },
+            {
+              "batch": 100,
+              "rep": 1,
+              "http": 200,
+              "bytes": 64337,
+              "ms": 0.2,
+              "imported": 100,
+              "rows_per_s": 500.0
+            },
+            {
+              "batch": 100,
+              "rep": 2,
+              "http": 200,
+              "bytes": 64336,
+              "ms": 0.1,
+              "imported": 100,
+              "rows_per_s": 1000.0
+            }
+          ]
+        },
+        {
+          "batch": 500,
+          "runs": [
+            {
+              "batch": 500,
+              "rep": 0,
+              "http": 200,
+              "bytes": 321684,
+              "ms": 0.9,
+              "imported": 500,
+              "rows_per_s": 555.6
+            },
+            {
+              "batch": 500,
+              "rep": 1,
+              "http": 200,
+              "bytes": 321683,
+              "ms": 0.7,
+              "imported": 500,
+              "rows_per_s": 714.3
+            },
+            {
+              "batch": 500,
+              "rep": 2,
+              "http": 200,
+              "bytes": 321683,
+              "ms": 0.6,
+              "imported": 500,
+              "rows_per_s": 833.3
+            }
+          ]
+        },
+        {
+          "batch": 1000,
+          "runs": [
+            {
+              "batch": 1000,
+              "rep": 0,
+              "http": 200,
+              "bytes": 643357,
+              "ms": 1.2,
+              "imported": 1000,
+              "rows_per_s": 833.3
+            },
+            {
+              "batch": 1000,
+              "rep": 1,
+              "http": 200,
+              "bytes": 643367,
+              "ms": 0.9,
+              "imported": 1000,
+              "rows_per_s": 1111.1
+            },
+            {
+              "batch": 1000,
+              "rep": 2,
+              "http": 200,
+              "bytes": 643366,
+              "ms": 1.1,
+              "imported": 1000,
+              "rows_per_s": 909.1
+            }
+          ]
+        },
+        {
+          "batch": 2000,
+          "runs": [
+            {
+              "batch": 2000,
+              "rep": 0,
+              "http": 200,
+              "bytes": 1286724,
+              "ms": 2.1,
+              "imported": 2000,
+              "rows_per_s": 952.4
+            },
+            {
+              "batch": 2000,
+              "rep": 1,
+              "http": 200,
+              "bytes": 1286730,
+              "ms": 2.8,
+              "imported": 2000,
+              "rows_per_s": 714.3
+            },
+            {
+              "batch": 2000,
+              "rep": 2,
+              "http": 200,
+              "bytes": 1290326,
+              "ms": 1.9,
+              "imported": 2000,
+              "rows_per_s": 1052.6
+            }
+          ]
+        }
+      ],
+      "concurrency": [
+        {
+          "clients": 1,
+          "batch": 2000,
+          "seconds": 20.2,
+          "requests": 9,
+          "imported": 18000,
+          "errors": 0,
+          "rows_per_s": 892.2
+        },
+        {
+          "clients": 4,
+          "batch": 2000,
+          "seconds": 24.3,
+          "requests": 16,
+          "imported": 32000,
+          "errors": 0,
+          "rows_per_s": 1318.6
+        },
+        {
+          "clients": 8,
+          "batch": 2000,
+          "seconds": 53.7,
+          "requests": 19,
+          "imported": 38000,
+          "errors": 0,
+          "rows_per_s": 707.6
+        }
+      ],
+      "fill": {
+        "rows_added": 900000,
+        "seconds": 984.0,
+        "rows_per_s": 914.6,
+        "table_rows": 1000570
+      },
+      "vector_batches_at_scale": [
+        {
+          "batch": 50,
+          "runs": [
+            {
+              "batch": 50,
+              "rep": 0,
+              "http": 200,
+              "bytes": 567152,
+              "ms": 0.4,
+              "imported": 50,
+              "rows_per_s": 125.0
+            },
+            {
+              "batch": 50,
+              "rep": 1,
+              "http": 200,
+              "bytes": 567270,
+              "ms": 0.4,
+              "imported": 50,
+              "rows_per_s": 125.0
+            }
+          ]
+        },
+        {
+          "batch": 100,
+          "runs": [
+            {
+              "batch": 100,
+              "rep": 0,
+              "http": 200,
+              "bytes": 1133994,
+              "ms": 0.6,
+              "imported": 100,
+              "rows_per_s": 166.7
+            },
+            {
+              "batch": 100,
+              "rep": 1,
+              "http": 200,
+              "bytes": 1134182,
+              "ms": 0.5,
+              "imported": 100,
+              "rows_per_s": 200.0
+            }
+          ]
+        },
+        {
+          "batch": 200,
+          "runs": [
+            {
+              "batch": 200,
+              "rep": 0,
+              "http": 200,
+              "bytes": 2268863,
+              "ms": 1.0,
+              "imported": 200,
+              "rows_per_s": 200.0
+            },
+            {
+              "batch": 200,
+              "rep": 1,
+              "http": 200,
+              "bytes": 2268452,
+              "ms": 1.0,
+              "imported": 200,
+              "rows_per_s": 200.0
+            }
+          ]
+        }
+      ],
+      "index": {
+        "ddl": "CREATE INDEX idx_obs_embedding_1024 ON public.mem_observations USING hnsw (embedding_1024 vector_cosine_ops)",
+        "size": "7088 kB"
+      }
+    },
+    "health_seconds": 7.1,
+    "health_seconds_raised": 6.2
+  },
+  "hnsw_build": {
+    "centers": 256,
+    "noise_pool": 20001,
+    "container": "cortexce-hnsw-bench-pg",
+    "sizes": {
+      "100000": {
+        "rows": 100000,
+        "load_seconds": 4.1,
+        "runs": [
+          {
+            "maintenance_work_mem": "1GB",
+            "workers": 2,
+            "seconds": 36.9,
+            "index_size": "781 MB",
+            "index_bytes": 819208192
+          },
+          {
+            "maintenance_work_mem": "64MB",
+            "workers": 0,
+            "seconds": 199.6,
+            "index_size": "781 MB",
+            "index_bytes": 819208192,
+            "insert_probe": [
+              {
+                "rows": 1000,
+                "seconds": 3.139,
+                "rows_per_s": 318.6
+              },
+              {
+                "rows": 1000,
+                "seconds": 3.12,
+                "rows_per_s": 320.5
+              }
+            ]
+          }
+        ]
+      },
+      "300000": {
+        "rows": 300000,
+        "load_seconds": 11.3,
+        "runs": [
+          {
+            "maintenance_work_mem": "2GB",
+            "workers": 2,
+            "seconds": 70.5,
+            "index_size": "2344 MB",
+            "index_bytes": 2457608192
+          },
+          {
+            "maintenance_work_mem": "4GB",
+            "workers": 2,
+            "seconds": 72.1,
+            "index_size": "2344 MB",
+            "index_bytes": 2457608192,
+            "insert_probe": [
+              {
+                "rows": 1000,
+                "seconds": 5.201,
+                "rows_per_s": 192.3
+              },
+              {
+                "rows": 1000,
+                "seconds": 4.899,
+                "rows_per_s": 204.1
+              }
+            ]
+          }
+        ]
+      },
+      "1000000": {
+        "rows": 1000000,
+        "load_seconds": 33.4,
+        "runs": [
+          {
+            "maintenance_work_mem": "4GB",
+            "workers": 2,
+            "seconds": 801.6,
+            "index_size": "7813 MB",
+            "index_bytes": 8192008192,
+            "insert_probe": [
+              {
+                "rows": 1000,
+                "seconds": 26.13,
+                "rows_per_s": 38.3
+              },
+              {
+                "rows": 1000,
+                "seconds": 18.733,
+                "rows_per_s": 53.4
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

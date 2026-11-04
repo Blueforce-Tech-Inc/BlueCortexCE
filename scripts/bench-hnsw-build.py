@@ -104,7 +104,31 @@ def load_rows(rows: int) -> int:
     return int(psql("SELECT count(*) FROM bench;"))
 
 
-def build(work_mem: str, workers: int) -> dict:
+def probe_inserts(rows: int, probe_rows: int) -> list:
+    """Cost of adding vectors to a graph that already holds `rows` nodes.
+
+    The app-level import benchmark (scripts/bench-write-path.py) fills a million
+    *rows* but only a few hundred of them carry vectors, so its "at scale" number
+    does not show what HNSW upkeep costs once the graph itself is large. This
+    measures exactly that with plain SQL: two 1,000-row inserts into the just-built
+    index, default `synchronous_commit` so the write is durable like an app write.
+    """
+    probe = []
+    for repetition in range(2):
+        base = rows + 7_000_000 + repetition * probe_rows
+        started = time.perf_counter()
+        psql("INSERT INTO bench (id, embedding_1024)\n"
+             "SELECT gen_random_uuid(),\n"
+             f"       (SELECT v FROM centers WHERE id = 1 + s % {CENTERS})\n"
+             f"       + (SELECT v FROM noises WHERE id = 1 + s % {NOISE_POOL})\n"
+             f"FROM generate_series({base}, {base + probe_rows - 1}) s;")
+        seconds = round(time.perf_counter() - started, 3)
+        probe.append({"rows": probe_rows, "seconds": seconds,
+                      "rows_per_s": round(probe_rows / seconds, 1) if seconds else None})
+    return probe
+
+
+def build(work_mem: str, workers: int, rows: int, probe_rows: int = 0) -> dict:
     # SET is session-scoped, and every psql call here is a separate process, so
     # the settings must travel in the same statement stream as CREATE INDEX.
     # (Sending them separately silently measured the container's stock 64MB.)
@@ -119,9 +143,14 @@ def build(work_mem: str, workers: int) -> dict:
     seconds = round(time.perf_counter() - started, 1)
     size = psql("SELECT pg_size_pretty(pg_relation_size('bench_hnsw'));")
     size_bytes = int(psql("SELECT pg_relation_size('bench_hnsw');"))
+    result = {"maintenance_work_mem": work_mem, "workers": workers,
+              "seconds": seconds, "index_size": size, "index_bytes": size_bytes}
+    # Probing before DROP INDEX keeps the graph at the size under test. The probe
+    # rows stay in the table, so it only runs on the last setting of each size.
+    if probe_rows:
+        result["insert_probe"] = probe_inserts(rows, probe_rows)
     psql("DROP INDEX bench_hnsw;")
-    return {"maintenance_work_mem": work_mem, "workers": workers,
-            "seconds": seconds, "index_size": size, "index_bytes": size_bytes}
+    return result
 
 
 def main() -> int:
@@ -141,13 +170,14 @@ def main() -> int:
         previous = json.loads(Path(args.out).read_text())
         for size, entry in (previous.get("sizes") or {}).items():
             results["sizes"][size] = entry
-    # 64MB (the stock default) is measured last in the 100k phase: with the
-    # graph spilling it is an order of magnitude slower, and it is the number
-    # that justifies the recommendation. 1M is only built at a setting that
-    # fits the 16.8 GB Docker VM; a second 1M run costs an hour and does not
-    # change the recommendation.
+    # 64MB (the stock default) is compared against 1GB at 100k: with the graph
+    # spilling it is an order of magnitude slower, and it is the number that
+    # justifies the recommendation. 1M is only built at a setting that fits the
+    # 16.8 GB Docker VM; a second 1M run costs an hour and does not change the
+    # recommendation. The insert probe (HNSW upkeep with a graph this large) runs
+    # once per size, on the last setting, because it adds rows to the table.
     schedule = [
-        (100_000, [("1GB", 2), ("2GB", 2), ("64MB", 0)]),
+        (100_000, [("1GB", 2), ("64MB", 0)]),
         (300_000, [("2GB", 2), ("4GB", 2)]),
         (1_000_000, [("4GB", 2)]),
     ]
@@ -160,8 +190,9 @@ def main() -> int:
         if rows != size:
             raise SystemExit(f"loaded {rows} rows for requested size {size}")
         runs = []
-        for work_mem, workers in settings:
-            runs.append(build(work_mem, workers))
+        for index, (work_mem, workers) in enumerate(settings):
+            last = index == len(settings) - 1
+            runs.append(build(work_mem, workers, rows, 1000 if last else 0))
             results["sizes"][str(size)] = {"rows": rows, "load_seconds": load_seconds,
                                            "runs": runs}
             # Written after every run so a long 1M build still leaves the

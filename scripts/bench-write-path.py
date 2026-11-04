@@ -198,7 +198,7 @@ def measure_batch(batch: int, with_vector: bool, repetitions: int, start: int,
             imported = 0
         runs.append({
             "batch": batch, "rep": repetition, "http": status,
-            "bytes": size, "ms": elapsed, "imported": imported,
+            "bytes": size, "seconds": elapsed, "imported": imported,
             "rows_per_s": round(imported / elapsed, 1) if elapsed and imported else 0,
         })
         start += batch
@@ -259,7 +259,7 @@ def main() -> int:
             start += batch * 3
             scaling.append({"batch": batch, "runs": runs})
             print(f"batch {batch}: " + ", ".join(
-                f"{run['rows_per_s']} rows/s ({run['ms']} ms, {run['http']})"
+                f"{run['rows_per_s']} rows/s ({run['seconds']} s, {run['http']})"
                 for run in runs), flush=True)
         result["steps"]["batch_scaling"] = scaling
 
@@ -342,7 +342,7 @@ def main() -> int:
             vector_start += batch * 2
             vector_rows.append({"batch": batch, "runs": runs})
             print(f"vector batch {batch}: " + ", ".join(
-                f"{run['rows_per_s']} rows/s ({run['ms']} ms, {run['http']})"
+                f"{run['rows_per_s']} rows/s ({run['seconds']} s, {run['http']})"
                 for run in runs), flush=True)
         result["steps"]["vector_batches_at_scale"] = vector_rows
         result["steps"]["index"] = {
