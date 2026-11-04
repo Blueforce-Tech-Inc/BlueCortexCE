@@ -294,6 +294,30 @@ mvn test       # run tests
 mvn package    # build jar
 ```
 
+### Browser E2E
+
+The bundled viewer is also exercised in a real Chromium. Playwright is a
+test-only dependency; install it once:
+
+```bash
+cd scripts/browser
+npm install --no-save playwright
+npx playwright install --with-deps chromium
+```
+
+Then either run the browser check alone (it starts its own disposable database
+and backend), or the whole gate:
+
+```bash
+./scripts/webui-browser-e2e.sh   # rendering, files, hasMore, refresh, settings round trip
+./scripts/verify-local.sh        # step 9 runs the same check; prints SKIP if Playwright is absent
+```
+
+CI runs it in the `browser-e2e` job in `.github/workflows/backend-tests.yml`,
+which installs `playwright@1.59.1` + Chromium and fails on assertion or page
+errors. Locally, `REQUIRE_BROWSER_E2E=1 ./scripts/verify-local.sh` turns a
+missing Playwright install into a failure instead of a SKIP.
+
 ### Project Structure
 
 ```

@@ -16,6 +16,12 @@
 # be compatible with the Bun version du jour. Our own integration surface is
 # pinned by backend/src/test/java/.../WebUiWireContractTest.java instead.
 #
+# The browser-e2e job is the only one that boots a real Chromium. It reuses the
+# same disposable-database path as scripts/verify-local.sh, takes an external
+# PostgreSQL (PG_CONTAINER="") instead of `docker exec`, and fails on missing
+# Playwright rather than skipping. Assertion failures print
+# "FAIL: ASSERTION FAILED: ..." and browser exceptions print "FAIL: PAGE ERROR: ...".
+#
 # Local reproduction: docs/TESTING.md section 6, or the same commands below
 # against an already running pgvector container.
 name: Quality Gates
@@ -112,6 +118,59 @@ jobs:
           PROXY_E2E_SERVER_URL=http://127.0.0.1:37777 \
           PROXY_E2E_EXPECTED_VERSION=0.1.0-beta \
           npm test
+
+  browser-e2e:
+    name: Browser E2E (bundled viewer)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build the application jar
+        working-directory: backend
+        run: mvn -B -DskipTests package --no-transfer-progress
+
+      - name: Ensure a psql client for the external database
+        run: command -v psql || (sudo apt-get update && sudo apt-get install -y postgresql-client)
+
+      # Playwright is installed here only; it is not a production dependency.
+      - name: Install Playwright and Chromium
+        working-directory: scripts/browser
+        run: |
+          npm install --no-save playwright@1.59.1
+          npx playwright install --with-deps chromium
+
+      # PG_CONTAINER="" switches the script from `docker exec` to psql against
+      # the service above. Missing Playwright fails here instead of skipping.
+      - name: Run the browser E2E
+        run: ./scripts/webui-browser-e2e.sh
+        env:
+          PG_CONTAINER: ''
+          PG_PORT: '5433'
+          PG_USER: postgres
+          PG_PASSWORD: postgres
+          WEBUI_E2E_PORT: '37778'
 
   webui:
     name: WebUI typecheck (submodule, read-only)

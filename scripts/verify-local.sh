@@ -19,10 +19,15 @@
 #   7. run both documentation consistency checks (checker self-test, then the
 #      published EN/ZH API reference against the live server);
 #   8. run the proxy E2E against that server and refuse a skipped run (this is
-#      the proxy-forwarding part of L3).
+#      the proxy-forwarding part of L3);
+#   9. drive the bundled viewer in a real Chromium: page rendering, files,
+#      hasMore pagination, refresh visibility and a settings toggle round trip.
+#      Playwright/Chromium is optional locally (a missing install prints SKIP);
+#      REQUIRE_BROWSER_E2E=1 turns that SKIP into a failure for CI.
 #
 # Every step prints its name. A failure prints the step, the command's own
-# reason, and exits non-zero. Nothing here treats "skipped" as success.
+# reason, and exits non-zero. Nothing here treats "skipped" as success, except
+# the browser step above, whose SKIP is explicit and opt-out-able.
 #
 # Usage:
 #   ./scripts/verify-local.sh
@@ -32,6 +37,7 @@
 #   TEST_DB=<existing-name>   # pin the database instead of generating a unique one
 #   VERIFY_KEEP_DB=1          # keep the database after the run (default: drop it)
 #   VERIFY_MIN_TESTS=528   VERIFY_APP_PORT=37888   VERIFY_E2E_PORT=37777
+#   VERIFY_BROWSER_E2E_PORT=37778   REQUIRE_BROWSER_E2E=1
 #   VERIFY_LOG_DIR=/tmp/cortexce-verify
 
 set -euo pipefail
@@ -55,6 +61,8 @@ PG_CONTAINER="${PG_CONTAINER:-}"
 PG_PORT="${PG_PORT:-}"
 APP_PORT="${VERIFY_APP_PORT:-37888}"
 E2E_PORT="${VERIFY_E2E_PORT:-37777}"
+BROWSER_E2E_PORT="${VERIFY_BROWSER_E2E_PORT:-37778}"
+REQUIRE_BROWSER_E2E="${REQUIRE_BROWSER_E2E:-0}"
 MIN_TESTS="${VERIFY_MIN_TESTS:-528}"
 LOG_BASE="${TMPDIR:-/tmp}"
 LOG_BASE="${LOG_BASE%/}"
@@ -139,7 +147,7 @@ wait_for_health() {
 # is usable is decided by pg_available_extensions, never by the image tag: a
 # postgres:16 image may or may not ship the extension.
 # --------------------------------------------------------------------------
-step "1/8 Locate a running PostgreSQL + pgvector container"
+step "1/9 Locate a running PostgreSQL + pgvector container"
 
 command -v docker >/dev/null 2>&1 \
   || fail "locate database" "docker is not installed or not on PATH."
@@ -225,7 +233,7 @@ note "container=$PG_CONTAINER host_port=$PG_PORT user=$PG_USER database=$TEST_DB
 # The tests truncate tables, so a business database must never be reused. The
 # DROP makes this block re-runnable from a clean state.
 # --------------------------------------------------------------------------
-step "2/8 Create the disposable test database $TEST_DB"
+step "2/9 Create the disposable test database $TEST_DB"
 
 docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d postgres -v ON_ERROR_STOP=1 \
   -c "DROP DATABASE IF EXISTS \"$TEST_DB\" WITH (FORCE)" >/dev/null \
@@ -235,7 +243,7 @@ docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d postgres -v ON_ERROR_STOP=1 \
   -c "CREATE DATABASE \"$TEST_DB\"" >/dev/null \
   || fail "recreate database" "could not create '$TEST_DB'."
 
-step "3/8 Enable and verify the vector extension"
+step "3/9 Enable and verify the vector extension"
 docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$TEST_DB" -v ON_ERROR_STOP=1 \
   -c "CREATE EXTENSION IF NOT EXISTS vector" >/dev/null \
   || fail "enable vector" "CREATE EXTENSION vector failed inside '$TEST_DB'."
@@ -253,7 +261,7 @@ note "vector extension enabled in $TEST_DB (version $EXT_VERSION)"
 # The version is compared with the newest file in db/migration, so a migration
 # that silently fails to apply is a failure here, not a surprise in the tests.
 # --------------------------------------------------------------------------
-step "4/8 Migrate to the latest version"
+step "4/9 Migrate to the latest version"
 
 EXPECTED_MIGRATION="$(ls "$ROOT/backend/src/main/resources/db/migration" 2>/dev/null \
   | sed -n 's/^V\([0-9][0-9]*\)__.*\.sql$/\1/p' | sort -n | tail -n1)"
@@ -312,7 +320,7 @@ note "flyway version=$APPLIED_VERSION (matches db/migration), failed migrations=
 # --------------------------------------------------------------------------
 # 5. full backend suite
 # --------------------------------------------------------------------------
-step "5/8 Full backend suite: L1 unit/integration + L2 regression + L3 acceptance + L4 end-to-end (MEMSCOPE_* pointed at $TEST_DB)"
+step "5/9 Full backend suite: L1 unit/integration + L2 regression + L3 acceptance + L4 end-to-end (MEMSCOPE_* pointed at $TEST_DB)"
 
 cd "$ROOT/backend"
 MEMSCOPE_TEST_DB_URL="jdbc:postgresql://127.0.0.1:${PG_PORT}/${TEST_DB}" \
@@ -335,7 +343,7 @@ mvn -B clean install > "$LOG_DIR/backend-tests.log" 2>&1 \
 # below" value; the baseline is a per-layer ratchet that you raise with
 # `python3 scripts/check-test-results.py --write-baseline` after adding tests.
 # --------------------------------------------------------------------------
-step "6/8 Layer gate (--require-zero-skips --min-tests $MIN_TESTS --require-layers --require-baseline)"
+step "6/9 Layer gate (--require-zero-skips --min-tests $MIN_TESTS --require-layers --require-baseline)"
 
 cd "$ROOT"
 GATE_OUTPUT="$(python3 scripts/check-test-results.py --require-zero-skips \
@@ -347,12 +355,12 @@ printf '%s\n' "$GATE_OUTPUT"
 # in step 5 proves the fixtures clear the current floor, and step 6 proves the suite
 # clears the baseline; this check proves neither file was edited downward to make a low
 # measurement or a removed test pass.
-step "6b/8 Gate monotonicity (scripts/check-eval-gates.py)"
+step "6b/9 Gate monotonicity (scripts/check-eval-gates.py)"
 GATE_FLOOR_OUTPUT="$(python3 scripts/check-eval-gates.py 2>&1)" \
   || fail "evaluation gate" "check-eval-gates.py rejected a lowered floor:" "$GATE_FLOOR_OUTPUT"
 printf '%s\n' "$GATE_FLOOR_OUTPUT"
 
-step "6c/8 Retrieval quality replay gate (scripts/check-retrieval-quality.py)"
+step "6c/9 Retrieval quality replay gate (scripts/check-retrieval-quality.py)"
 RETRIEVAL_OUTPUT="$(python3 scripts/check-retrieval-quality.py 2>&1)" \
   || fail "retrieval quality gate" "check-retrieval-quality.py rejected the recorded ranking:" "$RETRIEVAL_OUTPUT"
 printf '%s\n' "$RETRIEVAL_OUTPUT"
@@ -364,12 +372,12 @@ printf '%s\n' "$RETRIEVAL_OUTPUT"
 # published references are compared with the endpoints the server actually
 # serves. The server stays up for step 8.
 # --------------------------------------------------------------------------
-step "7/8 Documentation consistency check 1/2 (checker self-test)"
+step "7/9 Documentation consistency check 1/2 (checker self-test)"
 SELF_TEST_OUTPUT="$(python3 scripts/check-api-doc-surface.py --self-test 2>&1)" \
   || fail "doc consistency (self-test)" "check-api-doc-surface.py --self-test failed:" "$SELF_TEST_OUTPUT"
 printf '%s\n' "$SELF_TEST_OUTPUT"
 
-step "7/8 Documentation consistency check 2/2 (EN/ZH reference vs live server)"
+step "7/9 Documentation consistency check 2/2 (EN/ZH reference vs live server)"
 
 if port_in_use "$E2E_PORT"; then
   fail "doc consistency (live server)" \
@@ -402,7 +410,7 @@ printf '%s\n' "$DOC_OUTPUT"
 # The env vars force the suite to run instead of skipping. The assertions on
 # the output make a skipped or empty run a failure even if the exit code is 0.
 # --------------------------------------------------------------------------
-step "8/8 Proxy E2E against http://127.0.0.1:${E2E_PORT} (L3 proxy forwarding)"
+step "8/9 Proxy E2E against http://127.0.0.1:${E2E_PORT} (L3 proxy forwarding)"
 
 cd "$ROOT/proxy"
 npm ci > "$LOG_DIR/proxy-install.log" 2>&1 \
@@ -423,6 +431,52 @@ if ! grep -Eq '(^|[[:space:]])skipped[[:space:]]+0([[:space:]]|$)' "$LOG_DIR/pro
 fi
 note "proxy E2E ran and reported 0 skipped"
 
+# --------------------------------------------------------------------------
+# 9. browser E2E
+#
+# The only step that proves the bundled viewer actually renders. Playwright is a
+# test-only dependency: when it or its Chromium build is absent this prints an
+# explicit SKIP instead of pretending to pass; CI sets REQUIRE_BROWSER_E2E=1 so
+# the absence is a failure there.
+# --------------------------------------------------------------------------
+step "9/9 Browser E2E (Playwright + Chromium: rendering, hasMore, files, settings round trip)"
+
+BROWSER_PROBE="$(cd "$ROOT/scripts/browser" && node --input-type=module -e '
+import { chromium } from "playwright";
+import { existsSync } from "node:fs";
+process.stdout.write(existsSync(chromium.executablePath()) ? "ok" : "missing-chromium");
+' 2>&1)" || BROWSER_PROBE="missing-playwright"
+
+BROWSER_RESULT="not-run"
+if [[ "$BROWSER_PROBE" != "ok" ]]; then
+  if [[ "$REQUIRE_BROWSER_E2E" == "1" ]]; then
+    fail "browser E2E" "Playwright/Chromium is $BROWSER_PROBE and REQUIRE_BROWSER_E2E=1." \
+         "Install once: (cd scripts/browser && npm install --no-save playwright && npx playwright install --with-deps chromium)"
+  fi
+  BROWSER_RESULT="SKIP (Playwright/Chromium $BROWSER_PROBE)"
+  note "SKIP: Playwright/Chromium is $BROWSER_PROBE; the browser E2E did not run."
+  note "      Set REQUIRE_BROWSER_E2E=1 to turn this SKIP into a failure (CI does)."
+else
+  if port_in_use "$BROWSER_E2E_PORT"; then
+    fail "browser E2E" \
+         "port ${BROWSER_E2E_PORT} is already in use, so the run would target an unknown server." \
+         "Free it, or re-run with VERIFY_BROWSER_E2E_PORT=<free port>."
+  fi
+
+  PG_CONTAINER="$PG_CONTAINER" PG_PORT="$PG_PORT" PG_USER="$PG_USER" \
+  PG_PASSWORD="$PG_PASSWORD" WEBUI_E2E_PORT="$BROWSER_E2E_PORT" \
+    "$ROOT/scripts/webui-browser-e2e.sh" > "$LOG_DIR/webui-browser-e2e.log" 2>&1 \
+    || fail "browser E2E" "webui-browser-e2e.sh failed:" \
+         "$(tail -n 40 "$LOG_DIR/webui-browser-e2e.log")"
+
+  PASS_LINES="$(grep -c '^PASS:' "$LOG_DIR/webui-browser-e2e.log" || true)"
+  [[ "$PASS_LINES" -ge 7 ]] \
+    || fail "browser E2E" "the run reported only ${PASS_LINES} PASS lines; expected at least 7." \
+         "$(tail -n 40 "$LOG_DIR/webui-browser-e2e.log")"
+  BROWSER_RESULT="E2E PASS (${PASS_LINES} checks: rendering, files, hasMore, refresh, settings)"
+  note "browser E2E PASS (${PASS_LINES} checks, settings round trip included)"
+fi
+
 printf '\nALL CHECKS PASSED\n'
 printf '  database   : %s on 127.0.0.1:%s (pgvector %s)\n' "$TEST_DB" "$PG_PORT" "$EXT_VERSION"
 printf '  migrations : V%s\n' "$APPLIED_VERSION"
@@ -430,4 +484,5 @@ printf '  layers     : L1-L4 all executed, 0 skipped\n'
 printf '  tests      : gate --min-tests %s --require-zero-skips --require-layers --require-baseline\n' "$MIN_TESTS"
 printf '  docs       : checker self-test + EN/ZH reference vs live server\n'
 printf '  proxy      : E2E executed, 0 skipped (L3 proxy forwarding)\n'
+printf '  browser    : %s\n' "$BROWSER_RESULT"
 printf '  logs       : %s\n' "$LOG_DIR"

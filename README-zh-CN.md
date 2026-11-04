@@ -288,6 +288,28 @@ mvn test       # 运行测试
 mvn package    # 构建 jar 包
 ```
 
+### 浏览器端到端
+
+打包的查看器还会在真实 Chromium 中验证。Playwright 仅为测试依赖，安装一次即可：
+
+```bash
+cd scripts/browser
+npm install --no-save playwright
+npx playwright install --with-deps chromium
+```
+
+之后可以单独跑浏览器检查（脚本会自建一次性数据库并启动后端），或跑完整门禁：
+
+```bash
+./scripts/webui-browser-e2e.sh   # 渲染、files_modified、hasMore、刷新、设置往返
+./scripts/verify-local.sh        # 第 9 步执行同样的检查；未安装 Playwright 时打印 SKIP
+```
+
+CI 由 `.github/workflows/backend-tests.yml` 的 `browser-e2e` job 执行，会安装
+`playwright@1.59.1` + Chromium；断言失败或页面报错都会让该 job 失败。本地可用
+`REQUIRE_BROWSER_E2E=1 ./scripts/verify-local.sh` 把「未安装 Playwright」从 SKIP
+变成失败。
+
 ### 项目结构
 
 ```

@@ -10,9 +10,11 @@
  *   2. `files_modified` written through the ingest API is readable on the card
  *   3. pagination follows `hasMore` (50 -> all seeded rows, then "No more")
  *   4. a record created after load is visible after a plain refresh
+ *   5. a settings toggle keeps its new value after a refresh
  *
- * Playwright is a local tool only; install it once with `npm i -g playwright`
- * or `npx playwright install chromium`. It is not a production dependency.
+ * Playwright is a test-only tool; install it once with
+ * `(cd scripts/browser && npm install --no-save playwright && npx playwright install --with-deps chromium)`.
+ * It is not a production dependency.
  */
 
 import { chromium } from 'playwright';
@@ -24,15 +26,17 @@ const seedCount = Number(process.env.SEED_COUNT || 60);
 const pageSize = Number(process.env.PAGE_SIZE || 50);
 const screenshot = process.env.SCREENSHOT || '';
 
-function fail(message) {
+function fail(message, pageErrors = []) {
   console.error(`FAIL: ${message}`);
+  if (pageErrors.length > 0) console.error(`PAGE ERRORS: ${pageErrors.join('; ')}`);
   process.exit(1);
 }
+
+let pageErrors = [];
 
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(String(error)));
 
   // The viewer keeps a long-lived SSE connection to /stream, so `networkidle`
@@ -90,14 +94,35 @@ try {
   assert.equal(afterReload, pageSize, 'refresh shows the same first-page size');
   console.log('PASS: a record created after load is visible after refresh');
 
-  if (pageErrors.length > 0) fail(`browser reported page errors: ${pageErrors.join('; ')}`);
+  // Settings round trip: the toggles compare strings with `=== 'true'`, so a
+  // boolean in the API response renders an enabled switch as off.
+  await page.locator('.settings-btn').click();
+  await page.waitForSelector('.context-settings-modal', { timeout: 10000 });
+  const toggle = page.locator('#show-read-tokens');
+  const initial = await toggle.getAttribute('aria-checked');
+  assert.equal(initial, 'true',
+    `an enabled "Read cost" toggle must render on; aria-checked=${initial}`);
+  await toggle.click();
+  assert.equal(await toggle.getAttribute('aria-checked'), 'false', 'toggle must turn off');
+  await page.locator('.save-btn').click();
+  await page.waitForSelector('text=✓ Saved', { timeout: 10000 });
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 });
+  await page.waitForSelector('.card-title', { timeout: 20000 });
+  await page.locator('.settings-btn').click();
+  await page.waitForSelector('.context-settings-modal', { timeout: 10000 });
+  const persisted = await page.locator('#show-read-tokens').getAttribute('aria-checked');
+  assert.equal(persisted, 'false', `saved toggle must survive a refresh; aria-checked=${persisted}`);
+  console.log('PASS: a settings toggle survives change -> save -> refresh');
+
+  if (pageErrors.length > 0) fail(`PAGE ERROR: ${pageErrors.join('; ')}`, pageErrors);
   if (screenshot) {
     await page.screenshot({ path: screenshot, fullPage: false });
     console.log(`screenshot: ${screenshot}`);
   }
   console.log('RESULT: PASS');
 } catch (error) {
-  fail(error.message);
+  const kind = error.code === 'ERR_ASSERTION' ? 'ASSERTION FAILED' : 'SCRIPT ERROR';
+  fail(`${kind}: ${error.message}`, pageErrors);
 } finally {
   await browser.close();
 }

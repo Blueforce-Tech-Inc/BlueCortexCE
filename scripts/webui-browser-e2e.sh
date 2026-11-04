@@ -5,10 +5,11 @@
 # observations to cross the viewer's 50-row page size, then runs a real Chromium
 # (Playwright) against http://127.0.0.1:<port>/ to prove the page renders,
 # `files_modified` reaches the card, `hasMore` pagination pages through the whole
-# feed, and a record created after load is visible after a plain refresh.
+# feed, a record created after load is visible after a plain refresh, and a
+# settings toggle survives a refresh.
 #
-# Never runs in CI. Playwright is a local tool, not a production dependency:
-#   npm i -g playwright && npx playwright install chromium   # once, if missing
+# Playwright is a test-only tool, not a production dependency. Install it once:
+#   (cd scripts/browser && npm install --no-save playwright && npx playwright install --with-deps chromium)
 #
 # Usage:
 #   ./scripts/webui-browser-e2e.sh
@@ -16,10 +17,13 @@
 #
 # Overrides: PG_CONTAINER, PG_PORT, PG_USER, PG_PASSWORD, WEBUI_E2E_PORT,
 #            SEED_COUNT (default 60), KEEP_DB (keep the database for inspection).
+#
+# Set PG_CONTAINER="" to talk to an existing PostgreSQL on PG_PORT with the psql
+# client instead of `docker exec`; that is how the CI job runs it.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PG_CONTAINER="${PG_CONTAINER:-claude-mem-test-pg}"
+PG_CONTAINER="${PG_CONTAINER-claude-mem-test-pg}"
 PG_PORT="${PG_PORT:-5433}"
 PG_USER="${PG_USER:-postgres}"
 PG_PASSWORD="${PG_PASSWORD:-123456}"
@@ -46,6 +50,16 @@ fail() {
   exit 1
 }
 
+sql() {
+  local database="$1"
+  shift
+  if [[ -n "$PG_CONTAINER" ]]; then
+    docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$database" -q "$@"
+  else
+    PGPASSWORD="$PG_PASSWORD" psql -h 127.0.0.1 -p "$PG_PORT" -U "$PG_USER" -d "$database" -q "$@"
+  fi
+}
+
 cleanup() {
   local status=$?
   if [[ -n "$APP_PID" ]]; then
@@ -55,22 +69,30 @@ cleanup() {
   if [[ "${KEEP_DB:-0}" == "1" ]]; then
     echo "kept database $DB (KEEP_DB=1)"
   else
-    docker exec "$PG_CONTAINER" psql -U "$PG_USER" -q \
-      -c "DROP DATABASE IF EXISTS \"$DB\" WITH (FORCE);" >/dev/null 2>&1 || true
+    sql postgres -c "DROP DATABASE IF EXISTS \"$DB\" WITH (FORCE);" >/dev/null 2>&1 || true
   fi
   echo "logs: $LOG_DIR"
   exit $status
 }
 trap cleanup EXIT
 
-step "Locate the PostgreSQL container"
-docker inspect "$PG_CONTAINER" >/dev/null 2>&1 || fail "container $PG_CONTAINER not found"
-echo "container=$PG_CONTAINER port=$PG_PORT database=$DB"
+step "Locate PostgreSQL"
+if [[ -n "$PG_CONTAINER" ]]; then
+  docker inspect "$PG_CONTAINER" >/dev/null 2>&1 || fail "container $PG_CONTAINER not found"
+  echo "container=$PG_CONTAINER port=$PG_PORT database=$DB"
+else
+  command -v psql >/dev/null 2>&1 || fail "PG_CONTAINER is empty but the psql client is not installed"
+  echo "external postgres=127.0.0.1:$PG_PORT database=$DB"
+fi
+
+step "Refuse to start when ${PORT} is already taken"
+if (exec 3<>"/dev/tcp/127.0.0.1/${PORT}") 2>/dev/null; then
+  fail "port ${PORT} is already in use; set WEBUI_E2E_PORT to a free port"
+fi
 
 step "Create and migrate-ready the disposable database"
-docker exec "$PG_CONTAINER" psql -U "$PG_USER" -q -c "CREATE DATABASE \"$DB\";" || fail "create database"
-docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$DB" -q -c "CREATE EXTENSION IF NOT EXISTS vector;" \
-  || fail "enable pgvector"
+sql postgres -c "CREATE DATABASE \"$DB\";" || fail "create database"
+sql "$DB" -c "CREATE EXTENSION IF NOT EXISTS vector;" || fail "enable pgvector"
 echo "database $DB ready"
 
 step "Locate the application jar"
@@ -83,10 +105,12 @@ fi
 echo "jar=$JAR"
 
 step "Boot the backend on ${BASE_URL}"
+mkdir -p "$LOG_DIR/data"
 SPRING_DATASOURCE_URL="jdbc:postgresql://127.0.0.1:${PG_PORT}/${DB}" \
 SPRING_DATASOURCE_USERNAME="$PG_USER" \
 SPRING_DATASOURCE_PASSWORD="$PG_PASSWORD" \
 SERVER_PORT="$PORT" \
+CLAUDE_MEM_DATA_DIR="$LOG_DIR/data" \
   java -jar "$JAR" --server.port="$PORT" > "$LOG_DIR/app.log" 2>&1 &
 APP_PID=$!
 for _ in $(seq 1 120); do

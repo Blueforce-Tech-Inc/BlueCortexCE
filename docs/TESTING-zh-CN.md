@@ -70,7 +70,7 @@
 | `eval-retrieval-quality.py` | 手动检索质量评测（真实 embedding、一次性数据库）：逐条候选生成规则给出 hit@1 / hit@5 / MRR，生产 SQL 原样复制。绝不进入 CI。 |
 | `upgrade-rehearsal.sh` | 手动老库升级演练：让 Flyway 停在 V12，灌入带 embedding 与中文的 V13 之前形态数据，原地升级到 V25，校验行数 / id / V13 关联 / 中文检索，再恢复 V12 dump 作为回滚证明。绝不进入 CI。 |
 | `hook-payload-e2e.sh` | 手动 Hook 端到端：用真实 Claude Code 载荷（UserPromptSubmit / PostToolUse / SessionEnd）经 `proxy/wrapper.js` 转发，校验字段映射、落库、重复 PostToolUse 去重、summary 生成，以及后端不可达时的优雅失败。绝不进入 CI。 |
-| `webui-browser-e2e.sh` | 手动浏览器端到端：在一次性数据库上启动真实后端、灌入 60 条 observation，再用无头 Chromium（Playwright）验证内置查看器能渲染卡片、能读到 `files_modified`、按 `hasMore` 翻完整个信息流，并在刷新后看到加载后新建的记录。Playwright 仅为本地工具，不是生产依赖。绝不进入 CI。 |
+| `webui-browser-e2e.sh` | 查看器级浏览器端到端：在一次性数据库上启动真实后端、灌入 60 条 observation，再用无头 Chromium（Playwright）验证内置查看器能渲染卡片、能读到 `files_modified`、按 `hasMore` 翻完整个信息流、刷新后看到加载后新建的记录，并验证设置开关在「修改 → 保存 → 刷新」后保持。Playwright 仅为测试依赖。该脚本是 `verify-local.sh` 第 9 步（未安装 Playwright 时 SKIP），也是 `browser-e2e` CI job 的执行体；CI 中未安装直接失败而不是跳过。 |
 | `run-all-e2e.sh` | 编排脚本 — 一次运行此处定义的 10 个本地 E2E 套件（不含 Docker 套件和 test-llm-provider.sh）。**其中 5/10 `mcp-streamable-e2e-test.sh` 是条件执行的**：除非服务器在 `/mcp` 上暴露 Streamable HTTP（向 `/mcp` 发一个 `initialize` 请求必须返回 200），否则会被跳过。后端默认的 MCP 传输是 SSE，因此在默认安装下该编排脚本实际运行 **9** 个套件并报告 1 个跳过——**这是预期行为，不是失败**。 |
 
 **前置条件：** 与回归测试相同（后端运行，数据库已配置）。
@@ -115,21 +115,26 @@ git submodule update --init --recursive
    `flyway_schema_history` 中没有失败记录。
 5. 用一次 `mvn -B clean install` 跑完 L1–L4，`MEMSCOPE_*` 指向该库。
 6. 执行 `python3 scripts/check-test-results.py --require-zero-skips
-   --min-tests 508 --require-layers --require-baseline`。下限是硬性
-   **不得低于** 值（当前 508 个用例）；baseline 额外提供按层棘轮，任何一层
+   --min-tests 528 --require-layers --require-baseline`。下限是硬性
+   **不得低于** 值（当前 528 个用例）；baseline 额外提供按层棘轮，任何一层
    悄悄减少用例都会失败。随后执行评估下限门禁与检索质量回放门禁。
 
-门禁在以下任一情况失败：有用例被跳过；总执行数低于 508；某一层一个用例都没执行；
+门禁在以下任一情况失败：有用例被跳过；总执行数低于 528；某一层一个用例都没执行；
 L1–L4 中任何一层的执行数低于 `scripts/test-baseline.json` 记录。只有在新增用例后，
 才应同时抬高下限并重写 baseline（`--write-baseline`）。
 7. 执行两项文档一致性检查：检查器自测，再用中英文 API 参考对比运行中的服务。
 8. 对该服务跑 proxy E2E，`node --test` 只要报告有跳过就判失败（这是 L3 的 proxy 转发部分）。
+9. 用真实 Chromium（Playwright）驱动打包的查看器：页面渲染、卡片上的
+   `files_modified`、`hasMore` 分页、刷新后可见新记录，以及设置开关的往返保存。
+   未安装 Playwright 或其 Chromium 时该步打印 `SKIP` 并继续；`REQUIRE_BROWSER_E2E=1`
+   会把该 SKIP 变成失败，CI 的独立 job 始终要求它执行。
 
 每一步都会打印自己的名称。失败时脚本打印 `STEP FAILED: <步骤>` 与命令自身的
 原因，以非零退出，绝不继续执行后续步骤去掩盖问题。可覆盖的变量：
 `PG_CONTAINER`、`PG_PORT`、`PG_USER`、`PG_PASSWORD`、`TEST_DB`（固定使用指定库，
 不自动生成）、`VERIFY_KEEP_DB`（保留自动生成的库以便检查）、
-`VERIFY_MIN_TESTS`、`VERIFY_APP_PORT`、`VERIFY_E2E_PORT`、`VERIFY_LOG_DIR`。
+`VERIFY_MIN_TESTS`、`VERIFY_APP_PORT`、`VERIFY_E2E_PORT`、
+`VERIFY_BROWSER_E2E_PORT`、`REQUIRE_BROWSER_E2E`、`VERIFY_LOG_DIR`。
 
 下面的分步说明保留下来，用于单独复现某一个失败步骤。
 
