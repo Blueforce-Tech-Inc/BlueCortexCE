@@ -1309,8 +1309,13 @@ exceed the final index size or the build spills to disk — Postgres then logs
 `hnsw graph no longer fits into maintenance_work_mem after N tuples` and the
 build slows markedly. Plan for 1 GB / 8 GB / 24 GB at 100k / 1M / 3M rows. Above
 roughly 2M rows a single graph no longer fits on a 16–32 GB host; shard the
-vector table by scope instead (measured at full 3M capacity in
-`docs/archive/2026-11-05_vector-sharding-3m.md`).
+vector table by scope instead. Measured at full 3M capacity: 8 × 375,000-row
+tables build in **89.7–106.8 s each (781.9 s total)** at a 4 GB budget, 3.0 GB
+per index and 22.9 GiB overall, with **no spill** — 261 µs/row versus 550–802 µs
+for the single 1M graph. Query p50 is **78 ms** on a 375k shard versus 84 ms on
+the 1M graph (p95 151 vs 176 ms), so a scope-scoped query stays flat while a
+cross-scope query pays fan-out over N shards. Full report and the trade-off
+table: `docs/archive/2026-11-05_vector-sharding-3m.md`.
 
 **Re-running is safe.** `scripts/rebuild-vector-index.sh` treats the index state
 as the source of truth:

@@ -4,6 +4,15 @@
 > **Updated by**: 定时项目维护任务。
 > **Update rule**: 新修复追加到顶部；超过文档增长阈值时保留未完成项并将已完成历史归档。
 
+## 2026-11-05 | 300 万行可行路径：按 scope 分片 vs 单库单图
+
+**改了什么**：新增 `scripts/bench-vector-sharding.py`（把 N 行拆到 N 张 `vec_p*` 表、每表一张本地 HNSW，服务端 `clock_timestamp()` 计时，并与 `cortexce_ops_1m` 单库 1M 图对比）。
+
+**实测**（3,000,000 行 / 8 × 375,000，`maintenance_work_mem=4GB`、2 workers、`ef_search=40`）：
+- 装载 **84.1 s**；单分片建图 **89.7–106.8 s**（均值 97.7 s），合计 **781.9 s**；单索引 3,072,008,192 B（**8,192 B/行**），总计 22.9 GiB，**无溢写** ⇒ **261 µs/行**（单库 1M 为 550–802 µs/行且 89.8 万行后溢写）。
+- 查询 p50 均值 **78.1 ms**、p95 均值 150.6 ms（单库 1M p50 83.7 / p95 176.0 ms）；跨 scope 需 N 路 fan-out。
+- 结论：≤1.5M 保持单库；3M+ 用 `PARTITION BY LIST (project_path)` + 每分区本地 HNSW，路由按 project，不建单张 23 GB 图。报告 `docs/archive/2026-11-05_vector-sharding-3m.md`（含取舍表与「未覆盖：应用路由/分区 DDL」说明）。
+
 ## 2026-11-05 | 审计清单再扫：补熔断状态指标，其余逐项写明理由
 
 **改了什么**：`CortexMetrics` 新增 `cortexce_llm_circuit_state{state=closed|half_open|open}`（三条 gauge 空闲即全部存在，同一时刻只有一条为 1），`L2MetricsEndpointTest` 断言空闲 closed=1、沿 worker 同一条 `onOutcome` 路径打开后 open=1/closed=0，`@AfterEach` 复位单例避免污染后续用例。`docs/API*.md` 指标表补该行与告警写法。

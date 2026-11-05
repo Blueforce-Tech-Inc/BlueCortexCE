@@ -1,0 +1,108 @@
+{
+  "rows": 3000000,
+  "shards": 8,
+  "work_mem": "4GB",
+  "workers": 2,
+  "container": "claude-mem-test-pg",
+  "builds": [
+    {
+      "shard": 0,
+      "seconds": 101.8,
+      "index_bytes": 3072008192
+    },
+    {
+      "shard": 1,
+      "seconds": 101.0,
+      "index_bytes": 3072008192
+    },
+    {
+      "shard": 2,
+      "seconds": 106.8,
+      "index_bytes": 3072008192
+    },
+    {
+      "shard": 3,
+      "seconds": 98.0,
+      "index_bytes": 3072008192
+    },
+    {
+      "shard": 4,
+      "seconds": 92.1,
+      "index_bytes": 3072008192
+    },
+    {
+      "shard": 5,
+      "seconds": 98.2,
+      "index_bytes": 3072008192
+    },
+    {
+      "shard": 6,
+      "seconds": 94.3,
+      "index_bytes": 3072008192
+    },
+    {
+      "shard": 7,
+      "seconds": 89.7,
+      "index_bytes": 3072008192
+    }
+  ],
+  "queries": {
+    "shards": {
+      "vec_p0": {
+        "p50_ms": 76.61,
+        "p95_ms": 156.23,
+        "max_ms": 583.54
+      },
+      "vec_p1": {
+        "p50_ms": 72.42,
+        "p95_ms": 118.35,
+        "max_ms": 148.27
+      },
+      "vec_p2": {
+        "p50_ms": 67.43,
+        "p95_ms": 101.06,
+        "max_ms": 143.37
+      },
+      "vec_p3": {
+        "p50_ms": 66.16,
+        "p95_ms": 107.99,
+        "max_ms": 142.01
+      },
+      "vec_p4": {
+        "p50_ms": 100.32,
+        "p95_ms": 337.43,
+        "max_ms": 907.65
+      },
+      "vec_p5": {
+        "p50_ms": 105.87,
+        "p95_ms": 153.38,
+        "max_ms": 223.95
+      },
+      "vec_p6": {
+        "p50_ms": 93.98,
+        "p95_ms": 166.71,
+        "max_ms": 469.61
+      },
+      "vec_p7": {
+        "p50_ms": 43.29,
+        "p95_ms": 63.68,
+        "max_ms": 85.59
+      }
+    },
+    "single_1m": {
+      "mem_observations": {
+        "p50_ms": 83.7,
+        "p95_ms": 176.02,
+        "max_ms": 261.56
+      }
+    }
+  },
+  "load_seconds": 84.1,
+  "rows_per_shard": 375000,
+  "loaded_rows": 3000000,
+  "single_1m_rows": 1000198,
+  "total_index_bytes": 24576065536,
+  "build_seconds_total": 781.9,
+  "peak_maintenance_work_mem": "4GB",
+  "environment_note": "Shared macOS host with the PostgreSQL container also serving unrelated benchmarks; query percentiles carry host noise (max 908 ms on vec_p4). Build times are in-server and comparable across shards."
+}

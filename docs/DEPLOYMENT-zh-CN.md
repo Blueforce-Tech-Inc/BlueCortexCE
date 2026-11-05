@@ -1215,7 +1215,7 @@ SOURCE_DB=claude_mem WORK_MEM=8GB WORKERS=2 ./scripts/rebuild-vector-index.sh
 | 30 万 | 2,344 MB | 2 GB | 70.5 s |
 | 100 万 | 7.2–7.8 GB | 8 GB（4 GB 时约 89.8 万行后开始溢写） | 801.6 s |
 
-索引恒为 **每向量行约 8,192 字节**，因此 `maintenance_work_mem` 必须大于最终索引体积，否则会溢写到磁盘——Postgres 会打出 `hnsw graph no longer fits into maintenance_work_mem after N tuples`，耗时明显变长。按 10 万 / 100 万 / 300 万规划 1 GB / 8 GB / 24 GB。超过约 200 万行后，单图在 16–32 GB 主机上已放不下，应改为按 scope 分片向量表（已在完整 300 万容量下实测，见 `docs/archive/2026-11-05_vector-sharding-3m.md`）。
+索引恒为 **每向量行约 8,192 字节**，因此 `maintenance_work_mem` 必须大于最终索引体积，否则会溢写到磁盘——Postgres 会打出 `hnsw graph no longer fits into maintenance_work_mem after N tuples`，耗时明显变长。按 10 万 / 100 万 / 300 万规划 1 GB / 8 GB / 24 GB。超过约 200 万行后，单图在 16–32 GB 主机上已放不下，应改为按 scope 分片向量表。完整 300 万容量实测：8 张 375,000 行表在 4 GB 预算下 **单张 89.7–106.8 s、合计 781.9 s**，单索引 3.0 GB、总计 22.9 GiB，**无溢写**——**261 µs/行**，而单库 100 万图是 550–802 µs/行。查询 p50 **78 ms**（375k 分片）对比 **84 ms**（100 万单图），p95 151 vs 176 ms；因此按 scope 命中的查询延迟基本持平，跨 scope 检索则要付出 N 路 fan-out 代价。完整报告与取舍表见 `docs/archive/2026-11-05_vector-sharding-3m.md`。
 
 **重跑是安全的。** `scripts/rebuild-vector-index.sh` 以索引的真实状态为准：
 
