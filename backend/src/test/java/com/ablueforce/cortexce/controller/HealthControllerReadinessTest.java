@@ -1,8 +1,7 @@
 package com.ablueforce.cortexce.controller;
 
-import com.ablueforce.cortexce.repository.ObservationRepository;
-import com.ablueforce.cortexce.repository.PendingMessageRepository;
 import com.ablueforce.cortexce.service.AgentService;
+import com.ablueforce.cortexce.service.OperationalStatusService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +12,6 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -37,13 +35,11 @@ class HealthControllerReadinessTest {
 
         AgentService agentService = mock(AgentService.class);
         when(agentService.getQueueDepth()).thenReturn(3L);
-        PendingMessageRepository pending = mock(PendingMessageRepository.class);
-        when(pending.countByStatus("failed")).thenReturn(5L);
-        when(pending.countFailedSince(anyLong())).thenReturn(2L);
-        ObservationRepository observations = mock(ObservationRepository.class);
-        when(observations.countMissingEmbeddings()).thenReturn(4L);
+        OperationalStatusService status = mock(OperationalStatusService.class);
+        when(status.queueStatus())
+            .thenReturn(new OperationalStatusService.QueueStatus(5L, 2L, 4L));
 
-        HealthController controller = new HealthController(dataSource, agentService, pending, observations);
+        HealthController controller = new HealthController(dataSource, agentService, status);
         ResponseEntity<Map<String, Object>> response = controller.readiness();
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
@@ -68,11 +64,12 @@ class HealthControllerReadinessTest {
 
         AgentService agentService = mock(AgentService.class);
         when(agentService.getQueueDepth()).thenReturn(0L);
-        PendingMessageRepository pending = mock(PendingMessageRepository.class);
-        ObservationRepository observations = mock(ObservationRepository.class);
+        OperationalStatusService status = mock(OperationalStatusService.class);
+        when(status.queueStatus())
+            .thenReturn(new OperationalStatusService.QueueStatus(0L, 0L, 0L));
 
         ResponseEntity<Map<String, Object>> response =
-            new HealthController(dataSource, agentService, pending, observations).readiness();
+            new HealthController(dataSource, agentService, status).readiness();
 
         assertThat(response.getStatusCode().value()).isEqualTo(503);
         assertThat(response.getBody()).containsEntry("status", "not_ready");

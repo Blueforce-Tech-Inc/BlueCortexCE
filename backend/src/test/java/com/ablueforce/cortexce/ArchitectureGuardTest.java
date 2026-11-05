@@ -48,8 +48,7 @@ class ArchitectureGuardTest {
             "ViewerController.java", "viewer polling reads observations/sessions/summaries/prompts directly",
             "ContextController.java", "context injection needs the latest summary and observation rows",
             "MemoryController.java", "memory read endpoint is a repository query with a DTO envelope",
-            "SessionController.java", "session read/update endpoints are repository queries with DTO envelopes",
-            "HealthController.java", "readiness reports queue counts from repositories without business logic");
+            "SessionController.java", "session read/update endpoints are repository queries with DTO envelopes");
 
     /**
      * Methods that still return entity rows. The three viewer list endpoints
