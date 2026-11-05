@@ -7,18 +7,12 @@ import com.ablueforce.cortexce.config.ModeConfig.Mode;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.identity.ExternalSessionRef;
-import com.ablueforce.cortexce.identity.MemoryScopeKey;
 import com.ablueforce.cortexce.service.SessionManagementService;
-import com.ablueforce.cortexce.entity.SummaryEntity;
-import com.ablueforce.cortexce.entity.UserPromptEntity;
-import com.ablueforce.cortexce.repository.ObservationRepository;
-import com.ablueforce.cortexce.repository.SessionRepository;
-import com.ablueforce.cortexce.repository.SummaryRepository;
-import com.ablueforce.cortexce.repository.UserPromptRepository;
 import com.ablueforce.cortexce.service.AgentService;
 import com.ablueforce.cortexce.service.ModeService;
 import com.ablueforce.cortexce.service.ProjectCatalogService;
 import com.ablueforce.cortexce.service.SettingsService;
+import com.ablueforce.cortexce.service.ViewerQueryService;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -32,13 +26,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
-
-import com.ablueforce.cortexce.dto.OffsetPageRequest;
-import org.springframework.web.bind.annotation.*;
 
 import com.ablueforce.cortexce.service.EmbeddingService;
 import com.ablueforce.cortexce.service.SearchService;
@@ -52,7 +41,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
+
+import org.springframework.web.bind.annotation.*;
 
 /**
  * Viewer REST API controller.
@@ -66,10 +56,6 @@ public class ViewerController {
 
     private static final Logger log = LoggerFactory.getLogger(ViewerController.class);
 
-    private final ObservationRepository observationRepository;
-    private final SummaryRepository summaryRepository;
-    private final UserPromptRepository userPromptRepository;
-    private final SessionRepository sessionRepository;
     private final AgentService agentService;
     private final EmbeddingService embeddingService;
     private final SearchService searchService;
@@ -78,23 +64,17 @@ public class ViewerController {
     private final TimelineService timelineService;
     private final SessionManagementService sessionManagementService;
     private final ProjectCatalogService projectCatalogService;
+    private final ViewerQueryService viewerQueryService;
 
-    public ViewerController(ObservationRepository observationRepository,
-                            SummaryRepository summaryRepository,
-                            UserPromptRepository userPromptRepository,
-                            SessionRepository sessionRepository,
-                            AgentService agentService,
+    public ViewerController(AgentService agentService,
                             EmbeddingService embeddingService,
                             SearchService searchService,
                             ModeService modeService,
                             SettingsService settingsService,
                             TimelineService timelineService,
                             SessionManagementService sessionManagementService,
-                            ProjectCatalogService projectCatalogService) {
-        this.observationRepository = observationRepository;
-        this.summaryRepository = summaryRepository;
-        this.userPromptRepository = userPromptRepository;
-        this.sessionRepository = sessionRepository;
+                            ProjectCatalogService projectCatalogService,
+                            ViewerQueryService viewerQueryService) {
         this.agentService = agentService;
         this.embeddingService = embeddingService;
         this.searchService = searchService;
@@ -103,6 +83,7 @@ public class ViewerController {
         this.timelineService = timelineService;
         this.sessionManagementService = sessionManagementService;
         this.projectCatalogService = projectCatalogService;
+        this.viewerQueryService = viewerQueryService;
     }
 
     /**
@@ -113,7 +94,7 @@ public class ViewerController {
     @Operation(summary = "List observations (paginated)",
         description = "Returns a paginated list of observations, optionally filtered by project. Offset and limit are validated against MAX_PAGE_SIZE. Returns items and hasMore for WebUI pagination.")
     @ApiResponse(responseCode = "200", description = "Paginated observation list")
-    public ResponseEntity<PagedResponse<ObservationEntity>> getObservations(
+    public ResponseEntity<PagedResponse<Map<String, Object>>> getObservations(
         @Parameter(description = "Project path to filter observations (optional, returns all if not specified)", required = false, example = "/Users/dev/my-project")
         @RequestParam(required = false) String project,
         @Parameter(description = "Platform source filter (optional)", required = false, example = "claude")
@@ -129,71 +110,13 @@ public class ViewerController {
         @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
         @RequestParam(defaultValue = "20") int limit
     ) {
-        int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
-        int validatedOffset = Math.max(0, offset);
         try {
-            boolean manualSentinel = MemoryScopeKey.LEGACY_MANUAL_PROJECT_PATH.equals(contentSessionId);
-            if (manualSentinel && standaloneKind != null && !standaloneKind.isBlank()
-                && !"manual".equals(standaloneKind)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "manual-memories requires standaloneKind=manual");
-            }
-            String effectiveStandaloneKind = manualSentinel ? "manual" : standaloneKind;
-            boolean includeManualDefault = manualSentinel
-                && (project == null || project.isBlank()
-                    || MemoryScopeKey.LEGACY_MANUAL_PROJECT_PATH.equals(project));
-            UUID convId = resolveConversationFilter(conversationId, platformSource, contentSessionId,
-                effectiveStandaloneKind);
-            Page<ObservationEntity> result = observationRepository.findAllPaged(project, platformSource,
-                convId, contentSessionId, effectiveStandaloneKind, includeManualDefault,
-                new OffsetPageRequest(0, validatedLimit, validatedOffset,
-                    Sort.by(Sort.Direction.DESC, "createdAt")));
-            return ResponseEntity.ok(PagedResponse.of(result));
+            return ResponseEntity.ok(PagedResponse.of(viewerQueryService.findObservations(
+                project, platformSource, contentSessionId, conversationId, standaloneKind,
+                offset, limit)));
         } catch (ResponseStatusException e) {
             return ResponseEntity.status(e.getStatusCode()).build();
         }
-    }
-
-    /**
-     * Work out which filter a listing request really addresses.
-     *
-     * <p>Identity precedence (plan §5.3): an explicit {@code conversationId} wins outright.
-     * Otherwise a full {@code (platformSource, contentSessionId)} pair is resolved to the
-     * conversation UUID. The legacy {@code contentSessionId=manual-memories} sentinel is
-     * interpreted as "manual standalone rows", never as a conversation.
-     */
-    private UUID resolveConversationFilter(String conversationId, String platformSource,
-                                           String contentSessionId, String standaloneKind) {
-        if (conversationId != null && !conversationId.isBlank()) {
-            UUID id;
-            try {
-                id = UUID.fromString(conversationId);
-            } catch (IllegalArgumentException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "conversationId must be a UUID");
-            }
-            if (contentSessionId != null && !contentSessionId.isBlank()) {
-                // If both are supplied they must name the same conversation.
-                Optional<SessionEntity> byExternal = sessionManagementService.find(
-                    ExternalSessionRef.of(platformSource, contentSessionId));
-                if (byExternal.isEmpty() || !byExternal.get().getId().equals(id)) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "conversationId does not match contentSessionId/platformSource");
-                }
-            }
-            if (standaloneKind != null && !standaloneKind.isBlank()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "standaloneKind cannot be combined with conversationId");
-            }
-            return id;
-        }
-        if (contentSessionId != null && !contentSessionId.isBlank()
-            && !MemoryScopeKey.LEGACY_MANUAL_PROJECT_PATH.equals(contentSessionId)) {
-            return sessionManagementService.find(ExternalSessionRef.of(platformSource, contentSessionId))
-                .map(SessionEntity::getId)
-                // No such conversation: answer with an empty set rather than every row.
-                .orElse(new UUID(0, 0));
-        }
-        return null;
     }
 
     /**
@@ -204,7 +127,7 @@ public class ViewerController {
     @Operation(summary = "List summaries (paginated)",
         description = "Returns a paginated list of session summaries, optionally filtered by project.")
     @ApiResponse(responseCode = "200", description = "Paginated summary list")
-    public ResponseEntity<PagedResponse<SummaryEntity>> getSummaries(
+    public ResponseEntity<PagedResponse<Map<String, Object>>> getSummaries(
         @Parameter(description = "Project path to filter summaries", required = false, example = "/Users/dev/my-project")
         @RequestParam(required = false) String project,
         @Parameter(description = "Platform source filter (optional)", required = false, example = "claude")
@@ -218,14 +141,8 @@ public class ViewerController {
         @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
         @RequestParam(defaultValue = "20") int limit
     ) {
-        int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
-        int validatedOffset = Math.max(0, offset);
-        UUID ownerConversationId = resolveOwnerConversationFilter(conversationId, platformSource, contentSessionId);
-        Page<SummaryEntity> result = summaryRepository.findAllPaged(project, platformSource,
-            ownerConversationId, null,
-            new OffsetPageRequest(0, validatedLimit, validatedOffset,
-                Sort.by(Sort.Direction.DESC, "createdAt")));
-        return ResponseEntity.ok(PagedResponse.of(result));
+        return ResponseEntity.ok(PagedResponse.of(viewerQueryService.findSummaries(
+            project, platformSource, contentSessionId, conversationId, offset, limit)));
     }
 
     /**
@@ -236,7 +153,7 @@ public class ViewerController {
     @Operation(summary = "List user prompts (paginated)",
         description = "Returns a paginated list of user prompts, optionally filtered by project.")
     @ApiResponse(responseCode = "200", description = "Paginated user prompt list")
-    public ResponseEntity<PagedResponse<UserPromptEntity>> getPrompts(
+    public ResponseEntity<PagedResponse<Map<String, Object>>> getPrompts(
         @Parameter(description = "Project path to filter prompts", required = false, example = "/Users/dev/my-project")
         @RequestParam(required = false) String project,
         @Parameter(description = "Platform source filter (optional)", required = false, example = "claude")
@@ -250,14 +167,8 @@ public class ViewerController {
         @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
         @RequestParam(defaultValue = "20") int limit
     ) {
-        int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
-        int validatedOffset = Math.max(0, offset);
-        UUID ownerConversationId = resolveOwnerConversationFilter(conversationId, platformSource, contentSessionId);
-        Page<UserPromptEntity> result = userPromptRepository.findAllPaged(project, platformSource,
-            ownerConversationId, null,
-            new OffsetPageRequest(0, validatedLimit, validatedOffset,
-                Sort.by(Sort.Direction.DESC, "createdAt")));
-        return ResponseEntity.ok(PagedResponse.of(result));
+        return ResponseEntity.ok(PagedResponse.of(viewerQueryService.findPrompts(
+            project, platformSource, contentSessionId, conversationId, offset, limit)));
     }
 
     /**
@@ -279,20 +190,6 @@ public class ViewerController {
     }
 
     /**
-     * GET /api/concepts — list all unique concepts from observations.
-     * Used by WebUI to populate the concepts filter dropdown.
-     * Returns concepts sorted alphabetically.
-     *
-     * NOTE: Temporarily disabled - using fixed concepts from TS mode configuration
-     * to ensure consistency between data generation and filtering.
-     */
-//    @GetMapping("/concepts")
-//    public ResponseEntity<Map<String, Object>> getConcepts() {
-//        List<String> concepts = observationRepository.findAllConcepts();
-//        return ResponseEntity.ok(Map.of("concepts", concepts));
-//    }
-
-    /**
      * GET /api/stats — worker/database statistics.
      * Web UI expects nested {worker: {...}, database: {...}} structure.
      * Optional project filter: if project query param is provided, returns project-scoped stats.
@@ -311,22 +208,23 @@ public class ViewerController {
         );
 
         Map<String, Object> database;
-        if (project != null && !project.isBlank()) {
+        ViewerQueryService.DatabaseStats stats = viewerQueryService.getDatabaseStats(project);
+        if (stats.projectPath() != null) {
             // Project-scoped stats (addresses B11-1: SDK projectPath param now respected)
             database = Map.of(
-                "totalObservations", observationRepository.countByProjectPath(project),
-                "totalSummaries", summaryRepository.countByProjectPath(project),
-                "totalSessions", sessionRepository.countByProjectPath(project),
-                "totalProjects", 1L,
-                "projectPath", project
+                "totalObservations", stats.totalObservations(),
+                "totalSummaries", stats.totalSummaries(),
+                "totalSessions", stats.totalSessions(),
+                "totalProjects", stats.totalProjects(),
+                "projectPath", stats.projectPath()
             );
         } else {
             // Global stats
             database = Map.of(
-                "totalObservations", observationRepository.count(),
-                "totalSummaries", summaryRepository.count(),
-                "totalSessions", sessionRepository.count(),
-                "totalProjects", sessionRepository.countDistinctProjects()
+                "totalObservations", stats.totalObservations(),
+                "totalSummaries", stats.totalSummaries(),
+                "totalSessions", stats.totalSessions(),
+                "totalProjects", stats.totalProjects()
             );
         }
         return ResponseEntity.ok(Map.of("worker", worker, "database", database));
@@ -480,29 +378,8 @@ public class ViewerController {
         }
 
         try {
-            List<ObservationEntity> observations = observationRepository.findAllById(ids);
-
-            // Apply project filter if specified
-            if (project != null && !project.isBlank()) {
-                observations = observations.stream()
-                    .filter(o -> project.equals(o.getProjectPath()))
-                    .toList();
-            }
-
-            // Apply ordering if specified
-            if ("created_at_epoch".equals(orderBy) || "createdAtEpoch".equals(orderBy)) {
-                observations = observations.stream()
-                    .sorted((a, b) -> Long.compare(
-                        b.getCreatedAtEpoch() != null ? b.getCreatedAtEpoch() : 0,
-                        a.getCreatedAtEpoch() != null ? a.getCreatedAtEpoch() : 0
-                    ))
-                    .toList();
-            }
-
-            // Apply limit if specified
-            if (limit != null && limit > 0 && observations.size() > limit) {
-                observations = observations.subList(0, limit);
-            }
+            List<ObservationEntity> observations =
+                viewerQueryService.findByIds(ids, project, orderBy, limit);
 
             return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse(
                 observations, observations.size()
@@ -684,17 +561,7 @@ public class ViewerController {
         }
 
         try {
-            List<Object[]> results = observationRepository.findTimelineByDate(project, start, end);
-
-            List<Map<String, Object>> timeline = results.stream().map(row -> {
-                Map<String, Object> entry = new HashMap<>();
-                entry.put("date", row[0].toString());
-                entry.put("count", ((Number) row[1]).intValue());
-                entry.put("ids", row[2]);
-                return entry;
-            }).toList();
-
-            return ResponseEntity.ok(timeline);
+            return ResponseEntity.ok(viewerQueryService.getTimeline(project, start, end));
         } catch (Exception e) {
             log.error("Timeline query failed for project {}: {}", project, e.getClass().getSimpleName());
             return ResponseEntity.status(500).body(ErrorResponses.body(ErrorResponses.INTERNAL_ERROR, "Timeline query failed"));
@@ -750,7 +617,7 @@ public class ViewerController {
         }
 
         try {
-            List<ObservationEntity> observations = observationRepository.findByFolderPath(
+            List<ObservationEntity> observations = viewerQueryService.findByFile(
                 project, normalizedPath, validatedLimit
             );
 
@@ -858,41 +725,6 @@ public class ViewerController {
         map.put("completed_at_epoch", s.getCompletedAtEpoch() != null ? s.getCompletedAtEpoch() : 0);
         map.put("status", s.getStatus() != null ? s.getStatus() : "");
         return map;
-    }
-
-    private static UUID parseConversationId(String raw) {
-        return raw == null || raw.isBlank() ? null : UUID.fromString(raw);
-    }
-
-    /**
-     * Resolve the owner filter before querying Summary/Prompt rows. Once external IDs are
-     * composite identities, those repositories must never filter a child table by the bare
-     * content ID. A missing external identity resolves to the zero UUID so the endpoint
-     * returns an empty page rather than accidentally listing another platform's rows.
-     */
-    private UUID resolveOwnerConversationFilter(String conversationId, String platformSource,
-                                                String contentSessionId) {
-        UUID explicit = parseConversationId(conversationId);
-        if (explicit != null) {
-            if (contentSessionId != null && !contentSessionId.isBlank()) {
-                Optional<SessionEntity> byExternal = sessionManagementService.find(
-                    ExternalSessionRef.of(platformSource, contentSessionId));
-                if (byExternal.isEmpty() || !explicit.equals(byExternal.get().getId())) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "conversationId does not match contentSessionId/platformSource");
-                }
-            }
-            return explicit;
-        }
-        if (contentSessionId == null || contentSessionId.isBlank()) {
-            return null;
-        }
-        if (MemoryScopeKey.LEGACY_MANUAL_PROJECT_PATH.equals(contentSessionId)) {
-            return new UUID(0, 0);
-        }
-        return sessionManagementService.find(ExternalSessionRef.of(platformSource, contentSessionId))
-            .map(SessionEntity::getId)
-            .orElse(new UUID(0, 0));
     }
 
     /**

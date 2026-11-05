@@ -17,6 +17,7 @@ import com.ablueforce.cortexce.repository.UserPromptRepository;
 import com.ablueforce.cortexce.service.AgentService;
 import com.ablueforce.cortexce.service.ProcessingHeartbeat;
 import com.ablueforce.cortexce.service.ProjectCatalogService;
+import com.ablueforce.cortexce.service.ViewerQueryService;
 import com.ablueforce.cortexce.service.ConversationWriteService;
 import com.ablueforce.cortexce.service.ContextCacheService;
 import com.ablueforce.cortexce.service.EmbeddingService;
@@ -247,10 +248,6 @@ class OfflineAiChainIntegrationTest {
         assertThat(embeddingService.isAvailable()).isTrue();
 
         ViewerController controller = new ViewerController(
-            observationRepository,
-            summaryRepository,
-            userPromptRepository,
-            sessionRepository,
             mock(AgentService.class),
             embeddingService,
             searchService,
@@ -258,7 +255,8 @@ class OfflineAiChainIntegrationTest {
             mock(SettingsService.class),
             mock(TimelineService.class),
             sessionManagementService,
-            mock(ProjectCatalogService.class));
+            mock(ProjectCatalogService.class),
+            mock(ViewerQueryService.class));
 
         ResponseEntity<?> response = controller.search(
             fixture.projectPath(), NEVER_PRESENT_TOKEN, null, null, null, 20, 0, null);

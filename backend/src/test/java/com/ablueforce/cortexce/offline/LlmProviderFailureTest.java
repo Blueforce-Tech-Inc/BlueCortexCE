@@ -17,6 +17,7 @@ import com.ablueforce.cortexce.repository.UserPromptRepository;
 import com.ablueforce.cortexce.service.AgentService;
 import com.ablueforce.cortexce.service.ProcessingHeartbeat;
 import com.ablueforce.cortexce.service.ProjectCatalogService;
+import com.ablueforce.cortexce.service.ViewerQueryService;
 import com.ablueforce.cortexce.service.ContextCacheService;
 import com.ablueforce.cortexce.service.ConversationWriteService;
 import com.ablueforce.cortexce.service.EmbeddingService;
@@ -435,10 +436,6 @@ class LlmProviderFailureTest {
         createObservation(fixture);
 
         ViewerController controller = new ViewerController(
-            observationRepository,
-            summaryRepository,
-            userPromptRepository,
-            sessionRepository,
             mock(AgentService.class),
             embeddingService,
             searchService,
@@ -446,7 +443,8 @@ class LlmProviderFailureTest {
             mock(SettingsService.class),
             mock(TimelineService.class),
             sessionManagementService,
-            mock(ProjectCatalogService.class));
+            mock(ProjectCatalogService.class),
+            mock(ViewerQueryService.class));
 
         embeddingModel.failWith(new IllegalStateException("401 Unauthorized: invalid_api_key"));
         ResponseEntity<?> degraded = controller.search(

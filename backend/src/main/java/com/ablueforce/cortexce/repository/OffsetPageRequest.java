@@ -1,4 +1,4 @@
-package com.ablueforce.cortexce.dto;
+package com.ablueforce.cortexce.repository;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -15,8 +15,11 @@ import java.io.Serializable;
  * JPA translates this to: {@code LIMIT size OFFSET offset}, enabling correct pagination
  * when offset (e.g., 5) is less than limit (e.g., 20).
  *
- * Used by ViewerController pagination endpoints where offset can be any value (e.g., 5)
- * and limit can be larger (e.g., 20), requiring true offset-based pagination.
+ * Used by the viewer query service for pagination endpoints where offset can be any
+ * value (e.g., 5) and limit can be larger (e.g., 20), requiring true offset-based
+ * pagination. Lives in {@code repository} because it is only consumed by query
+ * code; keeping it out of {@code dto} avoids a service -> dto dependency that
+ * would otherwise close a new package cycle.
  */
 public class OffsetPageRequest implements Pageable, Serializable {
 

@@ -1,4 +1,4 @@
-package com.ablueforce.cortexce.dto;
+package com.ablueforce.cortexce.repository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Pageable;

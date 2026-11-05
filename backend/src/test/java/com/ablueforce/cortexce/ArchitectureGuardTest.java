@@ -39,27 +39,21 @@ class ArchitectureGuardTest {
     private static final String BASE_PACKAGE = "com.ablueforce.cortexce";
 
     /**
-     * Controllers that read repositories directly. Each is a thin read
-     * endpoint; adding a one-method service in front would move the same query
-     * one layer down without adding behaviour, so the direct dependency is
-     * accepted here and pinned by this baseline.
+     * Controllers that read repositories directly. Empty since the viewer and
+     * memory read paths moved behind services; kept as an explicit, empty
+     * baseline so the rule stays visible and any new exception must be argued
+     * for here.
      */
-    private static final Map<String, String> CONTROLLER_REPOSITORY_BASELINE = Map.of(
-            "ViewerController.java", "viewer polling reads observations/sessions/summaries/prompts directly");
+    private static final Map<String, String> CONTROLLER_REPOSITORY_BASELINE = Map.of();
 
     /**
-     * Methods that still return entity rows. The three viewer list endpoints
-     * serialise entities directly because the bundled WebUI consumes that exact
-     * JSON shape and the paging envelope is a hard contract; a parallel DTO
-     * would duplicate every field and drift silently. The vector columns are
-     * already excluded from serialisation on the entity itself. Moving these to
-     * DTOs is a deliberate contract change, not a layering cleanup, so they are
-     * pinned here with a reason instead of being changed in passing.
+     * Methods that still return entity rows. The three viewer list endpoints now
+     * return JSON-shaped maps produced by the application's ObjectMapper, which
+     * keeps the WebUI contract ({@code items}/{@code hasMore} and the exact
+     * snake_case entity fields) while removing persistence types from controller
+     * signatures.
      */
-    private static final Set<String> CONTROLLER_ENTITY_BASELINE = Set.of(
-            "ViewerController#getObservations",
-            "ViewerController#getSummaries",
-            "ViewerController#getPrompts");
+    private static final Set<String> CONTROLLER_ENTITY_BASELINE = Set.of();
 
     /**
      * The only accepted strongly connected component of top-level packages.
