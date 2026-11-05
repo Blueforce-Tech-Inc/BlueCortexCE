@@ -1223,6 +1223,14 @@ enforces uniqueness/snake_case and that every status mapping returns a
 registered code, and `scripts/check-api-doc-surface.py` parses the enum so a
 documented example using an unregistered code fails the live API contract check.
 
+Migrations are guarded by `scripts/check-migrations.py` (step 8 of
+`scripts/verify-local.sh`). The 23 migrations applied before the gate are listed
+in `scripts/migration-baseline.json` and only reported. A new migration fails on
+`DROP COLUMN` / `DROP TABLE` / `TRUNCATE` / `DROP CONSTRAINT` / unqualified
+`DELETE`, on a narrowing-prone `ALTER COLUMN ... TYPE`, on `CREATE INDEX` without
+`CONCURRENTLY` against a pre-existing table, and on a missing
+`-- rollback: <how to undo>` note when any of those is present.
+
 ## Trade-offs
 
 | Trade-off | Choice | Alternative | Reason |

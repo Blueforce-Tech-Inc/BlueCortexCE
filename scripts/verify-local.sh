@@ -18,11 +18,13 @@
 #      the evaluation-floor and recorded retrieval-quality replay gates;
 #   7. run both documentation consistency checks (checker self-test, then the
 #      published EN/ZH API reference against the live server);
-#   8. run the proxy E2E against that server and refuse a skipped run (this is
+#   8. run the migration safety gate: existing migrations are reported, any new
+#      migration with a destructive/locking operation must supply a rollback note;
+#   9. run the proxy E2E against that server and refuse a skipped run (this is
 #      the proxy-forwarding part of L3), then run the OpenClaw plugin suite
 #      (context-inject placeholder filtering and session lifecycle) and refuse a
 #      skipped run as well;
-#   9. verify the committed viewer bundle is a fresh build of webui/src, then
+#  10. verify the committed viewer bundle is a fresh build of webui/src, then
 #      drive that bundle in a real Chromium: page rendering, files, hasMore
 #      pagination, an SSE-only live row, refresh visibility and a settings
 #      toggle round trip, token rejections and outage recovery. Playwright/Chromium
@@ -376,14 +378,14 @@ printf '%s\n' "$RETRIEVAL_OUTPUT"
 #
 # First the checker proves it can still fail (no server needed). Then the two
 # published references are compared with the endpoints the server actually
-# serves. The server stays up for step 8.
+# serves. The server stays up for step 9.
 # --------------------------------------------------------------------------
-step "7/9 Documentation consistency check 1/2 (checker self-test)"
+step "7/10 Documentation consistency check 1/2 (checker self-test)"
 SELF_TEST_OUTPUT="$(python3 scripts/check-api-doc-surface.py --self-test 2>&1)" \
   || fail "doc consistency (self-test)" "check-api-doc-surface.py --self-test failed:" "$SELF_TEST_OUTPUT"
 printf '%s\n' "$SELF_TEST_OUTPUT"
 
-step "7/9 Documentation consistency check 2/2 (EN/ZH reference vs live server)"
+step "7/10 Documentation consistency check 2/2 (EN/ZH reference vs live server)"
 
 if port_in_use "$E2E_PORT"; then
   fail "doc consistency (live server)" \
@@ -411,12 +413,29 @@ DOC_OUTPUT="$(python3 scripts/check-api-doc-surface.py --server-url "http://127.
 printf '%s\n' "$DOC_OUTPUT"
 
 # --------------------------------------------------------------------------
-# 8. proxy E2E
+# 8. migration safety
+#
+# Existing migrations are grandfathered by scripts/migration-baseline.json and
+# only reported. Every file added after that list must pass: no DROP COLUMN /
+# DROP TABLE / TRUNCATE, no narrowing type change, no plain CREATE INDEX on a
+# pre-existing table, and a '-- rollback:' note when any of those is present.
+# The self-test proves the checker can still fail before it judges real files.
+# --------------------------------------------------------------------------
+step "8/10 Migration safety (checker self-test + new-migration gate)"
+MIGRATION_SELF_OUTPUT="$(python3 scripts/check-migrations.py --self-test 2>&1)" \
+  || fail "migration safety (self-test)" "check-migrations.py --self-test failed:" "$MIGRATION_SELF_OUTPUT"
+printf '%s\n' "$MIGRATION_SELF_OUTPUT"
+MIGRATION_OUTPUT="$(python3 scripts/check-migrations.py 2>&1)" \
+  || fail "migration safety" "a new migration has an unreviewed destructive or locking operation:" "$MIGRATION_OUTPUT"
+printf '%s\n' "$MIGRATION_OUTPUT"
+
+# --------------------------------------------------------------------------
+# 9. proxy E2E
 #
 # The env vars force the suite to run instead of skipping. The assertions on
 # the output make a skipped or empty run a failure even if the exit code is 0.
 # --------------------------------------------------------------------------
-step "8/9 Proxy E2E against http://127.0.0.1:${E2E_PORT} (L3 proxy forwarding)"
+step "9/10 Proxy E2E against http://127.0.0.1:${E2E_PORT} (L3 proxy forwarding)"
 
 cd "$ROOT/proxy"
 npm ci > "$LOG_DIR/proxy-install.log" 2>&1 \
@@ -438,13 +457,13 @@ fi
 note "proxy E2E ran and reported 0 skipped"
 
 # --------------------------------------------------------------------------
-# 8b. OpenClaw plugin tests
+# 9b. OpenClaw plugin tests
 #
 # The plugin is the other consumer of the same endpoints (/api/context/inject,
 # /api/search, the ingest routes). Its suite runs offline; the checks below
-# reject a skipped or empty run the same way step 8 does.
+# reject a skipped or empty run the same way step 9 does.
 # --------------------------------------------------------------------------
-step "8b/9 OpenClaw plugin tests (no-provider placeholder filtering, session lifecycle)"
+step "9b/10 OpenClaw plugin tests (no-provider placeholder filtering, session lifecycle)"
 
 cd "$ROOT/openclaw-plugin"
 npm ci > "$LOG_DIR/openclaw-install.log" 2>&1 \
@@ -460,7 +479,7 @@ fi
 note "openclaw plugin tests ran and reported 0 skipped"
 
 # --------------------------------------------------------------------------
-# 9. browser E2E
+# 10. browser E2E
 #
 # Verify the committed viewer bundle is a fresh build of webui/src, then drive
 # it in a real browser (see scripts/browser/webui-viewer-e2e.mjs).
@@ -468,7 +487,7 @@ note "openclaw plugin tests ran and reported 0 skipped"
 # toolchain are absent this prints an explicit SKIP instead of pretending to pass;
 # CI sets REQUIRE_BROWSER_E2E=1 so the absence is a failure there.
 # --------------------------------------------------------------------------
-step "9/9 Browser E2E (bundle parity + Playwright: rendering, hasMore, files, SSE, settings, 401 errors, outage recovery)"
+step "10/10 Browser E2E (bundle parity + Playwright: rendering, hasMore, files, SSE, settings, 401 errors, outage recovery)"
 
 BROWSER_BUNDLE_STATUS=0
 BROWSER_BUNDLE_OUTPUT="$("$ROOT/scripts/check-viewer-bundle.sh" 2>&1)" || BROWSER_BUNDLE_STATUS=$?
@@ -530,6 +549,7 @@ printf '  migrations : V%s\n' "$APPLIED_VERSION"
 printf '  layers     : L1-L4 all executed, 0 skipped\n'
 printf '  tests      : gate --min-tests %s --require-zero-skips --require-layers --require-baseline\n' "$MIN_TESTS"
 printf '  docs       : checker self-test + EN/ZH reference vs live server\n'
+printf '  migration  : gate passed (existing reported, new destructive/locking ops rejected)\n'
 printf '  proxy      : E2E executed, 0 skipped (L3 proxy forwarding)\n'
 printf '  browser    : %s\n' "$BROWSER_RESULT"
 printf '  logs       : %s\n' "$LOG_DIR"

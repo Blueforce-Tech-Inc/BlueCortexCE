@@ -1189,6 +1189,13 @@ switch，分别存入 `embedding_768` / `embedding_1024` / `embedding_1536`。�
 `scripts/check-api-doc-surface.py` 直接解析该枚举，文档示例里出现未注册的 code 会让 API
 契约检查失败。
 
+迁移由 `scripts/check-migrations.py` 把关（`scripts/verify-local.sh` 第 8 步）。这个门槛
+之前已经应用的 23 个迁移列在 `scripts/migration-baseline.json` 里，只报告不阻塞。新迁移
+出现以下情况会失败：`DROP COLUMN` / `DROP TABLE` / `TRUNCATE` / `DROP CONSTRAINT`、
+不带 `WHERE` 的 `DELETE`、可能收窄的 `ALTER COLUMN ... TYPE`、对已存在表使用不带
+`CONCURRENTLY` 的 `CREATE INDEX`，以及存在上述操作却没有
+`-- rollback: <如何撤销>` 说明。
+
 ---
 
 ## 权衡取舍

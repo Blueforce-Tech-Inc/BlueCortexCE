@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-11-05",
+  "reason": "These migrations were applied before the gate existed. Rewriting applied history would be riskier than reporting their known locking/destructive statements. Every file added after this list must pass check-migrations.py; remove a name only when that migration is retired from the history.",
+  "grandfathered": [
+    "V11__observation_quality.sql",
+    "V12__step_efficiency.sql",
+    "V13__unify_session_id_on_content_session.sql",
+    "V14__observation_source_and_extracted_data.sql",
+    "V15__add_user_id_to_sessions.sql",
+    "V16__composite_source_index.sql",
+    "V17__observation_feedback.sql",
+    "V18__add_platform_source.sql",
+    "V19__viewer_session_indexes.sql",
+    "V1__init_schema.sql",
+    "V20__conversation_memory_scope_expand.sql",
+    "V21__observation_embedding_state.sql",
+    "V22__pending_message_failure_kind.sql",
+    "V23__hot_query_indexes.sql",
+    "V24__chinese_lexical_search.sql",
+    "V25__observation_scope_type_index.sql",
+    "V2__multi_dimension_embeddings.sql",
+    "V3__add_skipped_status.sql",
+    "V4__context_caching.sql",
+    "V5__user_prompt_project.sql",
+    "V6__pending_message_hash.sql",
+    "V7__remove_embedding_3072.sql",
+    "V8__add_observation_content_hash.sql"
+  ]
+}
