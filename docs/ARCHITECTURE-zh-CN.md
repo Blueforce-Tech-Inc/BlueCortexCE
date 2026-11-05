@@ -1173,6 +1173,17 @@ switch，分别存入 `embedding_768` / `embedding_1024` / `embedding_1536`。�
 
 ## 强制执行的架构约束
 
+分层由 `ArchitectureGuardTest` 检查，而不是只靠 review。测试直接读取 `src/main/java`，
+出现新的违规就失败；今天已经存在的例外会带理由钉在基线里，且这些例外必须仍然存在
+（基线项过期同样失败）。
+
+| 规则 | 基线 |
+|------|------|
+| Controller 不得 import `repository` | 六个只读端点被豁免：`ViewerController`、`StreamController`、`ContextController`、`MemoryController`、`SessionController`、`HealthController`。它们都是「一次仓储查询 + DTO 信封」，加一个只有一行转发的 service 只是把同一个查询下沉一层，不增加行为。**新增**的 controller -> repository import 会失败。 |
+| Service 不得 import `controller` | 无基线。 |
+| Controller 不得直接返回 entity | 三个 viewer 列表方法被豁免：`ViewerController#getObservations`、`#getSummaries`、`#getPrompts`。内置 WebUI 消费的就是这个 JSON 形状，分页信封是硬契约，向量列已经在 entity 上排除序列化。另造一套 DTO 会复制所有字段并静默漂移；这是契约变更而不是分层清理，所以钉在基线里而不是顺手改。其他返回 entity 的方法一律失败。 |
+| 不得出现新的包依赖环 | 只接受一个强连通分量：`config`、`entity`、`event`、`repository`、`service`、`util`。它来自 Spring 装配本身：`config` 持有 bean，service 注入配置属性，repository 需要 entity，`util` 解析配置。这个集合之外的新包一旦入环就失败。 |
+
 `ErrorCode` 是统一错误体中 `error.code` 的唯一注册表。`ErrorResponses` 的常量从它读取，
 `ErrorCodeRegistryTest` 保证 code 唯一、snake_case、且每个状态码映射都返回已注册的 code；
 `scripts/check-api-doc-surface.py` 直接解析该枚举，文档示例里出现未注册的 code 会让 API
