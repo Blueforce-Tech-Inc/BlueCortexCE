@@ -277,6 +277,9 @@ docker compose down      # 停止
 
 ## 开发指南
 
+修改后端行为前，先读 [docs/PROJECT-STATE-zh-CN.md](docs/PROJECT-STATE-zh-CN.md)：
+它记录当前已验证的用例数、一条命令门禁、数据库 schema 决策，以及已被实测否决的方案。
+
 ### 构建与测试
 
 Maven 工程在 `backend/` 目录下，仓库根目录没有 `pom.xml`。

@@ -107,6 +107,9 @@ Integrated via `openclaw-plugin/`, provides search Skill.
 
 ## Documentation
 
+- **`docs/PROJECT-STATE.md`** - Current verified state and handover: test counts,
+  gate command, schema decisions, known boundaries. Read this first when resuming work.
+- `docs/PROJECT-STATE-zh-CN.md` - Chinese version of the same snapshot.
 - `docs/` - Project documentation (stable reference)
 - `docs/drafts/` - Active design documents under iteration
 - `docs/archive/` - Historical snapshots (read-only, date-prefixed filenames)

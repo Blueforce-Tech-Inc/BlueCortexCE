@@ -283,6 +283,10 @@ See [OpenClaw Integration Guide](openclaw-plugin/OPENCLAW-INTEGRATION.md)
 
 ## Development
 
+Before changing backend behaviour, read [docs/PROJECT-STATE.md](docs/PROJECT-STATE.md):
+it records the currently verified test counts, the one-command gate, database
+schema decisions and the approaches already rejected by measurements.
+
 ### Build & Test
 
 The Maven project lives in `backend/` — there is no `pom.xml` at the repository root.
