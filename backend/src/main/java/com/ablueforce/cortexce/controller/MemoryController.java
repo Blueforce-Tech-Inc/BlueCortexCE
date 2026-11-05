@@ -2,11 +2,9 @@ package com.ablueforce.cortexce.controller;
 
 import com.ablueforce.cortexce.common.ErrorResponses;
 import com.ablueforce.cortexce.service.MemoryRefineService;
-import com.ablueforce.cortexce.service.ConversationWriteService;
 import com.ablueforce.cortexce.service.ExpRagService;
-import com.ablueforce.cortexce.repository.ObservationRepository;
+import com.ablueforce.cortexce.service.ObservationManagementService;
 import com.ablueforce.cortexce.event.MemoryRefineEventPublisher;
-import com.ablueforce.cortexce.entity.ObservationEntity;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -20,10 +18,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -47,20 +43,17 @@ public class MemoryController {
 
     private final MemoryRefineService memoryRefineService;
     private final ExpRagService expRagService;
-    private final ObservationRepository observationRepository;
+    private final ObservationManagementService observationManagementService;
     private final MemoryRefineEventPublisher eventPublisher;
-    private final ConversationWriteService conversationWriteService;
 
     public MemoryController(MemoryRefineService memoryRefineService,
                           ExpRagService expRagService,
-                          ObservationRepository observationRepository,
-                          MemoryRefineEventPublisher eventPublisher,
-                          ConversationWriteService conversationWriteService) {
+                          ObservationManagementService observationManagementService,
+                          MemoryRefineEventPublisher eventPublisher) {
         this.memoryRefineService = memoryRefineService;
         this.expRagService = expRagService;
-        this.observationRepository = observationRepository;
+        this.observationManagementService = observationManagementService;
         this.eventPublisher = eventPublisher;
-        this.conversationWriteService = conversationWriteService;
     }
 
     /**
@@ -184,24 +177,15 @@ public class MemoryController {
             return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "project is required"));
         }
         try {
-            Object[] distribution = observationRepository.getQualityDistribution(project);
-            
-            if (distribution == null || distribution.length < 4) {
-                return ResponseEntity.ok(Map.of(
-                    "project", project,
-                    "high", 0L,
-                    "medium", 0L,
-                    "low", 0L,
-                    "unknown", 0L
-                ));
-            }
-            
+            ObservationManagementService.QualityDistribution distribution =
+                observationManagementService.qualityDistribution(project);
+
             return ResponseEntity.ok(Map.of(
                 "project", project,
-                "high", distribution[0],
-                "medium", distribution[1],
-                "low", distribution[2],
-                "unknown", distribution[3]
+                "high", distribution.high(),
+                "medium", distribution.medium(),
+                "low", distribution.low(),
+                "unknown", distribution.unknown()
             ));
         } catch (Exception e) {
             log.error("Failed to get quality distribution", e);
@@ -223,7 +207,6 @@ public class MemoryController {
         content = @Content(schema = @Schema(type = "object", example = "{\"error\":\"Observation not found\"}")))
     @ApiResponse(responseCode = "400", description = "Invalid request (missing observationId or feedbackType)",
         content = @Content(schema = @Schema(type = "object", example = "{\"error\":\"observationId is required\"}")))
-    @Transactional
     public ResponseEntity<Object> submitFeedback(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                 description = "Feedback submission request",
@@ -242,22 +225,11 @@ public class MemoryController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "Invalid observationId format: " + request.observationId()));
         }
-        var optObs = observationRepository.findById(obsId);
-        if (optObs.isEmpty()) {
+        ObservationManagementService.MutationResult result =
+            observationManagementService.submitFeedback(obsId, request.feedbackType(), request.comment());
+        if (result.status() == ObservationManagementService.MutationResult.Status.NOT_FOUND) {
             return ResponseEntity.status(404).body(ErrorResponses.body(ErrorResponses.NOT_FOUND, "Observation not found: " + request.observationId()));
         }
-        var obs = optObs.get();
-        conversationWriteService.lockForChildMutation(obs.getConversationId());
-        obs = observationRepository.findById(obsId).orElse(null);
-        if (obs == null) {
-            return ResponseEntity.status(404).body(ErrorResponses.body(ErrorResponses.NOT_FOUND, "Observation not found: " + request.observationId()));
-        }
-        obs.setFeedbackType(request.feedbackType());
-        if (request.comment() != null) {
-            obs.setUserComment(request.comment());
-        }
-        obs.setFeedbackUpdatedAt(OffsetDateTime.now());
-        observationRepository.save(obs);
         return ResponseEntity.ok(Map.of("status", "ok", "observationId", request.observationId()));
     }
 
@@ -287,7 +259,6 @@ public class MemoryController {
             content = @Content(schema = @Schema(type = "object", example = "{\"error\":\"title must be a string\"}"))),
         @ApiResponse(responseCode = "404", description = "Observation with given UUID not found")
     })
-    @Transactional
     public ResponseEntity<Map<String, Object>> updateObservation(
             @Parameter(description = "UUID of the observation to update", required = true, example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable UUID id,
@@ -308,126 +279,17 @@ public class MemoryController {
                     example = "{\"title\":\"Updated title\",\"content\":\"Updated narrative\",\"concepts\":[\"how-it-works\",\"architecture\"]}")))
             @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
 
-        ObservationEntity observation = observationRepository.findById(id).orElse(null);
-        if (observation == null) {
-            return ResponseEntity.notFound().build();
-        }
-        conversationWriteService.lockForChildMutation(observation.getConversationId());
-        observation = observationRepository.findById(id).orElse(null);
-        if (observation == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        // Update string fields — explicit null means "clear", absent means "skip"
-        if (body.containsKey("title")) {
-            Object val = body.get("title");
-            if (val == null) {
-                observation.setTitle(null);
-            } else if (val instanceof String s) {
-                observation.setTitle(s);
-            } else {
-                return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "title must be a string"));
-            }
-        }
-        if (body.containsKey("content") || body.containsKey("narrative")) {
-            Object val = body.getOrDefault("content", body.get("narrative"));
-            if (val == null) {
-                observation.setContent(null);
-            } else if (val instanceof String s) {
-                observation.setContent(s);
-            } else {
-                return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "content/narrative must be a string"));
-            }
-        }
-        if (body.containsKey("subtitle")) {
-            Object val = body.get("subtitle");
-            if (val == null) {
-                observation.setSubtitle(null);
-            } else if (val instanceof String s) {
-                observation.setSubtitle(s);
-            } else {
-                return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "subtitle must be a string"));
-            }
-        }
-        if (body.containsKey("source")) {
-            Object val = body.get("source");
-            if (val == null) {
-                observation.setSource(null);
-            } else if (val instanceof String s) {
-                observation.setSource(s);
-            } else {
-                return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "source must be a string"));
-            }
-        }
-
-        // Update list fields — null means "clear", wrong type → 400
-        if (body.containsKey("facts")) {
-            Object val = body.get("facts");
-            if (val == null) {
-                observation.setFacts(null);
-            } else if (val instanceof List<?> list) {
-                var result = validateStringList(list, "facts");
-                if (result == null) {
-                    return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "facts must be a list of strings"));
-                }
-                observation.setFacts(result);
-            } else {
-                return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "facts must be a list of strings"));
-            }
-        }
-        if (body.containsKey("concepts")) {
-            Object val = body.get("concepts");
-            if (val == null) {
-                observation.setConcepts(null);
-            } else if (val instanceof List<?> list) {
-                var result = validateStringList(list, "concepts");
-                if (result == null) {
-                    return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "concepts must be a list of strings"));
-                }
-                observation.setConcepts(result);
-            } else {
-                return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "concepts must be a list of strings"));
-            }
-        }
-
-        // Update map fields — null means "clear", wrong type → 400
-        if (body.containsKey("extractedData")) {
-            Object val = body.get("extractedData");
-            if (val == null) {
-                observation.setExtractedData(null);
-            } else if (val instanceof Map<?, ?>) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> extractedData = (Map<String, Object>) val;
-                observation.setExtractedData(extractedData);
-            } else {
-                return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "extractedData must be a JSON object"));
-            }
-        }
-
-        ObservationEntity saved = observationRepository.save(observation);
-        return ResponseEntity.ok(Map.of(
-            "status", "updated",
-            "id", saved.getId().toString()
-        ));
-    }
-
-    /**
-     * Validate that all items in a list are strings.
-     * Returns the validated list if all items are strings, or null if any non-string item is found.
-     * Caller should return 400 Bad Request when null is returned.
-     */
-    private List<String> validateStringList(List<?> raw, String fieldName) {
-        List<String> result = new java.util.ArrayList<>();
-        for (Object item : raw) {
-            if (item instanceof String s) {
-                result.add(s);
-            } else {
-                log.warn("Non-string item in '{}' list (type {})", fieldName,
-                    item != null ? item.getClass().getName() : "null");
-                return null; // Fail-fast: caller returns 400
-            }
-        }
-        return result;
+        ObservationManagementService.MutationResult result =
+            observationManagementService.updateObservation(id, body);
+        return switch (result.status()) {
+            case OK -> ResponseEntity.ok(Map.of(
+                "status", "updated",
+                "id", id.toString()
+            ));
+            case NOT_FOUND -> ResponseEntity.notFound().build();
+            case INVALID -> ResponseEntity.badRequest().body(
+                ErrorResponses.body(ErrorResponses.INVALID_REQUEST, result.error()));
+        };
     }
 
     /**
@@ -442,19 +304,12 @@ public class MemoryController {
             content = @Content(schema = @Schema(type = "object", example = "{\"status\":\"deleted\",\"id\":\"550e8400-e29b-41d4-a716-446655440000\"}"))),
         @ApiResponse(responseCode = "404", description = "Observation with given UUID not found")
     })
-    @Transactional
     public ResponseEntity<Object> deleteObservation(
             @Parameter(description = "UUID of the observation to delete", required = true, example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable UUID id) {
-        ObservationEntity observation = observationRepository.findById(id).orElse(null);
-        if (observation == null) {
+        if (!observationManagementService.deleteObservation(id)) {
             return ResponseEntity.notFound().build();
         }
-        conversationWriteService.lockForChildMutation(observation.getConversationId());
-        if (!observationRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
-        observationRepository.deleteById(id);
         return ResponseEntity.ok(Map.of(
             "status", "deleted",
             "id", id.toString()
