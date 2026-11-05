@@ -391,10 +391,12 @@ public class ViewerController {
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
 
         float[] queryVector = null;
+        boolean embeddingFailed = false;
         if (query != null && !query.isBlank()) {
             try {
                 queryVector = embeddingService.embed(query);
             } catch (Exception e) {
+                embeddingFailed = true;
                 log.warn("Embedding failed for Viewer search, falling back to text search: {}",
                     e.getClass().getSimpleName());
             }
@@ -402,7 +404,7 @@ public class ViewerController {
 
         try {
             SearchService.SearchResult result = searchService.search(
-                new SearchService.SearchRequest(project, query, queryVector, type, concept, source, null, null, validatedLimit, offset, orderBy)
+                new SearchService.SearchRequest(project, query, queryVector, type, concept, source, null, null, validatedLimit, offset, orderBy, embeddingFailed)
             );
 
             return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.SearchResponse(

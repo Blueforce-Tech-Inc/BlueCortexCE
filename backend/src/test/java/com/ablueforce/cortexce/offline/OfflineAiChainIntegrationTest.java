@@ -285,6 +285,9 @@ class OfflineAiChainIntegrationTest {
             fixture.projectPath(), NEVER_PRESENT_TOKEN, null,
             null, null, null, null, null, 20, 0, null));
         assertThat(textOnly.strategy()).isEqualTo("tsvector");
+        // No embed attempt happened here, so fell_back stays false: the flag means
+        // "the provider failed", not "no vector was used".
+        assertThat(textOnly.fellBack()).isFalse();
         assertThat(textOnly.observations()).isEmpty();
     }
 

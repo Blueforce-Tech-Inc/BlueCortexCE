@@ -170,7 +170,8 @@ public class SearchService {
             List<Object[]> rows = observationRepository.fullTextSearchScored(project, query, limit * 2);
             List<ObservationEntity> results = loadScored(rows, false);
             List<ObservationEntity> filtered = applyPostFilters(results, request, limit);
-            return new SearchResult(filtered, "tsvector", query != null && request.queryVector() != null);
+            return new SearchResult(filtered, "tsvector",
+                query != null && (request.queryVector() != null || request.embeddingFailed()));
         } catch (Exception e) {
             // P1: Use WARN level - fallback failure is expected behavior but worth noting
             log.warn("Full-text search also failed for project={}: {}",
@@ -370,8 +371,17 @@ public class SearchService {
         Long endEpoch,
         int limit,
         int offset,
-        String orderBy
-    ) {}
+        String orderBy,
+        boolean embeddingFailed
+    ) {
+        /** Callers that never embed a query (filters, recency, internal) keep the old shape. */
+        public SearchRequest(String project, String query, float[] queryVector, String type,
+                             String concept, String source, Long startEpoch, Long endEpoch,
+                             int limit, int offset, String orderBy) {
+            this(project, query, queryVector, type, concept, source, startEpoch, endEpoch,
+                limit, offset, orderBy, false);
+        }
+    }
 
     /**
      * Search result with metadata.

@@ -140,7 +140,7 @@ The HTTP status keeps its usual meaning:
 | `payload_too_large` | 413 | Request body over `cortexce.http.max-body-bytes` (2 MiB default); `details.max_bytes` |
 | `rate_limited` | 429 | Rate limited; `details.retry_after` in seconds |
 | `internal_error` | 500 | Unexpected server failure |
-| `service_unavailable` | 503 | At the SSE connection cap (`claudemem.sse.max-connections`, 200 default) |
+| `service_unavailable` | 503 | At the SSE connection cap (`claudemem.sse.max-connections`, 200 default), or a write rejected by a read-only database |
 
 Framework failures (unconvertible query parameters, unknown routes, unsupported methods)
 and handler-thrown failures both use this shape. An earlier revision of this section
@@ -1293,6 +1293,11 @@ curl "http://localhost:37777/api/search?project=/Users/dev/myproject&query=authe
 - `filter` — Filter-only search (no query text; results based on type/concept/source filters)
 - `recent` — Default listing (no query, no filters; returns most recent observations)
 - `none` — All search methods failed (returns empty results)
+
+`fell_back` is `true` only when the query text was sent to the embedding provider and that
+call failed (circuit open, timeout, quota), so the answer came from `tsvector` instead. A
+plain text search that never attempted an embedding — or a filter/recent listing with no
+query — reports `false`, which is how a client tells "degraded" from "text only".
 
 ## Management
 

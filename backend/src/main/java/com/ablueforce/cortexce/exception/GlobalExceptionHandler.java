@@ -144,6 +144,53 @@ public class GlobalExceptionHandler {
         return resolved == null ? "Error" : resolved.getReasonPhrase();
     }
 
+    /**
+     * Database failures.
+     *
+     * <p>A read-only database (SQLSTATE 25006) is an operational state, not a bug: the
+     * write cannot succeed until the volume or the replica becomes writable, and retrying
+     * later is the right reaction. Answering 503 with a sentence that names the cause is
+     * what a client can act on; the previous generic "Internal server error" was not.
+     *
+     * <p>Every other data-access failure keeps the old 500/{@code internal_error} answer,
+     * so this handler only changes the read-only case.
+     */
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ResponseEntity<Object> handleDataAccess(org.springframework.dao.DataAccessException exception) {
+        if (isReadOnlyTransaction(exception)) {
+            log.warn("Database rejected a write because the session is read-only: {}",
+                rootMessage(exception));
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ErrorResponses.body(ErrorResponses.SERVICE_UNAVAILABLE,
+                    "Database is read-only: the write was rejected. Retry after the database "
+                        + "accepts writes."));
+        }
+        log.error("Data access failed", exception);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(ErrorResponses.body(ErrorResponses.INTERNAL_ERROR, "Internal server error"));
+    }
+
+    /** SQLSTATE 25006 is PostgreSQL's "read_only_sql_transaction". */
+    private static boolean isReadOnlyTransaction(Throwable exception) {
+        Throwable cause = exception;
+        while (cause != null) {
+            if (cause instanceof java.sql.SQLException sql
+                && "25006".equals(sql.getSQLState())) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
+    }
+
+    private static String rootMessage(Throwable exception) {
+        Throwable cause = exception;
+        while (cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+        return cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage();
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Object> handleUnexpected(Exception exception) {
         log.error("Unhandled exception", exception);

@@ -4,6 +4,15 @@
 > **Updated by**: 定时项目维护任务。
 > **Update rule**: 新修复追加到顶部；超过文档增长阈值时保留未完成项并将已完成历史归档。
 
+## 2026-11-05 | 降级可读性再核：熔断 OPEN / embedding 缺失 / DB 只读
+
+**改了什么**：`GlobalExceptionHandler` 新增 `@ExceptionHandler(DataAccessException)`：沿 cause 链找 SQLState **25006** → **503 `service_unavailable`** + 可读 message「Database is read-only…」；其余 DataAccessException 仍 500 `internal_error`。`SearchService.SearchRequest` 增加 `embeddingFailed`（`fellBack` 只在 embedding 调用失败时为 true），`ViewerController` 在 embed catch 里置位。`docs/API*.md` 补 `fell_back` 语义与 503 说明。
+
+**三种场景用户可见**：
+- **熔断 OPEN**：检索 200，`strategy` 退回文本、`fell_back=true`（`LlmProviderFailureTest` 新增断言）；入库照常 200（观察以 `embedding_state=failed` 落库）。
+- **embedding 缺失/调用失败**：检索 200、`fell_back=true`；纯文本检索（无 embed 调用）保持 `fell_back=false`（`OfflineAiChainIntegrationTest` 断言）。
+- **DB 只读**：新增 `L2ReadOnlyDatabaseTest`（trigger 抛 25006 模拟只读库）——写入 **503**、`error.code=service_unavailable`、message 含 `read-only` 且顶层 `message` 一致；同窗口检索 **200**、`count=0`，证明只读不等于宕机。实测日志：`Database rejected a write because the session is read-only: ERROR: cannot execute INSERT in a read-only transaction`。
+
 ## 2026-11-05 | 向量索引重建：可重跑流程 + 幂等/中断/并发验证
 
 **改了什么**：新增 `scripts/rebuild-vector-index.sh`（以索引状态为准：valid+`FORCE=0` → 跳过；invalid → drop 后重建；无 → 建；构建失败/被杀 → drop 半成品并退出 3）与 `scripts/test-vector-index-rebuild.sh`（临时库三组用例）。`CONCURRENTLY=1` 默认，`CONCURRENTLY=0` 更快但取 SHARE 锁。

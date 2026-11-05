@@ -142,7 +142,7 @@ HTTP 状态码语义保持不变：
 | `payload_too_large` | 413 | 请求体超过 `cortexce.http.max-body-bytes`（默认 2 MiB）；`details.max_bytes` |
 | `rate_limited` | 429 | 触发限流；`details.retry_after` 为秒数 |
 | `internal_error` | 500 | 服务端意外失败 |
-| `service_unavailable` | 503 | 达到 SSE 连接上限（`claudemem.sse.max-connections`，默认 200） |
+| `service_unavailable` | 503 | 达到 SSE 连接上限（`claudemem.sse.max-connections`，默认 200），或写入被只读数据库拒绝 |
 
 框架层失败（查询参数无法转换、未知路由、不支持的方法）与 handler 抛出的失败都使用
 这一形态。本节早前版本记录过两种互不兼容的响应体——Spring 默认的
@@ -1243,6 +1243,10 @@ curl "http://localhost:37777/api/search?project=/Users/dev/myproject&query=authe
 - `filter`: 纯过滤搜索（无查询文本，基于 type/concept/source 过滤条件）
 - `recent`: 默认列表（无查询、无过滤，返回最新观察）
 - `none`: 所有搜索方法均失败（返回空结果）
+
+`fell_back` 仅在「查询文本确实发给了 embedding 服务、但该调用失败（熔断 OPEN、超时、配额）」
+时为 `true`，此时结果来自 `tsvector`。从未尝试 embedding 的纯文本检索、以及无查询的过滤/最新
+列表都返回 `false`，客户端据此区分「降级」和「本来就只走文本」。
 
 ---
 

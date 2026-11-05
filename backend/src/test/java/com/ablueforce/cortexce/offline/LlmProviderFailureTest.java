@@ -454,6 +454,10 @@ class LlmProviderFailureTest {
         assertThat(degraded.getStatusCode().value()).isEqualTo(200);
         assertThat(degradedBody).isNotNull();
         assertThat(degradedBody.strategy()).isEqualTo("tsvector");
+        // fell_back distinguishes "the query could not be embedded" from "the caller
+        // never asked for a vector": a client reading only the body can tell that the
+        // provider is broken instead of assuming a plain text search.
+        assertThat(degradedBody.fellBack()).isTrue();
         // A token that exists nowhere: the text half cannot find it, so an empty
         // result proves the request degraded instead of pretending to succeed.
         assertThat(degradedBody.observations()).isEmpty();
