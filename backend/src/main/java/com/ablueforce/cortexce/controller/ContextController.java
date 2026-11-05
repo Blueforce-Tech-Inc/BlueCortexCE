@@ -156,8 +156,7 @@ public class ContextController {
             return ResponseEntity.ok(new ContextInjectResponse(finalContext, updateFiles));
         } catch (Exception e) {
             log.error("Failed to inject context: {}", e.getClass().getSimpleName());
-            return ResponseEntity.status(500).body(ErrorResponses.body(
-                "internal_error", "Failed to inject context"));
+            return ResponseEntity.status(500).body(ErrorResponses.body(ErrorResponses.INTERNAL_ERROR, "Failed to inject context"));
         }
     }
 
@@ -297,8 +296,7 @@ public class ContextController {
         } catch (Exception e) {
             log.error("Failed to generate context for project {}: {}",
                 projectPath, e.getClass().getSimpleName());
-            return ResponseEntity.status(500).body(ErrorResponses.body(
-                "internal_error", "Failed to generate context"));
+            return ResponseEntity.status(500).body(ErrorResponses.body(ErrorResponses.INTERNAL_ERROR, "Failed to generate context"));
         }
     }
 

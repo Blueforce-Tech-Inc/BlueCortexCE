@@ -82,8 +82,7 @@ public class ModeController {
             @org.springframework.web.bind.annotation.RequestBody ActiveModeSwitchRequest request) {
         String modeId = request.modeId();
         if (modeId == null || modeId.isBlank()) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body(
-                "invalid_request", "modeId is required"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "modeId is required"));
         }
         
         try {
@@ -99,7 +98,7 @@ public class ModeController {
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
-                .body(ErrorResponses.body("invalid_request", "Invalid mode: " + modeId));
+                .body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "Invalid mode: " + modeId));
         }
     }
 

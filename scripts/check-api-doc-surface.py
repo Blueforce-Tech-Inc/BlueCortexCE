@@ -329,10 +329,37 @@ def compare(reference_en, reference_zh, served):
 #     These are pinned by tests as well; the check here catches a server that
 #     starts but no longer honours them.
 # --------------------------------------------------------------------------
-ERROR_CODES = {
-    "invalid_request", "unauthorized", "forbidden", "not_found",
-    "conflict", "rate_limited", "internal_error",
-}
+
+def load_error_codes(backend_dir):
+    """The codes registered in backend/.../common/ErrorCode.java.
+
+    Parsed from the enum rather than copied here: a copy is exactly how the
+    previous hard-coded set fell behind the server (it was missing
+    payload_too_large and service_unavailable). Returns (codes, problem).
+    """
+    path = os.path.join(
+        backend_dir, "src", "main", "java", "com", "ablueforce", "cortexce",
+        "common", "ErrorCode.java",
+    )
+    try:
+        with open(path, encoding="utf-8") as handle:
+            source = handle.read()
+    except OSError as exc:
+        return set(), "cannot read the error-code registry %s (%s)" % (path, exc)
+
+    # Enum constants look like INVALID_REQUEST("invalid_request"). Comments are
+    # stripped first so an example in a javadoc cannot register a code.
+    source = re.sub(r"/\*.*?\*/", "", source, flags=re.S)
+    source = re.sub(r"//[^\n]*", "", source)
+    codes = set(re.findall(r'^\s*[A-Z][A-Z0-9_]*\s*\(\s*"([a-z][a-z0-9_]*)"\s*\)', source, re.M))
+    if not codes:
+        return set(), "no error codes parsed from %s" % path
+    return codes, ""
+
+
+ERROR_CODES, ERROR_CODE_REGISTRY_PROBLEM = load_error_codes(
+    os.path.join(REPO_ROOT, "backend")
+)
 
 
 def _parse_json(raw):
@@ -626,6 +653,14 @@ def self_test():
          '```json\n{"error": {"code": "invalid_request", "message": "Bad Request"},'
          ' "message": "Bad Request"}\n```\n',
          False),
+        ("a documented code absent from the registry",
+         '```json\n{"error": {"code": "oops", "message": "Bad Request"},'
+         ' "message": "Bad Request"}\n```\n',
+         True),
+        ("a code produced by the filters, read from the enum",
+         '```json\n{"error": {"code": "service_unavailable", "message": "Read-only database"},'
+         ' "message": "Read-only database"}\n```\n',
+         False),
     ]
     for name, sample_doc, expect_problem in doc_cases:
         problems = validate_documented_errors(sample_doc)
@@ -634,6 +669,14 @@ def self_test():
                 "%s: expected %s, the checker reported %s"
                 % (name, "a problem" if expect_problem else "no problem", problems)
             )
+
+    # The registry must actually load, and it must include the codes that are
+    # easy to forget because they are produced by filters/exception advice.
+    if ERROR_CODE_REGISTRY_PROBLEM:
+        failures.append("error-code registry: %s" % ERROR_CODE_REGISTRY_PROBLEM)
+    for required in ("invalid_request", "payload_too_large", "service_unavailable"):
+        if required not in ERROR_CODES:
+            failures.append("error-code registry is missing %r" % required)
 
     if failures:
         print("SELF-TEST FAILED")
@@ -673,6 +716,13 @@ def main(argv):
         return self_test()
 
     base = args.server_url.rstrip("/")
+    # Reload against the requested backend directory, not only the repository
+    # default, so --backend-dir actually changes what is validated.
+    global ERROR_CODES
+    ERROR_CODES, registry_problem = load_error_codes(args.backend_dir)
+    if registry_problem:
+        print("ERROR: %s" % registry_problem, file=sys.stderr)
+        return 2
     documents = {}
     for name in ("API.md", "API-zh-CN.md"):
         path = os.path.join(args.docs_dir, name)

@@ -32,15 +32,17 @@ import java.util.Map;
  */
 public final class ErrorResponses {
 
-    public static final String INVALID_REQUEST = "invalid_request";
-    public static final String UNAUTHORIZED = "unauthorized";
-    public static final String FORBIDDEN = "forbidden";
-    public static final String NOT_FOUND = "not_found";
-    public static final String CONFLICT = "conflict";
-    public static final String PAYLOAD_TOO_LARGE = "payload_too_large";
-    public static final String RATE_LIMITED = "rate_limited";
-    public static final String INTERNAL_ERROR = "internal_error";
-    public static final String SERVICE_UNAVAILABLE = "service_unavailable";
+    // Kept as constants because existing call sites read well as
+    // ErrorResponses.INVALID_REQUEST; the values themselves live in one place.
+    public static final String INVALID_REQUEST = ErrorCode.INVALID_REQUEST.code();
+    public static final String UNAUTHORIZED = ErrorCode.UNAUTHORIZED.code();
+    public static final String FORBIDDEN = ErrorCode.FORBIDDEN.code();
+    public static final String NOT_FOUND = ErrorCode.NOT_FOUND.code();
+    public static final String CONFLICT = ErrorCode.CONFLICT.code();
+    public static final String PAYLOAD_TOO_LARGE = ErrorCode.PAYLOAD_TOO_LARGE.code();
+    public static final String RATE_LIMITED = ErrorCode.RATE_LIMITED.code();
+    public static final String INTERNAL_ERROR = ErrorCode.INTERNAL_ERROR.code();
+    public static final String SERVICE_UNAVAILABLE = ErrorCode.SERVICE_UNAVAILABLE.code();
 
     private ErrorResponses() {
     }

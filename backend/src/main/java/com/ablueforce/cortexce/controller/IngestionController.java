@@ -128,10 +128,10 @@ public class IngestionController {
 
         // P2: Validate required fields
         if (contentSessionId == null || contentSessionId.isBlank()) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Missing required field: session_id"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "Missing required field: session_id"));
         }
         if (toolName == null || toolName.isBlank()) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Missing required field: tool_name"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "Missing required field: tool_name"));
         }
 
         log.debug("Tool use: session={}, tool={}", contentSessionId, toolName);
@@ -142,13 +142,13 @@ public class IngestionController {
         try {
             ref = ExternalSessionRef.of(body.platformSource(), contentSessionId);
         } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, e.getMessage()));
         }
         String rateLimitKey = "tool-use:" + ref.logKey();
         if (!rateLimitService.tryAcquire(rateLimitKey)) {
             log.warn("Rate limit exceeded for session: {}", ref.logKey());
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(ErrorResponses.body("rate_limited", "Rate limit exceeded", Map.of("retry_after", String.valueOf(rateLimitService.getResetSeconds(rateLimitKey)))));
+                .body(ErrorResponses.body(ErrorResponses.RATE_LIMITED, "Rate limit exceeded", Map.of("retry_after", String.valueOf(rateLimitService.getResetSeconds(rateLimitKey)))));
         }
 
         SessionEntity session = sessionManagementService.getOrCreate(ref, cwd, null);
@@ -200,14 +200,14 @@ public class IngestionController {
 
         // Validate session_id (consistent with handleUserPrompt)
         if (contentSessionId == null || contentSessionId.isBlank()) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Missing required field: session_id"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "Missing required field: session_id"));
         }
 
         ExternalSessionRef ref;
         try {
             ref = ExternalSessionRef.of(body.platformSource(), contentSessionId);
         } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, e.getMessage()));
         }
 
         // SessionEnd is a terminal, resolve-only event: it must never create a conversation.
@@ -217,7 +217,7 @@ public class IngestionController {
         if (resolved.isEmpty()) {
             log.debug("Session end for unknown conversation: {}", ref.logKey());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ErrorResponses.body("not_found", "Session not found"));
+                .body(ErrorResponses.body(ErrorResponses.NOT_FOUND, "Session not found"));
         }
         UUID conversationId = resolved.get().getId();
         log.debug("Session end: conversation={} ({})", conversationId, ref.logKey());
@@ -229,7 +229,7 @@ public class IngestionController {
             job = summaryJobService.enqueueSessionSummaryJob(conversationId, lastAssistantMessage);
         } catch (SummaryJobService.IllegalJobStateException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ErrorResponses.body("conflict", e.getMessage()));
+                .body(ErrorResponses.body(ErrorResponses.CONFLICT, e.getMessage()));
         }
         pendingMessageEventPublisher.publishPendingMessageEvent(
             job.getId(), SummaryJobService.TYPE_SUMMARIZE);
@@ -272,7 +272,7 @@ public class IngestionController {
 
         // P1: Validate session_id is provided
         if (contentSessionId == null || contentSessionId.isBlank()) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Missing required field: session_id"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "Missing required field: session_id"));
         }
 
         // P1: Sanitize promptText to prevent injection
@@ -295,7 +295,7 @@ public class IngestionController {
         try {
             ref = ExternalSessionRef.of(body.platformSource(), contentSessionId);
         } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, e.getMessage()));
         }
         SessionEntity session = sessionManagementService.getOrCreate(ref, cwd, promptText);
 
@@ -349,10 +349,10 @@ public class IngestionController {
         String projectPath = body.projectPath() != null ? body.projectPath() : body.cwd();
 
         if (contentSessionId == null || contentSessionId.isBlank()) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Missing required field: content_session_id (or session_id)"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "Missing required field: content_session_id (or session_id)"));
         }
         if (projectPath == null || projectPath.isBlank()) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Missing required field: project_path"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "Missing required field: project_path"));
         }
 
         // Create ParsedObservation with public fields (not setters)
@@ -381,7 +381,7 @@ public class IngestionController {
         try {
             ref = ExternalSessionRef.of(body.platformSource(), contentSessionId);
         } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, e.getMessage()));
         }
         SessionEntity session = sessionManagementService.getOrCreate(ref, projectPath, parsed.title);
 

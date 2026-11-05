@@ -1204,6 +1204,14 @@ See the deployment guide's §5.4 for the full profile-by-profile table.
 
 ---
 
+## Enforced Architectural Invariants
+
+`ErrorCode` is the single registry for the `error.code` values in the unified
+error body. `ErrorResponses` constants read from it, `ErrorCodeRegistryTest`
+enforces uniqueness/snake_case and that every status mapping returns a
+registered code, and `scripts/check-api-doc-surface.py` parses the enum so a
+documented example using an unregistered code fails the live API contract check.
+
 ## Trade-offs
 
 | Trade-off | Choice | Alternative | Reason |

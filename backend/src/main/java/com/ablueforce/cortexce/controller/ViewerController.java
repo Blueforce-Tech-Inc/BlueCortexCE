@@ -415,8 +415,7 @@ public class ViewerController {
             ));
         } catch (Exception e) {
             log.error("Search failed for project {}: {}", project, e.getClass().getSimpleName());
-            return ResponseEntity.status(500).body(ErrorResponses.body(
-                "internal_error", "Search failed"));
+            return ResponseEntity.status(500).body(ErrorResponses.body(ErrorResponses.INTERNAL_ERROR, "Search failed"));
         }
     }
 
@@ -516,8 +515,7 @@ public class ViewerController {
             ));
         } catch (Exception e) {
             log.error("Batch get observations failed: {}", e.getMessage());
-            return ResponseEntity.status(500).body(ErrorResponses.body(
-                "internal_error", "Batch get observations failed"));
+            return ResponseEntity.status(500).body(ErrorResponses.body(ErrorResponses.INTERNAL_ERROR, "Batch get observations failed"));
         }
     }
 
@@ -582,7 +580,7 @@ public class ViewerController {
             @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ModeSwitchRequest request) {
         String modeId = request.mode();
         if (modeId == null || modeId.isBlank()) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Mode ID is required"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "Mode ID is required"));
         }
 
         try {
@@ -595,7 +593,7 @@ public class ViewerController {
             ));
         } catch (Exception e) {
             log.warn("Failed to set mode '{}': {}", modeId, e.getMessage());
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Failed to load mode: " + e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "Failed to load mode: " + e.getMessage()));
         }
     }
 
@@ -633,7 +631,7 @@ public class ViewerController {
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             log.error("Failed to save settings: {}", e.getMessage());
-            return ResponseEntity.status(500).body(ErrorResponses.body("internal_error", e.getMessage()));
+            return ResponseEntity.status(500).body(ErrorResponses.body(ErrorResponses.INTERNAL_ERROR, e.getMessage()));
         }
     }
 
@@ -688,7 +686,7 @@ public class ViewerController {
         long maxRangeMs = 365L * 24 * 60 * 60 * 1000;
         if (end - start > maxRangeMs) {
             log.warn("Timeline date range exceeds 1 year: {} days", (end - start) / (24 * 60 * 60 * 1000));
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "Date range exceeds 1 year maximum"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "Date range exceeds 1 year maximum"));
         }
 
         try {
@@ -705,7 +703,7 @@ public class ViewerController {
             return ResponseEntity.ok(timeline);
         } catch (Exception e) {
             log.error("Timeline query failed for project {}: {}", project, e.getClass().getSimpleName());
-            return ResponseEntity.status(500).body(ErrorResponses.body("internal_error", "Timeline query failed"));
+            return ResponseEntity.status(500).body(ErrorResponses.body(ErrorResponses.INTERNAL_ERROR, "Timeline query failed"));
         }
     }
 
@@ -774,8 +772,7 @@ public class ViewerController {
             ));
         } catch (Exception e) {
             log.error("Search by file failed for project={}, filePath={}: {}", project, filePath, e.getMessage());
-            return ResponseEntity.status(500).body(ErrorResponses.body(
-                "internal_error", "Search by file failed"));
+            return ResponseEntity.status(500).body(ErrorResponses.body(ErrorResponses.INTERNAL_ERROR, "Search by file failed"));
         }
     }
 
@@ -849,8 +846,7 @@ public class ViewerController {
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Batch get sessions failed: {}", e.getMessage());
-            return ResponseEntity.status(500).body(ErrorResponses.body(
-                "internal_error", "Batch get sessions failed"));
+            return ResponseEntity.status(500).body(ErrorResponses.body(ErrorResponses.INTERNAL_ERROR, "Batch get sessions failed"));
         }
     }
 

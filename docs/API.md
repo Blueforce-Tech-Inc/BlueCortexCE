@@ -142,6 +142,10 @@ The HTTP status keeps its usual meaning:
 | `internal_error` | 500 | Unexpected server failure |
 | `service_unavailable` | 503 | At the SSE connection cap (`claudemem.sse.max-connections`, 200 default), or a write rejected by a read-only database |
 
+These tokens are defined once in `backend/.../common/ErrorCode.java`. The API
+contract checker parses that enum and rejects a documented example whose code is
+not registered, so this table cannot advertise a code the server never emits.
+
 Framework failures (unconvertible query parameters, unknown routes, unsupported methods)
 and handler-thrown failures both use this shape. An earlier revision of this section
 documented two incompatible bodies — Spring's default

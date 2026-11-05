@@ -144,6 +144,9 @@ HTTP 状态码语义保持不变：
 | `internal_error` | 500 | 服务端意外失败 |
 | `service_unavailable` | 503 | 达到 SSE 连接上限（`claudemem.sse.max-connections`，默认 200），或写入被只读数据库拒绝 |
 
+这些 code 只在 `backend/.../common/ErrorCode.java` 定义一次。API 契约检查器直接解析
+该枚举，文档示例里出现未注册的 code 会失败，因此这张表不会宣称服务端从未发出的 code。
+
 框架层失败（查询参数无法转换、未知路由、不支持的方法）与 handler 抛出的失败都使用
 这一形态。本节早前版本记录过两种互不兼容的响应体——Spring 默认的
 `{timestamp, status, error, path}` 与裸的错误字符串——两者都已移除。

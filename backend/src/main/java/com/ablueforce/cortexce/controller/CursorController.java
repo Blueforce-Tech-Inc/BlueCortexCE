@@ -73,11 +73,11 @@ public class CursorController {
         String workspacePath = request.workspacePath();
 
         if (projectName == null || projectName.isBlank()) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "projectName is required"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "projectName is required"));
         }
 
         if (workspacePath == null || workspacePath.isBlank()) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "workspacePath is required"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "workspacePath is required"));
         }
 
         try {
@@ -90,7 +90,7 @@ public class CursorController {
             ));
         } catch (Exception e) {
             log.error("Failed to register Cursor project {}: {}", projectName, e.getMessage());
-            return ResponseEntity.status(500).body(ErrorResponses.body("internal_error", "Failed to register project: " + e.getMessage()));
+            return ResponseEntity.status(500).body(ErrorResponses.body(ErrorResponses.INTERNAL_ERROR, "Failed to register project: " + e.getMessage()));
         }
     }
 
@@ -178,7 +178,7 @@ public class CursorController {
         CursorProjectEntry entry = cursorService.getProject(projectName);
 
         if (entry == null) {
-            return ResponseEntity.status(404).body(ErrorResponses.body("not_found", "Project not registered: " + projectName));
+            return ResponseEntity.status(404).body(ErrorResponses.body(ErrorResponses.NOT_FOUND, "Project not registered: " + projectName));
         }
 
         try {
@@ -218,7 +218,7 @@ public class CursorController {
             }
         } catch (Exception e) {
             log.error("Failed to update Cursor context for project {}: {}", projectName, e.getMessage());
-            return ResponseEntity.status(500).body(ErrorResponses.body("internal_error", "Failed to update context: " + e.getMessage()));
+            return ResponseEntity.status(500).body(ErrorResponses.body(ErrorResponses.INTERNAL_ERROR, "Failed to update context: " + e.getMessage()));
         }
     }
 
@@ -253,13 +253,13 @@ public class CursorController {
         String context = request.context();
 
         if (context == null || context.isBlank()) {
-            return ResponseEntity.badRequest().body(ErrorResponses.body("invalid_request", "context is required"));
+            return ResponseEntity.badRequest().body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "context is required"));
         }
 
         CursorProjectEntry entry = cursorService.getProject(projectName);
 
         if (entry == null) {
-            return ResponseEntity.status(404).body(ErrorResponses.body("not_found", "Project not registered: " + projectName));
+            return ResponseEntity.status(404).body(ErrorResponses.body(ErrorResponses.NOT_FOUND, "Project not registered: " + projectName));
         }
 
         try {
@@ -278,7 +278,7 @@ public class CursorController {
             }
         } catch (Exception e) {
             log.error("Failed to write custom context for project {}: {}", projectName, e.getMessage());
-            return ResponseEntity.status(500).body(ErrorResponses.body("internal_error", "Failed to write context: " + e.getMessage()));
+            return ResponseEntity.status(500).body(ErrorResponses.body(ErrorResponses.INTERNAL_ERROR, "Failed to write context: " + e.getMessage()));
         }
     }
 

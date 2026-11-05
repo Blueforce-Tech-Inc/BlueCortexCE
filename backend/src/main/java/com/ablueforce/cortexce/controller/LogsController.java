@@ -188,7 +188,7 @@ public class LogsController {
             } catch (IOException e) {
                 log.error(LogMarkers.FAILURE + "Failed to clear log file: {}", todayLog, e);
                 return ResponseEntity.internalServerError()
-                        .body(ErrorResponses.body("invalid_request", "Failed to clear log file"));
+                        .body(ErrorResponses.body(ErrorResponses.INVALID_REQUEST, "Failed to clear log file"));
             }
 
             return ResponseEntity.ok(Map.of(
