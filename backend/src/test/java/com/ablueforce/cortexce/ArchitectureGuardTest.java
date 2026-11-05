@@ -46,7 +46,6 @@ class ArchitectureGuardTest {
      */
     private static final Map<String, String> CONTROLLER_REPOSITORY_BASELINE = Map.of(
             "ViewerController.java", "viewer polling reads observations/sessions/summaries/prompts directly",
-            "StreamController.java", "SSE bootstrap checks session existence before subscribing",
             "ContextController.java", "context injection needs the latest summary and observation rows",
             "MemoryController.java", "memory read endpoint is a repository query with a DTO envelope",
             "SessionController.java", "session read/update endpoints are repository queries with DTO envelopes",

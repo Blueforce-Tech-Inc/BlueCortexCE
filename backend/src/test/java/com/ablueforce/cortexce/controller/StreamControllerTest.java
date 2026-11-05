@@ -1,8 +1,8 @@
 package com.ablueforce.cortexce.controller;
 
 import com.ablueforce.cortexce.exception.GlobalExceptionHandler;
-import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.service.AgentService;
+import com.ablueforce.cortexce.service.ProjectCatalogService;
 import com.ablueforce.cortexce.service.SSEBroadcaster;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,7 +32,7 @@ class StreamControllerTest {
         org.mockito.Mockito.when(broadcaster.getMaxConnections()).thenReturn(200);
 
         StreamController controller = new StreamController(
-            broadcaster, mock(SessionRepository.class), mock(AgentService.class));
+            broadcaster, mock(ProjectCatalogService.class), mock(AgentService.class));
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();

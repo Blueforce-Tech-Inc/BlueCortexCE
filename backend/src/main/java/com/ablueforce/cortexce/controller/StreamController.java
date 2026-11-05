@@ -1,7 +1,7 @@
 package com.ablueforce.cortexce.controller;
 
-import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.service.AgentService;
+import com.ablueforce.cortexce.service.ProjectCatalogService;
 import com.ablueforce.cortexce.service.SSEBroadcaster;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -17,9 +17,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -37,14 +34,14 @@ public class StreamController {
     private long sseTimeout;
 
     private final SSEBroadcaster sseBroadcaster;
-    private final SessionRepository sessionRepository;
+    private final ProjectCatalogService projectCatalogService;
     private final AgentService agentService;
 
     public StreamController(SSEBroadcaster sseBroadcaster,
-                            SessionRepository sessionRepository,
+                            ProjectCatalogService projectCatalogService,
                             AgentService agentService) {
         this.sseBroadcaster = sseBroadcaster;
-        this.sessionRepository = sessionRepository;
+        this.projectCatalogService = projectCatalogService;
         this.agentService = agentService;
     }
 
@@ -84,23 +81,14 @@ public class StreamController {
         // WebUI uses onmessage which only catches unnamed events
         // V18: Include sources and projectsBySource for platform filtering
         try {
-            List<String> projects = sessionRepository.findAllProjects();
-            List<String> sources = sessionRepository.findAllPlatformSources();
-
-            List<Object[]> projectsBySourceRaw = sessionRepository.findProjectsByPlatformSource();
-            Map<String, List<String>> projectsBySource = new HashMap<>();
-            for (Object[] row : projectsBySourceRaw) {
-                String source = (String) row[0];
-                String proj = (String) row[1];
-                projectsBySource.computeIfAbsent(source, k -> new ArrayList<>()).add(proj);
-            }
+            ProjectCatalogService.ProjectCatalog catalog = projectCatalogService.getCatalog();
 
             emitter.send(SseEmitter.event()
                 .data(Map.of(
                     "type", "initial_load",
-                    "projects", projects,
-                    "sources", sources,
-                    "projectsBySource", projectsBySource,
+                    "projects", catalog.projects(),
+                    "sources", catalog.sources(),
+                    "projectsBySource", catalog.projectsBySource(),
                     "timestamp", System.currentTimeMillis()
                 )));
 

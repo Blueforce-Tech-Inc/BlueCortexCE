@@ -17,6 +17,7 @@ import com.ablueforce.cortexce.repository.SummaryRepository;
 import com.ablueforce.cortexce.repository.UserPromptRepository;
 import com.ablueforce.cortexce.service.AgentService;
 import com.ablueforce.cortexce.service.ModeService;
+import com.ablueforce.cortexce.service.ProjectCatalogService;
 import com.ablueforce.cortexce.service.SettingsService;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.Operation;
@@ -76,6 +77,7 @@ public class ViewerController {
     private final SettingsService settingsService;
     private final TimelineService timelineService;
     private final SessionManagementService sessionManagementService;
+    private final ProjectCatalogService projectCatalogService;
 
     public ViewerController(ObservationRepository observationRepository,
                             SummaryRepository summaryRepository,
@@ -87,7 +89,8 @@ public class ViewerController {
                             ModeService modeService,
                             SettingsService settingsService,
                             TimelineService timelineService,
-                            SessionManagementService sessionManagementService) {
+                            SessionManagementService sessionManagementService,
+                            ProjectCatalogService projectCatalogService) {
         this.observationRepository = observationRepository;
         this.summaryRepository = summaryRepository;
         this.userPromptRepository = userPromptRepository;
@@ -99,6 +102,7 @@ public class ViewerController {
         this.settingsService = settingsService;
         this.timelineService = timelineService;
         this.sessionManagementService = sessionManagementService;
+        this.projectCatalogService = projectCatalogService;
     }
 
     /**
@@ -266,21 +270,11 @@ public class ViewerController {
     @ApiResponse(responseCode = "200", description = "Project list retrieved with sources",
         content = @Content(schema = @Schema(type = "object", example = "{\"projects\":[\"/Users/dev/project1\"],\"sources\":[\"claude\"],\"projectsBySource\":{\"claude\":[\"/Users/dev/project1\"]}}")))
     public ResponseEntity<Map<String, Object>> getProjects() {
-        List<String> projects = sessionRepository.findAllProjects();
-        List<String> sources = sessionRepository.findAllPlatformSources();
-
-        List<Object[]> projectsBySourceRaw = sessionRepository.findProjectsByPlatformSource();
-        Map<String, List<String>> projectsBySource = new HashMap<>();
-        for (Object[] row : projectsBySourceRaw) {
-            String source = (String) row[0];
-            String proj = (String) row[1];
-            projectsBySource.computeIfAbsent(source, k -> new ArrayList<>()).add(proj);
-        }
-
+        ProjectCatalogService.ProjectCatalog catalog = projectCatalogService.getCatalog();
         return ResponseEntity.ok(Map.of(
-            "projects", projects,
-            "sources", sources,
-            "projectsBySource", projectsBySource
+            "projects", catalog.projects(),
+            "sources", catalog.sources(),
+            "projectsBySource", catalog.projectsBySource()
         ));
     }
 

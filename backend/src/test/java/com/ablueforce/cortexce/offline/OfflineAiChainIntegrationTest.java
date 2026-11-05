@@ -16,6 +16,7 @@ import com.ablueforce.cortexce.repository.SummaryRepository;
 import com.ablueforce.cortexce.repository.UserPromptRepository;
 import com.ablueforce.cortexce.service.AgentService;
 import com.ablueforce.cortexce.service.ProcessingHeartbeat;
+import com.ablueforce.cortexce.service.ProjectCatalogService;
 import com.ablueforce.cortexce.service.ConversationWriteService;
 import com.ablueforce.cortexce.service.ContextCacheService;
 import com.ablueforce.cortexce.service.EmbeddingService;
@@ -256,7 +257,8 @@ class OfflineAiChainIntegrationTest {
             mock(ModeService.class),
             mock(SettingsService.class),
             mock(TimelineService.class),
-            sessionManagementService);
+            sessionManagementService,
+            mock(ProjectCatalogService.class));
 
         ResponseEntity<?> response = controller.search(
             fixture.projectPath(), NEVER_PRESENT_TOKEN, null, null, null, 20, 0, null);

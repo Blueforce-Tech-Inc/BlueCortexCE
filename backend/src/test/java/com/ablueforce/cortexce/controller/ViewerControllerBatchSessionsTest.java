@@ -32,7 +32,7 @@ class ViewerControllerBatchSessionsTest {
 
     private final SessionManagementService sessions = mock(SessionManagementService.class);
     private final ViewerController controller = new ViewerController(
-        null, null, null, null, null, null, null, null, null, null, sessions);
+        null, null, null, null, null, null, null, null, null, null, sessions, null);
 
     private static SessionEntity session(String contentSessionId) {
         SessionEntity entity = new SessionEntity();
