@@ -4,6 +4,21 @@
 > **Updated by**: 定时项目维护任务。
 > **Update rule**: 新修复追加到顶部；超过文档增长阈值时保留未完成项并将已完成历史归档。
 
+## 2026-11-05 | 架构豁免清零：6 个 controller 改经 service，3 个列表端点改返回 JSON Map
+
+**改了什么**（6 个独立提交，`a8c589e..0d115de`）：
+
+1. **`StreamController`** → 新增 `ProjectCatalogService`，SSE `initial_load` 与 `/api/projects` 共用同一份 projects/sources/projectsBySource 组装逻辑。
+2. **`HealthController`** → 新增 `OperationalStatusService`，readiness 的 `queueFailed` / `queueFailedLast24h` / `embeddingBacklog` 三个附加字段定义集中到一处。
+3. **`ContextController`** → 新增 `SummaryQueryService`，`/api/context/recent` 拿到 `RecentSummary` 投影而非 `SummaryEntity`。
+4. **`SessionController`** → 缓存写入迁入 `SessionManagementService.cacheContextForProject`（仍为 best-effort，失败只 warn）。
+5. **`MemoryController`** → 新增 `ObservationManagementService`，feedback / PATCH / DELETE 的行锁 + 重读 + 部分更新事务序列与 400 message 原样搬迁。
+6. **`ViewerController`** → 新增 `ViewerQueryService`，四个分页/聚合读与 conversation 过滤器优先级集中；`getObservations` / `getSummaries` / `getPrompts` 返回 `PagedResponse<Map<String,Object>>`，Map 由应用 `ObjectMapper` 从实体投影，`items`/`hasMore` 与 snake_case 字段（含 `facts`/`concepts` JSON 字符串）逐字段不变。`OffsetPageRequest` 从 `dto` 移到 `repository`，避免新包依赖环（service→dto→entity→util→service）。
+
+**结果**：`ArchitectureGuardTest` 中 controller→repository 基线与 entity 返回基线**双双为空**；新增违规或回填 import 立即失败。`docs/ARCHITECTURE*.md` 同步改写。
+
+**未完成（本批收尾时明确未启动）**：README 新手脚本、CI 时长/稳定性、Prometheus 告警规则、剩余审计项复核 —— 保留为下一批输入。
+
 ## 2026-11-05 | 开发体验防线：恢复 GUC / 稳定性 / 架构守卫 / 错误码 / 迁移门槛
 
 **本批 6 项**（每项独立提交）：

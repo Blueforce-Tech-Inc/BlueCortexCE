@@ -1179,9 +1179,9 @@ switch，分别存入 `embedding_768` / `embedding_1024` / `embedding_1536`。�
 
 | 规则 | 基线 |
 |------|------|
-| Controller 不得 import `repository` | 六个只读端点被豁免：`ViewerController`、`StreamController`、`ContextController`、`MemoryController`、`SessionController`、`HealthController`。它们都是「一次仓储查询 + DTO 信封」，加一个只有一行转发的 service 只是把同一个查询下沉一层，不增加行为。**新增**的 controller -> repository import 会失败。 |
+| Controller 不得 import `repository` | 无基线。所有读取都经 `ViewerQueryService`、`ProjectCatalogService`、`SummaryQueryService`、`ObservationManagementService`、`SessionManagementService` 或 `OperationalStatusService`。新增的 controller -> repository import 立即失败。 |
 | Service 不得 import `controller` | 无基线。 |
-| Controller 不得直接返回 entity | 三个 viewer 列表方法被豁免：`ViewerController#getObservations`、`#getSummaries`、`#getPrompts`。内置 WebUI 消费的就是这个 JSON 形状，分页信封是硬契约，向量列已经在 entity 上排除序列化。另造一套 DTO 会复制所有字段并静默漂移；这是契约变更而不是分层清理，所以钉在基线里而不是顺手改。其他返回 entity 的方法一律失败。 |
+| Controller 不得直接返回 entity | 无基线。三个 viewer 列表方法改为返回由应用 `ObjectMapper` 生成的 JSON 形状 Map，保持 WebUI 契约（`items`/`hasMore` 与 entity 的 snake_case 字段原样）同时不暴露持久化类型。其他返回 entity 的方法一律失败。 |
 | 不得出现新的包依赖环 | 只接受一个强连通分量：`config`、`entity`、`event`、`repository`、`service`、`util`。它来自 Spring 装配本身：`config` 持有 bean，service 注入配置属性，repository 需要 entity，`util` 解析配置。这个集合之外的新包一旦入环就失败。 |
 
 `ErrorCode` 是统一错误体中 `error.code` 的唯一注册表。`ErrorResponses` 的常量从它读取，

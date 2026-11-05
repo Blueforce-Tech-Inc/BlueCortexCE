@@ -1212,9 +1212,9 @@ today are pinned with a reason and must still exist (a stale entry fails too).
 
 | Rule | Baseline |
 |------|----------|
-| Controllers must not import `repository` | Six thin read endpoints are grandfathered: `ViewerController`, `StreamController`, `ContextController`, `MemoryController`, `SessionController`, `HealthController`. Each is a repository query plus a DTO envelope; a one-method service would move the same query one layer down without adding behaviour. A **new** controller->repository import fails. |
+| Controllers must not import `repository` | No baseline. All reads go through `ViewerQueryService`, `ProjectCatalogService`, `SummaryQueryService`, `ObservationManagementService`, `SessionManagementService` or `OperationalStatusService`. A controller->repository import fails immediately. |
 | Services must not import `controller` | No baseline. |
-| Controllers must not return entity rows | Three viewer list methods are grandfathered: `ViewerController#getObservations`, `#getSummaries`, `#getPrompts`. The bundled WebUI consumes that exact JSON shape, the paging envelope is a hard contract, and the vector columns are already excluded by the entity. A parallel DTO would duplicate every field and drift; this is a contract change, not a cleanup, so it is pinned rather than made in passing. Any other entity-returning method fails. |
+| Controllers must not return entity rows | No baseline. The three viewer list methods return JSON-shaped maps produced by the application `ObjectMapper`, which preserves the WebUI contract (`items`/`hasMore` and the exact snake_case entity fields) without exposing persistence types. Any entity-returning method fails. |
 | No new package dependency cycles | One strongly connected component is accepted: `config`, `entity`, `event`, `repository`, `service`, `util`. It is intrinsic to Spring wiring: `config` owns the beans, services inject configuration properties, repositories need entities, and `util` resolves configuration. A package outside this set that joins a cycle fails. |
 
 `ErrorCode` is the single registry for the `error.code` values in the unified
