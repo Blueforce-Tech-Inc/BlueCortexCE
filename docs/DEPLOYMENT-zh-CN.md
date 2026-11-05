@@ -1226,7 +1226,15 @@ SOURCE_DB=claude_mem WORK_MEM=8GB WORKERS=2 ./scripts/rebuild-vector-index.sh
 | 没有索引 | 直接建 |
 | 构建失败或被中断 | drop 半成品索引，退出 3 |
 
-`CONCURRENTLY=1`（默认）在建图期间不阻塞 INSERT；`CONCURRENTLY=0` 更快，但会取 SHARE 锁，写入要等整次构建结束。`scripts/test-vector-index-rebuild.sh` 会在临时库上验证上述全部行为，改动建图路径后必须重跑：3 万行时用 `pg_terminate_backend` 打断构建（退出 3、不残留索引），下一次运行恢复成功；并发构建期间记录到 135 次写入全部成功，**0 失败、p95 153 ms**（含 docker exec 往返；基线 p50 59 ms）。
+`CONCURRENTLY=1`（默认）在建图期间不阻塞 INSERT；`CONCURRENTLY=0` 更快，但会取 SHARE 锁，写入要等整次构建结束。`scripts/test-vector-index-rebuild.sh` 会在临时库上验证上述全部行为，改动建图路径后必须重跑。12 万行实测（`WORK_MEM=1GB`、2 workers）：
+
+| 用例 | 结果 |
+|------|------|
+| 首次建图 | **48 s**，索引有效，983,048,192 B（8,192 B/行） |
+| 重跑 | `skip: … already valid`，**1 s** 返回，不建图 |
+| `pg_terminate_backend` 打断 | **退出 3**，半成品索引已删除，状态 `absent` |
+| 打断后重跑 | **50 s** 恢复为有效索引 |
+| 并发建图（`CONCURRENTLY=1`） | **918 次写入、0 失败**，p50 48 ms、p95 84 ms、max 206 ms（含 docker exec 往返），索引有效 |
 
 
 #### 数据完整性巡检（可定时）

@@ -4,6 +4,16 @@
 > **Updated by**: 定时项目维护任务。
 > **Update rule**: 新修复追加到顶部；超过文档增长阈值时保留未完成项并将已完成历史归档。
 
+## 2026-11-05 | 向量索引重建：可重跑流程 + 幂等/中断/并发验证
+
+**改了什么**：新增 `scripts/rebuild-vector-index.sh`（以索引状态为准：valid+`FORCE=0` → 跳过；invalid → drop 后重建；无 → 建；构建失败/被杀 → drop 半成品并退出 3）与 `scripts/test-vector-index-rebuild.sh`（临时库三组用例）。`CONCURRENTLY=1` 默认，`CONCURRENTLY=0` 更快但取 SHARE 锁。
+
+**12 万行实测**（`WORK_MEM=1GB`、2 workers）：
+- 首次建图 **48 s**、索引 983,048,192 B（**8,192 B/行**，与 1M 常数一致）；重跑 **1 s** 命中 `skip: … already valid`。
+- `pg_terminate_backend` 打断 → **exit 3**、半成品索引已删（`absent`）；重跑 **50 s** 恢复 valid。
+- 并发建图期间 **918 次写入、0 失败**，p50 48 ms、p95 84 ms、max 206 ms（含 docker exec 往返），构建后索引 valid、行数 120,923。
+- 中英文 DEPLOYMENT 的「批量导入后的向量索引重建」补上该用例表。
+
 ## 2026-11-05 | 运维闭环：百万行 dump → 恢复 → 巡检 → HNSW 重建实测
 
 **改了什么**：`scripts/backup-restore-drill.sh` 补上第 8 阶段「HNSW 重建」（`REBUILD_HNSW=1`，退出码 11）与全程磁盘峰值采样（每 `DISK_SAMPLE_SECONDS` 采源库/副本/dump/容器文件系统，报告记 `disk_peak`），检索探针列名改为按 schema 自适应（`RETRIEVAL_COLUMN=auto` → `search_tokens`，否则 `search_vector`），中英文 DEPLOYMENT 的闭环步骤扩到 8 步并补退出码 10/11。

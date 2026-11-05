@@ -1326,10 +1326,15 @@ as the source of truth:
 `CONCURRENTLY=0` is faster but takes a SHARE lock, so writes wait for the whole
 build. `scripts/test-vector-index-rebuild.sh` proves all of it against a
 throwaway database and is the script to rerun after any change to the build
-path: at 30,000 rows it interrupted a build with `pg_terminate_backend`
-(exit 3, no index left), rebuilt on the next run, and recorded 135 successful
-writes during a concurrent build with **0 failures, p95 153 ms** (docker-exec
-round trip included; baseline p50 59 ms).
+path. At 120,000 rows (`WORK_MEM=1GB`, 2 workers):
+
+| Case | Result |
+|------|--------|
+| first build | **48 s**, index valid, 983,048,192 B (8,192 B/row) |
+| rerun | `skip: … already valid` in **1 s** — no build |
+| interrupt with `pg_terminate_backend` | **exit 3**, partial index dropped, state `absent` |
+| rerun after the interruption | valid index in **50 s** |
+| concurrent build (`CONCURRENTLY=1`) | **918 writes, 0 failures**, p50 48 ms, p95 84 ms, max 206 ms (docker-exec round trip included), index valid |
 
 #### Data Integrity Audit (Scheduled)
 
