@@ -37,7 +37,7 @@ class SessionControllerFailureDisclosureTest {
         logs.start();
         logger.addAppender(logs);
         sessionManagementService = mock(SessionManagementService.class);
-        controller = new SessionController(null, sessionManagementService, null, null, null, Optional.empty());
+        controller = new SessionController(sessionManagementService, null, null, null, Optional.empty());
     }
 
     @AfterEach

@@ -46,8 +46,7 @@ class ArchitectureGuardTest {
      */
     private static final Map<String, String> CONTROLLER_REPOSITORY_BASELINE = Map.of(
             "ViewerController.java", "viewer polling reads observations/sessions/summaries/prompts directly",
-            "MemoryController.java", "memory read endpoint is a repository query with a DTO envelope",
-            "SessionController.java", "session read/update endpoints are repository queries with DTO envelopes");
+            "MemoryController.java", "memory read endpoint is a repository query with a DTO envelope");
 
     /**
      * Methods that still return entity rows. The three viewer list endpoints

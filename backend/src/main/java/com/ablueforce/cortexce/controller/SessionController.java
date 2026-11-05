@@ -4,7 +4,6 @@ import com.ablueforce.cortexce.common.ErrorResponses;
 import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.identity.ExternalSessionRef;
 import com.ablueforce.cortexce.identity.PlatformSource;
-import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.service.SessionManagementService;
 import com.ablueforce.cortexce.util.PathValidationUtil;
 import com.ablueforce.cortexce.service.ClaudeMdService;
@@ -53,20 +52,17 @@ public class SessionController {
 
     private static final Logger log = LoggerFactory.getLogger(SessionController.class);
 
-    private final SessionRepository sessionRepository;
     private final SessionManagementService sessionManagementService;
     private final ContextService contextService;
     private final ContextCacheService contextCacheService;
     private final ClaudeMdService claudeMdService;
     private final Optional<StructuredExtractionService> extractionService;
 
-    public SessionController(SessionRepository sessionRepository,
-                             SessionManagementService sessionManagementService,
+    public SessionController(SessionManagementService sessionManagementService,
                              ContextService contextService,
                              ContextCacheService contextCacheService,
                              ClaudeMdService claudeMdService,
                              Optional<StructuredExtractionService> extractionService) {
-        this.sessionRepository = sessionRepository;
         this.sessionManagementService = sessionManagementService;
         this.contextService = contextService;
         this.contextCacheService = contextCacheService;
@@ -206,7 +202,7 @@ public class SessionController {
                 }
 
                 // Update cache for this project
-                cacheContextForProject(projectPath, context);
+                sessionManagementService.cacheContextForProject(projectPath, context);
             } else {
                 log.debug("Returned cached context for project {}", projectPath);
             }
@@ -310,25 +306,6 @@ public class SessionController {
     // ==========================================================================
     // Private Helpers
     // ==========================================================================
-
-    /**
-     * P2: Cache the generated context for the project.
-     * Logs and continues on failure - caching is best-effort.
-     */
-    private void cacheContextForProject(String projectPath, String context) {
-        List<SessionEntity> sessions = sessionRepository.findByProjectPathAndStatus(projectPath, "active");
-        if (!sessions.isEmpty()) {
-            SessionEntity activeSession = sessions.get(0);
-            activeSession.setCachedContext(context);
-            activeSession.setContextRefreshedAtEpoch(System.currentTimeMillis());
-            try {
-                sessionRepository.save(activeSession);
-            } catch (Exception e) {
-                // P2: Log and continue - caching is best-effort, context can be regenerated
-                log.warn("Failed to cache context for project {}: {}", projectPath, e.getMessage());
-            }
-        }
-    }
 
     /**
      * Update userId for an existing session. Phase 3 multi-user support.

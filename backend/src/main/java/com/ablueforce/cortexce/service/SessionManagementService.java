@@ -240,6 +240,28 @@ public class SessionManagementService implements LogHelper {
         return Optional.of(sessionRepository.save(session));
     }
 
+    /**
+     * Store generated context on the project's active Conversation.
+     *
+     * <p>Best-effort by design: a failed cache write must not fail session start,
+     * because the context can be regenerated. The caller no longer needs the
+     * repository to make that distinction.
+     */
+    public void cacheContextForProject(String projectPath, String context) {
+        List<SessionEntity> sessions = sessionRepository.findByProjectPathAndStatus(projectPath, "active");
+        if (sessions.isEmpty()) {
+            return;
+        }
+        SessionEntity activeSession = sessions.get(0);
+        activeSession.setCachedContext(context);
+        activeSession.setContextRefreshedAtEpoch(System.currentTimeMillis());
+        try {
+            sessionRepository.save(activeSession);
+        } catch (RuntimeException e) {
+            log.warn("Failed to cache context for project {}: {}", projectPath, e.getMessage());
+        }
+    }
+
     private static String effectiveProjectPath(String projectPath) {
         return (projectPath != null && !projectPath.isBlank()) ? projectPath : "openclaw";
     }
