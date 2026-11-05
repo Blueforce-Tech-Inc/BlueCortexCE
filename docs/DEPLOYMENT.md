@@ -1201,9 +1201,22 @@ unattended inspection. One run performs the whole loop:
 4. Compare row counts for `mem_sessions`, `mem_observations`, `mem_user_prompts`,
    `mem_summaries`, `mem_pending_messages` and `mem_memory_scopes`.
 5. Replay one lexical retrieval query (`ZH_QUERY`, default `检索`) on the copy and
-   compare both the hit count and the top hit's title.
-6. Write a JSON report, drop the throwaway database and delete the dump (unless
-   `KEEP_DUMP=1`).
+   compare both the hit count and the top hit's title. `RETRIEVAL_COLUMN=auto` uses
+   `search_tokens` when the schema has it and `search_vector` otherwise, so the same
+   script works before and after the Chinese-lexical migration.
+6. `INTEGRITY_AUDIT=1` runs `scripts/data-integrity-audit.py` on the copy and fails
+   the run on any violation (`--apply` is never used here: the copy is throwaway).
+7. `REBUILD_HNSW=1` drops and rebuilds the vector index on the copy, verifies it is
+   valid, and records the build time and index bytes. This is the same operation a
+   backfill deployment performs, proved on restored data.
+8. Write a JSON report, drop the throwaway database, delete the dump (unless
+   `KEEP_DUMP=1`) and prune kept dumps past `DUMP_KEEP_DAYS`.
+
+While the loop runs, a sampler records disk usage every `DISK_SAMPLE_SECONDS`
+(default 2) — source database + restored copy + dump file, and the container
+filesystem's used bytes. The report keeps the peak of each (`disk_peak`), because
+a drill on a nearly full volume fails during restore and only the filesystem
+number shows how close the run came.
 
 **How often**: weekly as a pure inspection (`VALIDATE_FLYWAY=0`, no jar needed),
 plus once immediately before and after any schema migration, and after any
@@ -1237,6 +1250,8 @@ Exit codes are stage-specific, so a scheduler or alerting hook can tell
 | 6 | row-count parity | A table's row count differs. Keep the dump (`KEEP=1` also keeps the copy) and compare manually before trusting it. |
 | 7 | retrieval | The lexical query disagrees (hit count or probe title). With a stable source this points at a dump/restore problem, not at the data. |
 | 8 | Flyway validation | The restored schema does not validate. Do not deploy this database copy. |
+| 10 | integrity audit | The copy restores but violates an invariant (orphans, scope mismatch, embedding-state drift). Keep the copy with `KEEP=1` and read the audit report named in the drill report. |
+| 11 | HNSW rebuild | The vector index could not be rebuilt on the copy (memory too low for the graph, or the index definition drifted). The copy is dropped; rerun with a larger `HNSW_WORK_MEM`. |
 | 9 | unexpected | Anything unhandled; the log above names the command. |
 
 On any non-zero exit, keep the dump and the report, and do **not** delete the last
@@ -1248,6 +1263,73 @@ compare — the report already contains the expected counts.
 Measured on 2026-11-04 against a 100,000-observation database (158 MB): dump
 3.5 MB in 0.5 s, checksum 0.3 s, restore 4.7–6.3 s, counts 0.6–1.0 s, retrieval
 0.4–0.5 s — 8–10 s end to end. `VALIDATE_FLYWAY=1` adds about 3.2 s (jar boot).
+
+Measured on 2026-11-05 against the 1,000,198-observation / 18 GB database with
+1M vectors and the HNSW index: dump **526 s** (4.74 GB, ≈3.8×), checksum 31 s,
+restore **2,448 s (40.8 min)**, counts 1.7 s, retrieval 7.6 s (1,000,000 hits
+matched on both sides), integrity 5.9 s (9 checks, 0 findings), HNSW rebuild
+**550 s** (7,582,621,696 B, 7,581 B/row) — **59.6 min end to end**. Disk peak was
+**39.5 GB (36.8 GiB)**: source 19.6 GB + restored copy 15.2 GB + dump 4.7 GB,
+against an 18 GB live database (≈2.7×). Budget that much free space before
+running the loop on a production host.
+
+The restore is mostly index-build time: `pg_restore` replays `CREATE INDEX ...
+USING hnsw` with whatever `maintenance_work_mem` the server has. At the default
+64 MB it printed `hnsw graph no longer fits into maintenance_work_mem after
+898,013 tuples` and spent ~40 of the 41 restore minutes on that one index; the
+same build at 4 GB took 9.2 min. Raise `maintenance_work_mem` before restoring,
+or dump without the vector index and rebuild once afterwards with
+`REBUILD_HNSW=1`. Full report: `docs/archive/2026-11-05_ops-loop-1m.md`.
+
+#### Vector Index Rebuild After a Bulk Backfill
+
+A bulk import with vectors present is dominated by graph maintenance: pgvector
+adds every row to the HNSW graph, which measured **38–53 rows/s at 1M rows**
+(~19–26 ms per row) against **900–1,300 rows/s with no graph** — a 20–30×
+throughput loss for the same data. The documented recipe is therefore: load the
+rows first, then build the graph once.
+
+```bash
+# 1. Bulk load (proxy import or SQL) — the index on embedding_1024 must not exist yet
+# 2. Build it once, with enough memory for the graph to stay in RAM
+SOURCE_DB=claude_mem WORK_MEM=8GB WORKERS=2 ./scripts/rebuild-vector-index.sh
+# 3. Verify: the script checks indisvalid, prints the build time and the index bytes
+```
+
+Measured build cost (dedicated container, `m=16, ef_construction=64`):
+
+| Rows | Index bytes | `maintenance_work_mem` | Build |
+|------|-------------|------------------------|-------|
+| 100k | 781 MB | 1 GB | 36.9 s |
+| 300k | 2,344 MB | 2 GB | 70.5 s |
+| 1M | 7.2–7.8 GB | 8 GB (4 GB spills after ~898k rows) | 801.6 s |
+
+The index is **~8,192 bytes per vector row**, so `maintenance_work_mem` must
+exceed the final index size or the build spills to disk — Postgres then logs
+`hnsw graph no longer fits into maintenance_work_mem after N tuples` and the
+build slows markedly. Plan for 1 GB / 8 GB / 24 GB at 100k / 1M / 3M rows. Above
+roughly 2M rows a single graph no longer fits on a 16–32 GB host; shard the
+vector table by scope instead (measured at full 3M capacity in
+`docs/archive/2026-11-05_vector-sharding-3m.md`).
+
+**Re-running is safe.** `scripts/rebuild-vector-index.sh` treats the index state
+as the source of truth:
+
+| State found | Action |
+|-------------|--------|
+| valid index, `FORCE=0` | print `skip: … already valid` and exit 0 — no rebuild |
+| invalid index (left by an interrupted build) | drop it, then rebuild |
+| no index | build |
+| build fails or is killed | drop the partial index, exit 3 |
+
+`CONCURRENTLY=1` (the default) keeps INSERTs flowing while the graph is built;
+`CONCURRENTLY=0` is faster but takes a SHARE lock, so writes wait for the whole
+build. `scripts/test-vector-index-rebuild.sh` proves all of it against a
+throwaway database and is the script to rerun after any change to the build
+path: at 30,000 rows it interrupted a build with `pg_terminate_backend`
+(exit 3, no index left), rebuilt on the next run, and recorded 135 successful
+writes during a concurrent build with **0 failures, p95 153 ms** (docker-exec
+round trip included; baseline p50 59 ms).
 
 #### Data Integrity Audit (Scheduled)
 

@@ -4,6 +4,18 @@
 > **Updated by**: 定时项目维护任务。
 > **Update rule**: 新修复追加到顶部；超过文档增长阈值时保留未完成项并将已完成历史归档。
 
+## 2026-11-05 | 运维闭环：百万行 dump → 恢复 → 巡检 → HNSW 重建实测
+
+**改了什么**：`scripts/backup-restore-drill.sh` 补上第 8 阶段「HNSW 重建」（`REBUILD_HNSW=1`，退出码 11）与全程磁盘峰值采样（每 `DISK_SAMPLE_SECONDS` 采源库/副本/dump/容器文件系统，报告记 `disk_peak`），检索探针列名改为按 schema 自适应（`RETRIEVAL_COLUMN=auto` → `search_tokens`，否则 `search_vector`），中英文 DEPLOYMENT 的闭环步骤扩到 8 步并补退出码 10/11。
+
+**实测**（1,000,198 条 observation、18 GB 库、100 万向量 + HNSW 7.23 GB；报告 `docs/archive/2026-11-05_ops-loop-1m.md`）：
+- dump **526.1 s / 4,743,780,744 B（≈3.8×）**；checksum 31.2 s；恢复 **2,447.9 s（40.8 min）**；行数比对 1.7 s（6 表全等）；检索 7.6 s（两侧均 1,000,000 命中、探针标题一致）；完整性巡检 5.9 s（9 项、**0 问题**、`verdict: clean`）；HNSW 重建 **550.4 s / 7,582,621,696 B（7,581 B/行）**；**端到端 3,574.8 s（59.6 min）**、exit 0。
+- 磁盘峰值：源+副本+dump **39,518,351,798 B（36.8 GiB）**；容器文件系统 668.95 GB / 1.7 TB（37%）。
+- **关键发现**：恢复的 41 分钟里约 40 分钟是 `pg_restore` 按服务器默认 64 MB `maintenance_work_mem` 重放 HNSW（`hnsw graph no longer fits into maintenance_work_mem after 898,013 tuples`）；同样建图 4 GB 下 550 s ⇒ 恢复前调大内存，或 dump 不带向量索引、恢复后一次性重建。源库 18 GB vs 副本 14 GB ⇒ ~4 GB 堆膨胀，磁盘按副本规划，峰值约线上库 **2.7×**。
+- 保留清理另测（99 行库、`KEEP_DUMP=1 DUMP_KEEP_DAYS=1`）：两个 5 天前 dump 被清、新 dump 382,243 B 保留；同轮检索 0 命中按设计 exit 7。
+- ⚠️ 该轮恢复阶段容器上有第三方 `spring-ai-rag` 基准并发建索引，dump/恢复耗时按上界读；HNSW 阶段在干扰结束后测得，与同日安静环境 801.6 s 可比。
+
+
 ## 2026-11-05 | 百万行写入路径：OOM 根因、实测吞吐与 HNSW 运维参数
 
 **改了什么**：`ImportService.importObservations` 的去重查询原来把整会话行（3 个 1024 维向量 + 4 个 JSON 列）读进内存，1 GB 堆在约 195k 行时 `OutOfMemoryError`（`69d3136` 已改为 `ObservationRepository.ImportDedupRow` 标量投影 + 按本批 title 过滤的两个 `@Query`）。本批只改集测脚本：`bench-write-path.py` 的 `ms` 键改名为 `seconds`（值一直是秒），`bench-hnsw-build.py` 按修正后的均匀分布重跑并新增「在图里已有 rows 个节点时再插 1,000 行」的 upkeep 探针。

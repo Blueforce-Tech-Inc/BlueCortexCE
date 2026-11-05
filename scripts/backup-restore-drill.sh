@@ -2,15 +2,23 @@
 # =============================================================================
 # Backup / restore inspection — safe to run unattended (cron / launchd / CI).
 #
-# Closed loop:
+# Closed loop (the whole operational drill, one script):
 #   1. pg_dump -Fc the source database
 #   2. checksum the dump and prove pg_restore can read its table of contents
 #   3. restore into a throwaway database
 #   4. compare row counts for the core tables
 #   5. replay one retrieval query on the copy and compare the hit count and the
 #      top observation's title
-#   6. write a JSON report (timestamped; old reports are rotated)
-#   7. drop the throwaway database and delete the dump
+#   6. optionally audit the restored rows (INTEGRITY_AUDIT=1)
+#   7. optionally rebuild the HNSW index on the copy and time it (REBUILD_HNSW=1)
+#   8. write a JSON report (timestamped; old reports are rotated)
+#   9. prune kept dumps past DUMP_KEEP_DAYS and drop the throwaway database
+#
+# A background sampler records disk usage every DISK_SAMPLE_SECONDS while the
+# drill runs: source database + restored copy + dump file, plus the container
+# filesystem's used bytes. The report keeps the peak of each, so a drill on a
+# nearly full volume shows how close the run came to the limit instead of only
+# the final size.
 #
 # Optionally boot the packaged service against the copy to prove Flyway
 # validates the restored schema (VALIDATE_FLYWAY=1; off by default so the
@@ -19,6 +27,8 @@
 # Usage:
 #   SOURCE_DB=cortexce scripts/backup-restore-drill.sh
 #   SOURCE_DB=cortexce VALIDATE_FLYWAY=1 scripts/backup-restore-drill.sh
+#   SOURCE_DB=cortexce REBUILD_HNSW=1 HNSW_WORK_MEM=4GB \
+#     scripts/backup-restore-drill.sh
 #
 # Environment:
 #   CONTAINER          postgres container (default claude-mem-test-pg)
@@ -26,7 +36,10 @@
 #   DB_USER/DB_PASS    credentials (default postgres / 123456)
 #   SOURCE_DB          database to back up (required)
 #   RESTORE_DB         target database (default <source>_restore_<timestamp>)
-#   ZH_QUERY           Chinese term for the retrieval spot check (default 检索)
+#   ZH_QUERY           term for the retrieval spot check (default 检索)
+#   RETRIEVAL_COLUMN   lexical column: auto (search_tokens, else search_vector),
+#                      or a name to force one
+#   RETRIEVAL_CONFIG   text search configuration for the probe (default simple)
 #   REPORT_DIR         where JSON reports are written
 #                      (default ${HOME}/.claude-mem/backup-drill/reports)
 #   REPORT_KEEP        how many reports to keep (default 30)
@@ -40,12 +53,20 @@
 #   KEEP_DUMP          1 = keep the verified dump as the backup and prune older
 #                      dumps in DUMP_DIR (default follows KEEP)
 #   DUMP_KEEP_DAYS     retention for kept dumps (default 30)
+#   REBUILD_HNSW       1 = drop and rebuild the vector index on the restored
+#                      copy, verify it is valid, and record the build time and
+#                      index bytes (default 0)
+#   HNSW_INDEX         index to rebuild (default idx_obs_embedding_1024)
+#   HNSW_COLUMN        indexed column (default embedding_1024)
+#   HNSW_WORK_MEM      maintenance_work_mem for the build (default 4GB)
+#   HNSW_WORKERS       max_parallel_maintenance_workers (default 2)
+#   DISK_SAMPLE_SECONDS  sampling interval of the disk peak recorder (default 2)
 #   KEEP=1             keep the restored database too (debugging)
 #
 # Exit status (the first failing stage wins):
 #   0 pass        2 precondition     3 dump          4 checksum / archive
 #   5 restore     6 row-count parity 7 retrieval     8 Flyway validation
-#   10 integrity  9 unexpected
+#   10 integrity  11 HNSW rebuild    9 unexpected
 # =============================================================================
 
 set -euo pipefail
@@ -61,6 +82,8 @@ STAMP="$(date +%Y%m%d_%H%M%S)"
 STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 RESTORE_DB="${RESTORE_DB:-${SOURCE_DB}_restore_${STAMP}}"
 ZH_QUERY="${ZH_QUERY:-检索}"
+RETRIEVAL_COLUMN="${RETRIEVAL_COLUMN:-auto}"   # auto = search_tokens, else search_vector
+RETRIEVAL_CONFIG="${RETRIEVAL_CONFIG:-simple}" # text search configuration for the probe
 KEEP="${KEEP:-0}"
 DUMP_DIR="${DUMP_DIR:-${TMPDIR:-/tmp}}"
 DUMP_FILE="${DUMP_DIR}/${SOURCE_DB}_${STAMP}.dump"
@@ -72,6 +95,12 @@ VALIDATE_FLYWAY="${VALIDATE_FLYWAY:-0}"
 VALIDATION_PORT="${VALIDATION_PORT:-37990}"
 INTEGRITY_AUDIT="${INTEGRITY_AUDIT:-0}"
 AUDIT_JSON="${AUDIT_JSON:-${REPORT_DIR}/integrity-drill-${STAMP}.json}"
+REBUILD_HNSW="${REBUILD_HNSW:-0}"
+HNSW_INDEX="${HNSW_INDEX:-idx_obs_embedding_1024}"
+HNSW_COLUMN="${HNSW_COLUMN:-embedding_1024}"
+HNSW_WORK_MEM="${HNSW_WORK_MEM:-4GB}"
+HNSW_WORKERS="${HNSW_WORKERS:-2}"
+DISK_SAMPLE_SECONDS="${DISK_SAMPLE_SECONDS:-2}"
 
 # Accumulated facts for the report; every value defaults so a failed run still
 # writes a complete report.
@@ -79,12 +108,16 @@ DUMP_MS=0; DUMP_BYTES=0; DUMP_SHA=""
 CHECKSUM_MS=0; RESTORE_MS=0; COUNTS_MS=0; RETRIEVAL_MS=0; FLYWAY_MS=0
 FLYWAY_STATE="skipped"; FLYWAY_DETAIL=""
 INTEGRITY_MS=0; INTEGRITY_STATE="skipped"; INTEGRITY_FINDINGS=""; INTEGRITY_JSON=""
+HNSW_MS=0; HNSW_STATE="skipped"; HNSW_INDEX_BYTES=""; HNSW_BUILD_VERSION=""
 SRC_SIZE=""; DST_SIZE=""
 SRC_HITS=""; DST_HITS=""; PROBE_ID=""; PROBE_TITLE=""
 FAIL_STAGE=""; FAIL_REASON=""
 TABLE_REPORT=""          # newline-separated "table src dst" triples
 VALIDATION_LOG=""
 VALIDATION_PID=""
+DISK_SAMPLE_FILE="${DUMP_DIR}/backup-drill-disk-${STAMP}.log"
+DISK_PID=""
+DISK_SRC=0; DISK_DST=0; DISK_DUMP=0; DISK_TOTAL=0; DISK_FS=0
 
 log() { printf '[drill] %s\n' "$*"; }
 
@@ -93,6 +126,29 @@ elapsed() { echo $(( $(ms_now) - $1 )); }
 
 psql_run() { # psql_run <database> <sql>
   docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$1" -v ON_ERROR_STOP=1 -t -A -c "$2"
+}
+
+start_disk_sampler() { # background recorder, killed in on_exit
+  : > "$DISK_SAMPLE_FILE" 2>/dev/null || true
+  (
+    set +e
+    while true; do
+      src=$(psql_run postgres "SELECT pg_database_size('${SOURCE_DB}');" 2>/dev/null)
+      dst=$(psql_run postgres "SELECT pg_database_size('${RESTORE_DB}');" 2>/dev/null)
+      dump=$(wc -c < "$DUMP_FILE" 2>/dev/null | tr -d ' ')
+      fs=$(docker exec "$CONTAINER" df -B1 /var/lib/postgresql/data 2>/dev/null \
+             | awk 'NR==2 {print $3}')
+      printf '%s %s %s %s\n' "${src:-0}" "${dst:-0}" "${dump:-0}" "${fs:-0}"
+      sleep "$DISK_SAMPLE_SECONDS"
+    done
+  ) >> "$DISK_SAMPLE_FILE" 2>/dev/null &
+  DISK_PID=$!
+}
+
+disk_peak_value() { # disk_peak_value db|fs — max of the sampled usage
+  [ -s "$DISK_SAMPLE_FILE" ] || { echo 0; return; }
+  awk -v mode="$1" 'BEGIN{max=0} {v = (mode=="db" ? $1+$2+$3 : $4)
+      if (v > max) max = v} END{print max}' "$DISK_SAMPLE_FILE"
 }
 
 sha256_of() {
@@ -117,6 +173,9 @@ write_report() { # write_report <exit-code>
   REPORT_FLYWAY_DETAIL="$FLYWAY_DETAIL" \
   REPORT_INTEGRITY_MS="$INTEGRITY_MS" REPORT_INTEGRITY_STATE="$INTEGRITY_STATE" \
   REPORT_INTEGRITY_FINDINGS="$INTEGRITY_FINDINGS" REPORT_INTEGRITY_JSON="$INTEGRITY_JSON" \
+  REPORT_HNSW_MS="$HNSW_MS" REPORT_HNSW_STATE="$HNSW_STATE" \
+  REPORT_HNSW_INDEX_BYTES="$HNSW_INDEX_BYTES" REPORT_HNSW_VERSION="$HNSW_BUILD_VERSION" \
+  REPORT_DISK_SAMPLE_FILE="$DISK_SAMPLE_FILE" \
   REPORT_SRC_SIZE="$SRC_SIZE" REPORT_DST_SIZE="$DST_SIZE" \
   REPORT_ZH_QUERY="$ZH_QUERY" REPORT_SRC_HITS="$SRC_HITS" REPORT_DST_HITS="$DST_HITS" \
   REPORT_PROBE_ID="$PROBE_ID" REPORT_PROBE_TITLE="$PROBE_TITLE" \
@@ -137,6 +196,29 @@ for line in os.environ.get("REPORT_TABLES", "").splitlines():
     parts = line.split()
     if len(parts) == 3:
         tables[parts[0]] = {"source": int(parts[1]), "restore": int(parts[2])}
+
+# The sampler appends "source restore dump filesystem_used" every few seconds.
+# Peaks are reported separately because the three add up: a nearly full volume
+# fails during restore, and that only shows in the filesystem column.
+disk_peak = {"samples": 0, "database_bytes": None, "filesystem_used_bytes": None,
+             "source_bytes": None, "restore_bytes": None, "dump_bytes": None}
+sample_path = os.environ.get("REPORT_DISK_SAMPLE_FILE", "")
+if sample_path and os.path.exists(sample_path):
+    try:
+        with open(sample_path, encoding="utf-8") as handle:
+            rows = [line.split() for line in handle if line.strip()]
+        values = [tuple(int(value) for value in row[:4]) for row in rows if len(row) >= 4]
+        if values:
+            disk_peak = {
+                "samples": len(values),
+                "database_bytes": max(src + dst + dump for src, dst, dump, _ in values),
+                "filesystem_used_bytes": max(fs for *_, fs in values),
+                "source_bytes": max(src for src, *_ in values),
+                "restore_bytes": max(dst for _, dst, *_ in values),
+                "dump_bytes": max(dump for _, _, dump, _ in values),
+            }
+    except (OSError, ValueError):
+        pass
 
 verdict = "pass" if os.environ.get("REPORT_CODE") == "0" else "fail"
 report = {
@@ -178,7 +260,14 @@ report = {
             "findings": num("REPORT_INTEGRITY_FINDINGS"),
             "report": os.environ.get("REPORT_INTEGRITY_JSON", ""),
         },
+        "hnsw_rebuild": {
+            "state": os.environ.get("REPORT_HNSW_STATE", "skipped"),
+            "ms": num("REPORT_HNSW_MS"),
+            "index_bytes": num("REPORT_HNSW_INDEX_BYTES"),
+            "version": os.environ.get("REPORT_HNSW_VERSION", ""),
+        },
     },
+    "disk_peak": disk_peak,
     "tables": tables,
     "retrieval": {
         "query": os.environ.get("REPORT_ZH_QUERY", ""),
@@ -210,6 +299,11 @@ PY
 on_exit() {
   local code="$?"
   set +e
+  if [ -n "${DISK_PID:-}" ]; then
+    kill "$DISK_PID" 2>/dev/null || true
+    wait "$DISK_PID" 2>/dev/null || true
+    DISK_PID=""
+  fi
   if [ -n "${VALIDATION_PID:-}" ]; then
     kill "$VALIDATION_PID" 2>/dev/null || true
     wait "$VALIDATION_PID" 2>/dev/null || true
@@ -234,10 +328,14 @@ on_exit() {
   fi
   if [ "$code" = "0" ]; then
     log "PASS: dump=${DUMP_MS}ms checksum=${CHECKSUM_MS}ms restore=${RESTORE_MS}ms \
-counts=${COUNTS_MS}ms retrieval=${RETRIEVAL_MS}ms total=$(( $(ms_now) - START_EPOCH_MS ))ms \
-dump_size=${DUMP_BYTES}B"
+counts=${COUNTS_MS}ms retrieval=${RETRIEVAL_MS}ms hnsw=${HNSW_MS}ms \
+total=$(( $(ms_now) - START_EPOCH_MS ))ms dump_size=${DUMP_BYTES}B \
+peak_db=$(disk_peak_value db)B peak_fs=$(disk_peak_value fs)B"
   else
     log "FAIL[$code] stage=${FAIL_STAGE}: ${FAIL_REASON}"
+  fi
+  if [ "$KEEP" != "1" ]; then
+    rm -f "$DISK_SAMPLE_FILE"
   fi
 }
 trap on_exit EXIT
@@ -270,6 +368,8 @@ fi
 psql_run postgres "DROP DATABASE IF EXISTS \"${RESTORE_DB}\";" >/dev/null
 psql_run postgres "CREATE DATABASE \"${RESTORE_DB}\";" >/dev/null
 log "created empty target database ${RESTORE_DB}"
+start_disk_sampler
+log "disk sampler every ${DISK_SAMPLE_SECONDS}s -> ${DISK_SAMPLE_FILE}"
 
 # ---------------------------------------------------------------------------
 # 1. Dump                                                            exit 3
@@ -381,20 +481,33 @@ fi
 # 6. Retrieval spot check                                            exit 7
 # ---------------------------------------------------------------------------
 RETRIEVAL_START=$(ms_now)
+if [ "$RETRIEVAL_COLUMN" = "auto" ]; then
+  RETRIEVAL_COLUMN=$(psql_run "$SOURCE_DB" "SELECT CASE
+      WHEN EXISTS (SELECT 1 FROM information_schema.columns
+                    WHERE table_name='mem_observations' AND column_name='search_tokens')
+        THEN 'search_tokens'
+      WHEN EXISTS (SELECT 1 FROM information_schema.columns
+                    WHERE table_name='mem_observations' AND column_name='search_vector')
+        THEN 'search_vector'
+      ELSE '' END;") || fail 7 retrieval "could not inspect the lexical columns"
+fi
+[ -n "$RETRIEVAL_COLUMN" ] || fail 7 retrieval \
+  "mem_observations has neither search_tokens nor search_vector; set RETRIEVAL_COLUMN"
+log "retrieval probe uses ${RETRIEVAL_COLUMN} with text search config '${RETRIEVAL_CONFIG}'"
 SRC_HITS=$(psql_run "$SOURCE_DB" \
-  "SELECT count(*) FROM mem_observations WHERE search_tokens @@ plainto_tsquery('simple', '${ZH_QUERY}');") \
+  "SELECT count(*) FROM mem_observations WHERE ${RETRIEVAL_COLUMN} @@ plainto_tsquery('${RETRIEVAL_CONFIG}', '${ZH_QUERY}');") \
   || fail 7 retrieval "the retrieval query failed on the source"
 [ "$SRC_HITS" -gt 0 ] || fail 7 retrieval \
   "source query '${ZH_QUERY}' has no hits; pick another ZH_QUERY"
 DST_HITS=$(psql_run "$RESTORE_DB" \
-  "SELECT count(*) FROM mem_observations WHERE search_tokens @@ plainto_tsquery('simple', '${ZH_QUERY}');") \
+  "SELECT count(*) FROM mem_observations WHERE ${RETRIEVAL_COLUMN} @@ plainto_tsquery('${RETRIEVAL_CONFIG}', '${ZH_QUERY}');") \
   || fail 7 retrieval "the retrieval query failed on the restore"
 [ "$SRC_HITS" = "$DST_HITS" ] || fail 7 retrieval \
   "query '${ZH_QUERY}': source=${SRC_HITS} restore=${DST_HITS}"
-log "chinese query '${ZH_QUERY}': ${DST_HITS} hits (match)"
+log "retrieval query '${ZH_QUERY}': ${DST_HITS} hits (match)"
 
 PROBE_ID=$(psql_run "$SOURCE_DB" \
-  "SELECT id FROM mem_observations WHERE search_tokens @@ plainto_tsquery('simple', '${ZH_QUERY}') \
+  "SELECT id FROM mem_observations WHERE ${RETRIEVAL_COLUMN} @@ plainto_tsquery('${RETRIEVAL_CONFIG}', '${ZH_QUERY}') \
    ORDER BY created_at_epoch DESC LIMIT 1;")
 PROBE_TITLE=$(psql_run "$RESTORE_DB" "SELECT title FROM mem_observations WHERE id='${PROBE_ID}';")
 [ -n "$PROBE_TITLE" ] || fail 7 retrieval "probe observation ${PROBE_ID} missing from the restored copy"
@@ -437,6 +550,47 @@ if [ "$INTEGRITY_AUDIT" = "1" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 8. Verdict — on_exit writes the report, drops the copy and exits
+# 8. HNSW rebuild on the restored copy (optional)                    exit 11
+#
+# The restore writes the index pages the dump carried. Production rebuilds the
+# vector index after a bulk backfill (see DEPLOYMENT 5.x "Index rebuild"), so the
+# drill proves the same operation works on a restored copy and records how long
+# it takes at the measured table size. Dropping and recreating also proves the
+# dump does not depend on the index being present.
+# ---------------------------------------------------------------------------
+if [ "$REBUILD_HNSW" = "1" ]; then
+  HNSW_EXISTED=$(psql_run "$RESTORE_DB" "SELECT count(*) FROM pg_indexes \
+WHERE schemaname='public' AND indexname='${HNSW_INDEX}';") \
+    || fail 11 hnsw "could not inspect ${HNSW_INDEX} on the restored copy"
+  HNSW_BUILD_VERSION=$(psql_run "$RESTORE_DB" \
+    "SELECT extversion FROM pg_extension WHERE extname='vector';" || echo "")
+  HNSW_START=$(ms_now)
+  psql_run "$RESTORE_DB" "DROP INDEX IF EXISTS ${HNSW_INDEX};" >/dev/null \
+    || fail 11 hnsw "could not drop ${HNSW_INDEX} on the restored copy"
+  if ! docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$RESTORE_DB" \
+       -v ON_ERROR_STOP=1 -t -A <<SQL
+SET maintenance_work_mem = '${HNSW_WORK_MEM}';
+SET max_parallel_maintenance_workers = ${HNSW_WORKERS};
+CREATE INDEX ${HNSW_INDEX} ON mem_observations USING hnsw (${HNSW_COLUMN} vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);
+SQL
+  then
+    fail 11 hnsw "CREATE INDEX ${HNSW_INDEX} failed \
+(maintenance_work_mem=${HNSW_WORK_MEM}, workers=${HNSW_WORKERS})"
+  fi
+  HNSW_MS=$(elapsed "$HNSW_START")
+  HNSW_VALID=$(psql_run "$RESTORE_DB" "SELECT i.indisvalid FROM pg_index i \
+JOIN pg_class c ON c.oid = i.indexrelid WHERE c.relname = '${HNSW_INDEX}';") \
+    || fail 11 hnsw "could not read the state of ${HNSW_INDEX}"
+  [ "$HNSW_VALID" = "t" ] || fail 11 hnsw "the rebuilt index ${HNSW_INDEX} is not valid"
+  HNSW_INDEX_BYTES=$(psql_run "$RESTORE_DB" \
+    "SELECT pg_relation_size('${HNSW_INDEX}'::regclass);")
+  HNSW_STATE="pass"
+  log "HNSW rebuild ${HNSW_INDEX}: ${HNSW_MS} ms, ${HNSW_INDEX_BYTES} bytes, \
+vector ${HNSW_BUILD_VERSION:-unknown}, dropped_existing=${HNSW_EXISTED}"
+fi
+
+# ---------------------------------------------------------------------------
+# 9. Verdict — on_exit writes the report, drops the copy and exits
 # ---------------------------------------------------------------------------
 exit 0

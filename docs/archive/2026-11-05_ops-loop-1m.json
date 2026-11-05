@@ -1,0 +1,88 @@
+{
+  "tool": "backup-restore-drill",
+  "version": 1,
+  "stamp": "20261105_071759",
+  "started_at": "2026-11-04T23:17:59Z",
+  "finished_at": "2026-11-05T00:17:34Z",
+  "source_db": "cortexce_ops_1m",
+  "restore_db": "cortexce_ops_1m_restore_20261105_071759",
+  "verdict": "pass",
+  "exit_code": 0,
+  "reason": "",
+  "failed_stage": "",
+  "dump": {
+    "file": "/var/folders/17/x4gfsdmj74355x331tbfjts80000gn/T//cortexce_ops_1m_20261105_071759.dump",
+    "bytes": 4743780744,
+    "sha256": "10ff0df7c24d7eb295958021e81b3199eff4f0d3647a530c407c4d58ea68c2ac"
+  },
+  "database_size": {
+    "source": "18 GB",
+    "restore": "14 GB"
+  },
+  "stages": {
+    "dump_ms": 526057,
+    "checksum_ms": 31201,
+    "restore_ms": 2447900,
+    "counts_ms": 1709,
+    "retrieval_ms": 7578,
+    "flyway": {
+      "state": "skipped",
+      "ms": 0,
+      "detail": ""
+    },
+    "integrity": {
+      "state": "pass",
+      "ms": 5864,
+      "findings": null,
+      "report": "/tmp/drill-1m/integrity-drill-20261105_071759.json"
+    },
+    "hnsw_rebuild": {
+      "state": "pass",
+      "ms": 550352,
+      "index_bytes": 7582621696,
+      "version": "0.8.1"
+    }
+  },
+  "disk_peak": {
+    "samples": 1634,
+    "database_bytes": 39518351798,
+    "filesystem_used_bytes": 668954824704,
+    "source_bytes": 19604577303,
+    "restore_bytes": 15169993751,
+    "dump_bytes": 4743780744
+  },
+  "tables": {
+    "mem_sessions": {
+      "source": 21,
+      "restore": 21
+    },
+    "mem_observations": {
+      "source": 1000198,
+      "restore": 1000198
+    },
+    "mem_user_prompts": {
+      "source": 0,
+      "restore": 0
+    },
+    "mem_summaries": {
+      "source": 0,
+      "restore": 0
+    },
+    "mem_pending_messages": {
+      "source": 200,
+      "restore": 200
+    },
+    "mem_memory_scopes": {
+      "source": 2,
+      "restore": 2
+    }
+  },
+  "retrieval": {
+    "query": "capacity",
+    "source_hits": 1000000,
+    "restore_hits": 1000000,
+    "probe_id": "7219aa7c-d831-405d-96c4-7601dd136688",
+    "probe_title": "Seeded observation 1000000 for load-test capacity"
+  },
+  "environment_note": "Container shared with an unrelated spring-ai-rag benchmark in the same PostgreSQL instance during the restore stage; treat timings as an upper bound. The HNSW stage (550.4 s) was measured after that load ended."
+}

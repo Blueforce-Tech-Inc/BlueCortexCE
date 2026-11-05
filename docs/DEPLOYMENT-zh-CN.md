@@ -1145,7 +1145,18 @@ echo "Backup completed: backup_$DATE.sql.gz"
 4. 逐表比对行数：`mem_sessions`、`mem_observations`、`mem_user_prompts`、
    `mem_summaries`、`mem_pending_messages`、`mem_memory_scopes`。
 5. 在副本上重放一次词法检索（`ZH_QUERY`，默认 `检索`），比对命中数与首条命中标题。
-6. 输出 JSON 报告，删除临时库；保留 dump 需 `KEEP_DUMP=1`。
+   `RETRIEVAL_COLUMN=auto` 会在 schema 有 `search_tokens` 时用它、否则用 `search_vector`，
+   同一脚本因此能跨越中文词法迁移前后使用。
+6. `INTEGRITY_AUDIT=1` 在副本上跑 `scripts/data-integrity-audit.py`，任何发现都会让本次
+   巡检失败（这里永远不加 `--apply`：副本用完即删）。
+7. `REBUILD_HNSW=1` 在副本上 drop 并重建向量索引、校验有效性，并记录耗时与索引字节数。
+   这与回填部署时的索引重建是同一个操作，等于在恢复数据上做了一次演练。
+8. 输出 JSON 报告，删除临时库；保留 dump 需 `KEEP_DUMP=1`，超过 `DUMP_KEEP_DAYS` 的旧
+   dump 一并清理。
+
+巡检期间后台采样器每 `DISK_SAMPLE_SECONDS`（默认 2 秒）记录一次磁盘占用——源库 + 副本 +
+dump 文件，以及容器文件系统已用字节数；报告里保存各自峰值（`disk_peak`）。原因很实际：
+盘快满时失败发生在恢复阶段，只有文件系统那一列能说明这次离阈值有多近。
 
 **多久跑一次**：每周一次纯巡检（`VALIDATE_FLYWAY=0`，不依赖 jar）；每次 schema 迁移前后各跑一次；存储或容器故障之后立刻跑一次。夜间运行加 `KEEP_DUMP=1` 时，它同时就是真实备份——留下的 dump 正是刚刚被验证可恢复的那一份。
 
@@ -1173,11 +1184,50 @@ echo "Backup completed: backup_$DATE.sql.gz"
 | 6 | 行数比对 | 某张表行数不一致。保留 dump（`KEEP=1` 连临时库一起留）并人工比对后再信任它。 |
 | 7 | 检索比对 | 词法检索结果不一致（命中数或探针标题）。源库稳定时说明问题在 dump/恢复链路，不在数据本身。 |
 | 8 | Flyway 校验 | 恢复出来的 schema 校验不通过，不要用这份库做部署。 |
+| 10 | 完整性巡检 | 副本能恢复但违反不变量（孤儿行、scope 不一致、embedding 状态漂移）。用 `KEEP=1` 留下副本，读报告里指名的巡检报告。 |
+| 11 | HNSW 重建 | 副本上的向量索引建不出来（内存不足以容纳图，或索引定义漂移）。副本会被删除；用更大的 `HNSW_WORK_MEM` 重跑。 |
 | 9 | 未预期 | 其余错误；上方日志会指出具体命令。 |
 
 任何非 0 退出都要保留 dump 和报告，且**不要**删除上一份已知可用的备份。`KEEP=1` 会保留临时库便于排查；如果 dump 已被删除，用 `KEEP_DUMP=1` 重跑。若同一退出码连续出现，把最新的 dump 手工恢复到临时库逐项比对——报告里已经写好了期望的行数。
 
 2026-11-04 实测（10 万条 observation，158 MB 库）：dump 3.5 MB / 0.5 s，checksum 0.3 s，恢复 4.7–6.3 s，行数比对 0.6–1.0 s，检索 0.4–0.5 s，端到端 8–10 s；`VALIDATE_FLYWAY=1` 额外约 3.2 s（启动 jar）。
+
+2026-11-05 实测（1,000,198 条 observation、18 GB 库、100 万条向量 + HNSW 索引）：dump **526 s**（4.74 GB，约 3.8×），checksum 31 s，恢复 **2,448 s（40.8 分钟）**，行数比对 1.7 s，检索 7.6 s（两侧均 1,000,000 命中），完整性巡检 5.9 s（9 项检查、0 问题），HNSW 重建 **550 s**（7,582,621,696 B，7,581 B/行）——**端到端 59.6 分钟**。磁盘峰值 **39.5 GB（36.8 GiB）**：源库 19.6 GB + 恢复副本 15.2 GB + dump 4.7 GB，约为线上库的 **2.7×**；在生产主机上跑这套闭环前先按此预留空间。
+
+恢复时间几乎全是建图时间：`pg_restore` 回放 `CREATE INDEX ... USING hnsw` 时用的是服务器当前的 `maintenance_work_mem`。默认 64 MB 时会打出 `hnsw graph no longer fits into maintenance_work_mem after 898,013 tuples`，41 分钟的恢复里约 40 分钟耗在这一条索引上；同样的建图在 4 GB 下只要 9.2 分钟。做法：恢复前先调大 `maintenance_work_mem`，或 dump 时不带向量索引、恢复后用 `REBUILD_HNSW=1` 一次性重建。完整报告见 `docs/archive/2026-11-05_ops-loop-1m.md`。
+
+#### 批量导入后的向量索引重建
+
+带向量的批量写入代价由 HNSW 图维护主导：pgvector 每写一行都要插入图，实测 100 万行时只有 **38–53 rows/s**（约 19–26 ms/行），而没有图时是 **900–1,300 rows/s**——同一批数据慢 20–30 倍。所以推荐的做法是：先灌数据，最后一次建图。
+
+```bash
+# 1. 批量写入（走 proxy 导入或直接 SQL）——此时 embedding_1024 上的索引必须不存在
+# 2. 一次性建图，内存要足够把图放进 RAM
+SOURCE_DB=claude_mem WORK_MEM=8GB WORKERS=2 ./scripts/rebuild-vector-index.sh
+# 3. 校验：脚本会检查 indisvalid，并打印建图耗时与索引字节数
+```
+
+实测建图成本（独立容器、`m=16, ef_construction=64`）：
+
+| 行数 | 索引体积 | `maintenance_work_mem` | 建图耗时 |
+|------|----------|------------------------|----------|
+| 10 万 | 781 MB | 1 GB | 36.9 s |
+| 30 万 | 2,344 MB | 2 GB | 70.5 s |
+| 100 万 | 7.2–7.8 GB | 8 GB（4 GB 时约 89.8 万行后开始溢写） | 801.6 s |
+
+索引恒为 **每向量行约 8,192 字节**，因此 `maintenance_work_mem` 必须大于最终索引体积，否则会溢写到磁盘——Postgres 会打出 `hnsw graph no longer fits into maintenance_work_mem after N tuples`，耗时明显变长。按 10 万 / 100 万 / 300 万规划 1 GB / 8 GB / 24 GB。超过约 200 万行后，单图在 16–32 GB 主机上已放不下，应改为按 scope 分片向量表（已在完整 300 万容量下实测，见 `docs/archive/2026-11-05_vector-sharding-3m.md`）。
+
+**重跑是安全的。** `scripts/rebuild-vector-index.sh` 以索引的真实状态为准：
+
+| 发现的状态 | 行为 |
+|------------|------|
+| 索引有效且 `FORCE=0` | 打印 `skip: … already valid` 并退出 0，不重建 |
+| 索引无效（上次构建被打断留下） | 先 drop 再重建 |
+| 没有索引 | 直接建 |
+| 构建失败或被中断 | drop 半成品索引，退出 3 |
+
+`CONCURRENTLY=1`（默认）在建图期间不阻塞 INSERT；`CONCURRENTLY=0` 更快，但会取 SHARE 锁，写入要等整次构建结束。`scripts/test-vector-index-rebuild.sh` 会在临时库上验证上述全部行为，改动建图路径后必须重跑：3 万行时用 `pg_terminate_backend` 打断构建（退出 3、不残留索引），下一次运行恢复成功；并发构建期间记录到 135 次写入全部成功，**0 失败、p95 153 ms**（含 docker exec 往返；基线 p50 59 ms）。
+
 
 #### 数据完整性巡检（可定时）
 
