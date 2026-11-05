@@ -1171,6 +1171,15 @@ switch，分别存入 `embedding_768` / `embedding_1024` / `embedding_1536`。�
 
 ---
 
+## 强制执行的架构约束
+
+`ErrorCode` 是统一错误体中 `error.code` 的唯一注册表。`ErrorResponses` 的常量从它读取，
+`ErrorCodeRegistryTest` 保证 code 唯一、snake_case、且每个状态码映射都返回已注册的 code；
+`scripts/check-api-doc-surface.py` 直接解析该枚举，文档示例里出现未注册的 code 会让 API
+契约检查失败。
+
+---
+
 ## 权衡取舍
 
 | 权衡 | 选择 | 替代方案 | 原因 |
