@@ -2664,10 +2664,14 @@ It publishes (with Prometheus names):
 | `cortexce_llm_retries_total` | counter | `failure_kind` |
 | `cortexce_search_requests_total` | counter | `path` = `hybrid` / `lexical` / `filter` / `recent` |
 | `cortexce_search_duration_seconds` | histogram | `path` |
+| `cortexce_llm_circuit_state` | gauge | `state` = `closed` / `half_open` / `open` (exactly one is `1`) |
 
 The queue gauges are read from the shared database at scrape time, so every
 instance reports the same numbers. A failed database read yields `NaN` for that
-series instead of failing the whole scrape.
+series instead of failing the whole scrape. `cortexce_llm_circuit_state` is one
+series per state, all present at idle, so an alert can be written once
+(`cortexce_llm_circuit_state{state="open"} == 1`) instead of appearing only
+after the circuit opens.
 
 **Configuration**: the MCP transport is configured under `spring.ai.mcp.server`
 in `backend/src/main/resources/application.yml` (`protocol: SSE`,

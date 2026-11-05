@@ -2,10 +2,14 @@ package com.ablueforce.cortexce.layers;
 
 import com.ablueforce.cortexce.entity.PendingMessageEntity;
 import com.ablueforce.cortexce.offline.OfflineAiTestModels;
+import com.ablueforce.cortexce.service.LlmService;
+import com.ablueforce.cortexce.service.ProviderCircuitBreaker;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
@@ -63,6 +67,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
         matches = "jdbc:postgresql://[^/]+/[^?]*_flyway_rehearsal(?:\\?.*)?")
 class L2MetricsEndpointTest extends HttpLayerTestSupport {
 
+    @Autowired
+    private ProviderCircuitBreaker circuitBreaker;
+
+    @AfterEach
+    void closeCircuitAfterEachTest() {
+        // The breaker is a singleton in the shared context; leaving it OPEN would
+        // fast-fail every later test class in this JVM.
+        circuitBreaker.reset();
+    }
+
     @DynamicPropertySource
     static void datasource(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", () -> System.getenv("MEMSCOPE_TEST_DB_URL"));
@@ -108,6 +122,27 @@ class L2MetricsEndpointTest extends HttpLayerTestSupport {
                 "lexical retrieval counter is missing");
         assertTrue(body.contains("cortexce_search_duration_seconds_count{path=\"hybrid\"}"),
                 "retrieval latency histogram is missing its path-labelled count");
+    }
+
+    @Test
+    @DisplayName("the provider circuit state is scrapeable and follows the live breaker")
+    void circuitStateTracksTheBreaker() {
+        circuitBreaker.reset();
+        assertEquals(1.0, sample(scrape(), "cortexce_llm_circuit_state", "state=\"closed\""),
+                "an idle circuit must report closed=1");
+        assertEquals(0.0, sample(scrape(), "cortexce_llm_circuit_state", "state=\"open\""),
+                "an idle circuit must report open=0");
+
+        for (int i = 0; i < 3; i++) {
+            circuitBreaker.onOutcome(LlmService.FailureKind.TIMEOUT);
+        }
+        assertEquals(ProviderCircuitBreaker.State.OPEN, circuitBreaker.state(),
+                "three unreachable outcomes must open the circuit");
+
+        assertEquals(1.0, sample(scrape(), "cortexce_llm_circuit_state", "state=\"open\""),
+                "an open circuit must report open=1 so an alert can fire");
+        assertEquals(0.0, sample(scrape(), "cortexce_llm_circuit_state", "state=\"closed\""),
+                "an open circuit must report closed=0");
     }
 
     @Test

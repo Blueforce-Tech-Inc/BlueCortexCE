@@ -4,6 +4,12 @@
 > **Updated by**: 定时项目维护任务。
 > **Update rule**: 新修复追加到顶部；超过文档增长阈值时保留未完成项并将已完成历史归档。
 
+## 2026-11-05 | 审计清单再扫：补熔断状态指标，其余逐项写明理由
+
+**改了什么**：`CortexMetrics` 新增 `cortexce_llm_circuit_state{state=closed|half_open|open}`（三条 gauge 空闲即全部存在，同一时刻只有一条为 1），`L2MetricsEndpointTest` 断言空闲 closed=1、沿 worker 同一条 `onOutcome` 路径打开后 open=1/closed=0，`@AfterEach` 复位单例避免污染后续用例。`docs/API*.md` 指标表补该行与告警写法。
+
+**不再重复做**：只读库 503（本批第 4 项）、`fell_back` 语义（同上）已有断言；HNSW 有效性、备份演练成功、dump 保留、队列 gauge、纯文档项、71 条 ⏸ 均逐项写明不测/不做指标的理由，见 `docs/archive/2026-11-05_audit-rescan-monitoring.md`。
+
 ## 2026-11-05 | 降级可读性再核：熔断 OPEN / embedding 缺失 / DB 只读
 
 **改了什么**：`GlobalExceptionHandler` 新增 `@ExceptionHandler(DataAccessException)`：沿 cause 链找 SQLState **25006** → **503 `service_unavailable`** + 可读 message「Database is read-only…」；其余 DataAccessException 仍 500 `internal_error`。`SearchService.SearchRequest` 增加 `embeddingFailed`（`fellBack` 只在 embedding 调用失败时为 true），`ViewerController` 在 embed catch 里置位。`docs/API*.md` 补 `fell_back` 语义与 503 说明。

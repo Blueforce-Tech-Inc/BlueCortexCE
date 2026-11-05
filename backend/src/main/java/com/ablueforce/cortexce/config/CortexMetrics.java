@@ -2,6 +2,7 @@ package com.ablueforce.cortexce.config;
 
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.repository.PendingMessageRepository;
+import com.ablueforce.cortexce.service.ProviderCircuitBreaker;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -48,6 +49,10 @@ public class CortexMetrics implements MeterBinder {
     static final String LLM_RETRIES = "cortexce.llm.retries";
     static final String SEARCH_REQUESTS = "cortexce.search.requests";
     static final String SEARCH_TIMER = "cortexce.search.duration";
+    static final String CIRCUIT_STATE = "cortexce.llm.circuit.state";
+
+    /** Circuit states, one gauge each, so a scrape at idle names every state. */
+    private static final List<String> CIRCUIT_STATES = List.of("closed", "half_open", "open");
 
     /** Failure kinds the LLM edge can report; pre-registered so a scrape at idle sees them. */
     private static final List<String> FAILURE_KINDS =
@@ -60,6 +65,7 @@ public class CortexMetrics implements MeterBinder {
 
     private final PendingMessageRepository pendingMessageRepository;
     private final ObservationRepository observationRepository;
+    private final ProviderCircuitBreaker circuitBreaker;
     private final String provider;
 
     @Value("${claudemem.stale-message.threshold-minutes:10}")
@@ -75,9 +81,11 @@ public class CortexMetrics implements MeterBinder {
 
     public CortexMetrics(PendingMessageRepository pendingMessageRepository,
                          ObservationRepository observationRepository,
+                         ProviderCircuitBreaker circuitBreaker,
                          @Value("${claudemem.llm.provider:openai}") String provider) {
         this.pendingMessageRepository = pendingMessageRepository;
         this.observationRepository = observationRepository;
+        this.circuitBreaker = circuitBreaker;
         this.provider = provider == null || provider.isBlank() ? "unknown" : provider;
     }
 
@@ -101,6 +109,13 @@ public class CortexMetrics implements MeterBinder {
             .description("Observations still without a usable vector")
             .strongReference(true)
             .register(registry);
+        for (String state : CIRCUIT_STATES) {
+            Gauge.builder(CIRCUIT_STATE, () -> circuitState(state))
+                .tag("state", state)
+                .description("1 when the provider circuit is in this state; read from the live breaker")
+                .strongReference(true)
+                .register(registry);
+        }
 
         workerTimer = Timer.builder(WORKER_TIMER)
             .tag("provider", provider)
@@ -224,6 +239,14 @@ public class CortexMetrics implements MeterBinder {
             .minusSeconds(Math.max(1, staleThresholdMinutes) * 60L)
             .toEpochMilli();
         return pendingMessageRepository.countStale(threshold);
+    }
+
+    /** 1.0 when the breaker is in the named state, 0.0 otherwise. */
+    private double circuitState(String state) {
+        ProviderCircuitBreaker.State current = circuitBreaker.state();
+        String name = current == ProviderCircuitBreaker.State.HALF_OPEN
+            ? "half_open" : current.name().toLowerCase(java.util.Locale.ROOT);
+        return name.equals(state) ? 1.0 : 0.0;
     }
 
     private double count(Supplier<Long> supplier) {

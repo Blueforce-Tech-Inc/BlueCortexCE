@@ -2620,9 +2620,11 @@ Prometheus 抓取端点，第 17 轮加入——队列与模型边界由此可�
 | `cortexce_llm_retries_total` | counter | `failure_kind` |
 | `cortexce_search_requests_total` | counter | `path` = `hybrid` / `lexical` / `filter` / `recent` |
 | `cortexce_search_duration_seconds` | histogram | `path` |
+| `cortexce_llm_circuit_state` | gauge | `state` = `closed` / `half_open` / `open`（同一时刻只有一条为 `1`） |
 
 队列类 gauge 在抓取时读共享数据库，因此多实例看到的是同一组数字；某次数据库读取失败只会让该条序列为
-`NaN`，不会让整个抓取失败。
+`NaN`，不会让整个抓取失败。`cortexce_llm_circuit_state` 每个状态各一条、空闲时全部存在，
+告警可以一次写好（`cortexce_llm_circuit_state{state="open"} == 1`），不用等熔断真的打开才出现序列。
 
 **配置**：MCP 传输在 `backend/src/main/resources/application.yml` 的 `spring.ai.mcp.server`
 下配置（`protocol: SSE`、`sse-endpoint: /sse`、`sse-message-endpoint: /mcp/message`），
