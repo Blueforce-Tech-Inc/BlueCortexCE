@@ -72,6 +72,7 @@
 | `hook-payload-e2e.sh` | 手动 Hook 端到端：用真实 Claude Code 载荷（UserPromptSubmit / PostToolUse / SessionEnd）经 `proxy/wrapper.js` 转发，校验字段映射、落库、重复 PostToolUse 去重、summary 生成，以及后端不可达时的优雅失败。绝不进入 CI。 |
 | `webui-browser-e2e.sh` | 查看器级浏览器端到端：在一次性数据库上启动真实后端、灌入 60 条 observation，再用无头 Chromium（Playwright）验证内置查看器能渲染卡片、能读到 `files_modified`、按 `hasMore` 翻完整个信息流、不经刷新合并 SSE 广播、刷新后看到加载后新建的记录、设置开关在「修改 → 保存 → 刷新」后保持、后端要求 token 而浏览器不带 token 时给出可读 401 错误（绝不显示成空数据），以及后端停服再重启后的可见错误态（不卡加载）与恢复。Playwright 仅为测试依赖。该脚本是 `verify-local.sh` 第 9 步（未安装 Playwright 时 SKIP），也是 `browser-e2e` CI job 的执行体；CI 中未安装直接失败而不是跳过。 |
 | `check-viewer-bundle.sh` | 比对提交在 `backend/.../static` 的查看器与 `webui/src` 的全新构建结果；构建在临时副本中进行，不改动子模块。构建使用 `scripts/viewer-build` 中带锁文件的固定工具链：子模块本身没有锁文件，`npm install` 会解析到更新的 react 补丁版本，从而改变压缩后的字节。退出码：0 一致、1 漂移（打印逐文件哈希与重建步骤）、2 固定工具链缺失（`cd scripts/viewer-build && npm ci`）。由 `verify-local.sh` 第 9 步开头与 `webui` CI job 调用。 |
+| `repeat-tests.sh` | 稳定性检查：只打包一次、迁移 seed 库，然后按 `ROUNDS`（默认 3）每轮用独立库副本 + Surefire 随机顺序跑完整套件；按 `(class, test)` 比较结果，报告 flaky/missing，任一出现退出 1。2026-11-05 用它测得 601 × 3 轮、0 flaky。 |
 | `run-all-e2e.sh` | 编排脚本 — 一次运行此处定义的 10 个本地 E2E 套件（不含 Docker 套件和 test-llm-provider.sh）。**其中 5/10 `mcp-streamable-e2e-test.sh` 是条件执行的**：除非服务器在 `/mcp` 上暴露 Streamable HTTP（向 `/mcp` 发一个 `initialize` 请求必须返回 200），否则会被跳过。后端默认的 MCP 传输是 SSE，因此在默认安装下该编排脚本实际运行 **9** 个套件并报告 1 个跳过——**这是预期行为，不是失败**。 |
 
 **前置条件：** 与回归测试相同（后端运行，数据库已配置）。
@@ -116,16 +117,19 @@ git submodule update --init --recursive
    `flyway_schema_history` 中没有失败记录。
 5. 用一次 `mvn -B clean install` 跑完 L1–L4，`MEMSCOPE_*` 指向该库。
 6. 执行 `python3 scripts/check-test-results.py --require-zero-skips
-   --min-tests 595 --require-layers --require-baseline`。下限是硬性
-   **不得低于** 值（当前 595 个用例）；baseline 额外提供按层棘轮，任何一层
+   --min-tests 601 --require-layers --require-baseline`。下限是硬性
+   **不得低于** 值（当前 601 个用例）；baseline 额外提供按层棘轮，任何一层
    悄悄减少用例都会失败。随后执行评估下限门禁与检索质量回放门禁。
 
-门禁在以下任一情况失败：有用例被跳过；总执行数低于 595；某一层一个用例都没执行；
+门禁在以下任一情况失败：有用例被跳过；总执行数低于 601；某一层一个用例都没执行；
 L1–L4 中任何一层的执行数低于 `scripts/test-baseline.json` 记录。只有在新增用例后，
 才应同时抬高下限并重写 baseline（`--write-baseline`）。
 7. 执行两项文档一致性检查：检查器自测，再用中英文 API 参考对比运行中的服务。
-8. 对该服务跑 proxy E2E，`node --test` 只要报告有跳过就判失败（这是 L3 的 proxy 转发部分）。
-9. 校验仓库中提交的查看器 bundle 与 `webui/src` 的全新构建逐字节一致
+8. 执行迁移安全门禁（`scripts/check-migrations.py --self-test`，再扫真实文件）。
+   存量迁移只报告；新迁移出现破坏性操作、类型收窄、对已存在表使用非并发索引，
+   或缺少 `-- rollback:` 说明，判失败。
+9. 对该服务跑 proxy E2E，`node --test` 只要报告有跳过就判失败（这是 L3 的 proxy 转发部分）。
+10. 校验仓库中提交的查看器 bundle 与 `webui/src` 的全新构建逐字节一致
    （`scripts/check-viewer-bundle.sh` 在临时副本中构建，绝不修改子模块），
    再用真实 Chromium（Playwright）驱动该 bundle：页面渲染、卡片上的
    `files_modified`、`hasMore` 分页、页面开着时通过 API 写入并仅靠 SSE 出现的
@@ -134,6 +138,22 @@ L1–L4 中任何一层的执行数低于 `scripts/test-baseline.json` 记录。
    态（不卡在加载动画）与恢复。未安装 Playwright/Chromium 或
    `scripts/viewer-build/node_modules` 时该步打印 `SKIP` 并继续；`REQUIRE_BROWSER_E2E=1`
    会把该 SKIP 变成失败，CI 的独立 job 始终要求浏览器执行。
+
+#### 重复运行以检查稳定性
+
+单轮全绿无法区分「稳定」与「碰巧排在正确顺序之后」。`scripts/repeat-tests.sh`
+只打包一次、先迁移一个 seed 库，然后按 `ROUNDS`（默认 3）每轮用
+`CREATE DATABASE ... TEMPLATE seed` 复制一个独立库，并以 Surefire 随机顺序跑完整套件。
+脚本按 `(class, test)` 比较每轮结果：某用例一轮过、另一轮挂，判为 flaky；某轮少出现，
+判为 missing；两种情况都退出 1。原始报告与 `stability.json` 落在 `LOG_DIR`。
+
+```bash
+PG_CONTAINER=cortexce-flaky-pg PG_PORT=15433 ./scripts/repeat-tests.sh
+ROUNDS=10 ./scripts/repeat-tests.sh   # 给可疑改动用更多证据
+```
+
+2026-11-05 的实测为 601 个用例 × 3 轮 = 1,803 次执行，0 flaky、0 missing
+（`docs/archive/2026-11-05_test-stability-3-rounds.md`）。
 
 每一步都会打印自己的名称。失败时脚本打印 `STEP FAILED: <步骤>` 与命令自身的
 原因，以非零退出，绝不继续执行后续步骤去掩盖问题。可覆盖的变量：
@@ -152,9 +172,9 @@ L1–L4 中任何一层的执行数低于 `scripts/test-baseline.json` 记录。
 
 | 层次 | 证明什么 | 由谁执行 | 单独重跑 |
 |------|----------|----------|----------|
-| **L1** 单元 + 集成（488 个用例） | 服务、控制器、实体、仓储契约，以及依赖模型的链路（离线替身）。 | `.layers.*` 之外的全部 Surefire 类 | `mvn -B test -Dtest='!L2HttpRegressionTest,!L3AcceptanceTest,!L4EndToEndTest'` |
-| **L2** HTTP 回归（7 个用例） | 真实启动的应用（`RANDOM_PORT`）：`/v3/api-docs` 发布的每个操作都被调用一次；缺参数 → 400、旧路径 → 404、非法 UUID → 400、`limit`/`offset` 钳制、`{items,hasMore}` 分页信封。 | `L2HttpRegressionTest` | `mvn -B test -Dtest=L2HttpRegressionTest` |
-| **L3** 验收（6 个用例） | 把文档声明的能力变成断言：Hook 生命周期、三类 ingest 写入、检索分支、context inject、settings/modes 字段、SSE 事件、MCP 工具列表加一次真实调用。每条断言在类 javadoc 中标注出处（`docs/API.md`、`AGENTS.md`、`docs/ARCHITECTURE.md`）。proxy 转发由 `verify-local.sh` 第 8 步覆盖。 | `L3AcceptanceTest` + proxy `npm test` | `mvn -B test -Dtest=L3AcceptanceTest`（再 `cd proxy && npm test`） |
+| **L1** 单元 + 集成（565 个用例） | 服务、控制器、实体、仓储契约，以及依赖模型的链路（离线替身）。 | `.layers.*` 之外的全部 Surefire 类 | `mvn -B test -Dtest='!L2HttpRegressionTest,!L3AcceptanceTest,!L4EndToEndTest'` |
+| **L2** HTTP 回归（29 个用例，其中 7 个在 `L2HttpRegressionTest`） | 真实启动的应用（`RANDOM_PORT`）：`/v3/api-docs` 发布的每个操作都被调用一次；缺参数 → 400、旧路径 → 404、非法 UUID → 400、`limit`/`offset` 钳制、`{items,hasMore}` 分页信封。该层其余用例固定指标、只读库 503、token 鉴权、SSE 事件名与错误信封。 | `L2*` 类 | `mvn -B test -Dtest='L2*'` |
+| **L3** 验收（6 个用例） | 把文档声明的能力变成断言：Hook 生命周期、三类 ingest 写入、检索分支、context inject、settings/modes 字段、SSE 事件、MCP 工具列表加一次真实调用。每条断言在类 javadoc 中标注出处（`docs/API.md`、`AGENTS.md`、`docs/ARCHITECTURE.md`）。proxy 转发由 `verify-local.sh` 第 9 步覆盖。 | `L3AcceptanceTest` + proxy `npm test` | `mvn -B test -Dtest=L3AcceptanceTest`（再 `cd proxy && npm test`） |
 | **L4** 端到端（1 个用例） | 真实服务 + 专用库上的一条完整用户路径：会话开始 → 写入 → 检索 → context inject → 会话结束 → 摘要，校验数据库终态与 SSE 事件。等待全部是基于条件的轮询，不使用 `sleep`。 | `L4EndToEndTest` | `mvn -B test -Dtest=L4EndToEndTest` |
 
 L2–L4 需要 `MEMSCOPE_*` 变量（见下文）；未设置时本地会跳过而不是失败，CI 门禁会拒绝任何跳过：
@@ -566,6 +586,7 @@ cd backend
 
 | 日期 | 变更 |
 |------|------|
+| 2026-11-05 | **让底座可以放心改的守卫。** `ArchitectureGuardTest`（4 条）在 controller 导入 repository、service 导入 controller、controller 返回 entity 或出现新包环时失败；现存的 6 处 controller→repository 与 `ViewerController` 3 个返回实体方法记为有理由的基线，基线过期同样失败（`docs/ARCHITECTURE.md`）。`ErrorCodeRegistryTest`（2 条）把 `ErrorCode` 枚举钉为唯一错误码来源（唯一、snake_case、每个 HTTP 状态映射到已注册 code），`check-api-doc-surface.py` 改为解析枚举而非硬编码列表，顺带修好旧表缺的两个 code。`scripts/check-migrations.py` 是只读迁移门禁：23 个存量文件经 `scripts/migration-baseline.json` 只报告，新迁移含破坏性操作、类型收窄、对已存在表用非并发索引或缺 `-- rollback:` 说明即失败，作为 `verify-local.sh` 第 8 步运行。`scripts/repeat-tests.sh` 按 `ROUNDS`（默认 3）每轮在 `TEMPLATE` 副本库上以 Surefire 随机顺序跑全套：**601 × 3 = 1,803 次执行，0 flaky、0 missing、0 全轮失败**（`docs/archive/2026-11-05_test-stability-3-rounds.md`）。`cortexce_vector_indexes_valid` 导出 HNSW 有效性（1.0 可用、0.0 失效、NaN 读不到）。用例 595 → **601**（L1 559 → 565），0 跳过；`--min-tests` 595 → 601。中英文同步 |
 | 2026-11-05 | **百万行运维闭环、300 万行布局、可读的降级、熔断指标。** `backup-restore-drill.sh` 增加 HNSW 重建（`REBUILD_HNSW=1`，退出码 11）与每 2 s 磁盘采样；1,000,198 条 observation / 18 GB 实测 dump **526 s（4.74 GB）**、恢复 **2,448 s**、完整性巡检 5.9 s（0 问题）、HNSW 重建 **550 s（7.58 GB）**、**端到端 59.6 分钟**、磁盘峰值 **39.5 GB（线上库 2.7×）**；恢复耗时主要是建图，因为 `pg_restore` 按服务器 64 MB `maintenance_work_mem` 重放 DDL、89.8 万行后溢写（`docs/archive/2026-11-05_ops-loop-1m.md`）。`rebuild-vector-index.sh` + `test-vector-index-rebuild.sh` 让「先灌数据后建图」可重跑：12 万行建图 **48 s**（8,192 B/行）、重跑 **1 s** 跳过、`pg_terminate_backend` 打断按 3 退出且不残留索引、下一轮 **50 s** 恢复、并发建图期间 **918 次写入 0 失败**（p95 84 ms）。`bench-vector-sharding.py` 实测 300 万行替代方案：8 × 375k 图单张 **90–107 s（合计 782 s、22.9 GiB、无溢写）**、**261 µs/行**（单库 100 万图为 550–802 µs/行）、查询 p50 **78 ms** 对比 84 ms（`docs/archive/2026-11-05_vector-sharding-3m.md`）。降级被钉住：只读库（SQLSTATE 25006）由通用 500 改为 **503 service_unavailable** 可读消息（`L2ReadOnlyDatabaseTest`），`fell_back` 只在 embedding 调用失败时为 true，熔断状态导出为 `cortexce_llm_circuit_state{state=closed|half_open|open}` 并由 `L2MetricsEndpointTest` 沿 worker 路径翻转断言。用例 593 → **595**（L2 27 → 29），0 跳过；`--min-tests` 593 → 595。中英文同步 |
 | 2026-11-05 | **写入路径跑到百万行、provider 全故障、以及没被钉住的配置面。** `ImportService` 过去为了按标题去重，把整个会话的行（每行三个向量 + 四个 JSON 列）读进内存，1 GB 堆在约 195k 行时 `OutOfMemoryError`；现改为标量 `ImportDedupRow` 投影 + 两个按本批标题过滤的查询，`ImportServiceDatabaseTest` 钉住去重只发生在所属会话内（用例 580 → 581）。同一堆下填充达到 **1,000,570 行、914.6 rows/s**；批 1,000–2,000 行为 909–952 rows/s，4 个并发客户端 1,318 rows/s（8 个反而退到 708）；默认 2 MiB 体限每个请求只容约 **184** 个带向量行；HNSW 恒为 **8,192 字节/向量行**，默认 64 MB `maintenance_work_mem` 慢 **5.4 倍**，而往已建好的百万节点图里插入降到 **38–53 rows/s**（`docs/archive/2026-11-05_write-path-scale.md`）。provider 每次调用都返回 500 时，旧实现让一次写入挂 **>200 s**（embedding 默认重试十次），且运输层错误被判 `UNKNOWN` 会把熔断重置；`claudemem.embedding.*` 现在把重试收敛为 2 次、读超时 15 s，`IOException` 判 `UNAVAILABLE`，于是同一写入 **1.39 s/200**、search **1.09 s/200** 走 `tsvector`、第 4 个排队作业 **0 次**外部调用（`docs/archive/2026-11-05_provider-outage-behavior.md`，`LlmServiceClassificationTest` 8 例）。`WebConfigCorsTest`（4 例）钉住此前无人覆盖的 CORS 头与预检；刻意不测的审计项写入 `docs/archive/2026-11-05_audit-test-gaps.md`。用例 580 → **593**（L1 546 → 559），0 跳过；`--min-tests` 580 → 593。中英文同步 |
 | 2026-11-05 | **瓶颈在响应体，不在查询：向量退出线上载荷。** `ObservationEntity` 用 `@JsonProperty` 暴露了 `embedding_768`/`embedding_1024`/`embedding_1536`，所有观察记录端点都会序列化三份浮点数组：顺序探针实测每个响应体 **125.2 KB**，其中 **79.3%** 是向量，`/api/observations` p95 为 **293.9 ms**。三个列现已改为 `@JsonIgnore`。观察记录的其余字段与硬契约（`hasMore`、`updateFiles`、`CLAUDE_MEM_*`）不变，`ImportService` 仍通过自己的 record 写入向量，导入不会丢向量。`WebUiWireContractTest` 新增第 5 个用例：先把三个向量都填进实体再序列化，断言单行与 `GET /api/search` 信封都不含向量，同时 `id`/`content_hash`/`platform_source`/`memory_scope_type` 仍在——重新加回 `@JsonProperty` 无法靠 null 空过。改动前后证据：`docs/archive/2026-11-05_response-payload-before.md` 与 `…-after.md`；同一小时内 7 次交替 A/B（每次 56k–75k 请求）使 `/api/search` p50 降约 7%、p95 降约 10%，而不带向量的 `/api/context/inject` 对照组持平（`docs/archive/2026-11-05_retrieval-concurrent-read-after.md`）。用例 579 → **580**（L1 545 → 546），0 跳过；`--min-tests` 579 → 580（文档里的下限此前漂到了 528）。中英文同步 |

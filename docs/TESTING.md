@@ -72,6 +72,7 @@ Located in `scripts/` directory:
 | `hook-payload-e2e.sh` | Manual hook E2E through `proxy/wrapper.js` with real Claude Code payloads (UserPromptSubmit / PostToolUse / SessionEnd): field mapping, persistence, duplicate PostToolUse dedupe, summary generation, and graceful failure against an unreachable service. Never runs in CI. |
 | `webui-browser-e2e.sh` | Browser E2E at the viewer level: boots the real backend on a disposable database, seeds 60 observations, then drives headless Chromium (Playwright) to prove the bundled viewer renders cards, reads `files_modified`, pages through the whole feed via `hasMore`, merges an SSE broadcast without a refresh, shows a record created after load once refreshed, keeps a settings toggle after change → save → refresh, proves a token-protected backend without a browser token yields readable 401 errors (never an empty feed), and stops then restarts the backend to prove the open page shows an alert (no stuck spinner) and recovers. Playwright is a test-only dependency. Runs as step 9 of `verify-local.sh` (SKIP when Playwright is absent) and in the `browser-e2e` CI job, where a missing install fails instead of skipping. |
 | `check-viewer-bundle.sh` | Compares the viewer committed under `backend/.../static` with a fresh build of `webui/src`, built in a temp copy so the submodule stays untouched. The build uses the pinned toolchain in `scripts/viewer-build` (own lockfile), because the submodule has no lockfile and `npm install` there resolves newer react patch versions that change minified bytes. Exit 0 match, 1 drift (prints per-file hashes and rebuild steps), 2 pinned toolchain missing (`cd scripts/viewer-build && npm ci`). Called at the start of step 9 of `verify-local.sh` and by the `webui` CI job. |
+| `repeat-tests.sh` | Stability harness: packages once, migrates a seed database, then runs the full suite `ROUNDS` times (default 3) against a fresh database copy each round with Surefire random order. Compares every `(class, test)` outcome, reports flaky/missing tests, and exits 1 on either. Used for the 2026-11-05 stability measurement (601 × 3 rounds, 0 flaky). |
 | `run-all-e2e.sh` | Orchestrator — runs the 10 local E2E suites defined here in one pass (excludes Docker suites and test-llm-provider.sh). **Suite 5/10, `mcp-streamable-e2e-test.sh`, is conditional**: it is skipped unless the server exposes Streamable HTTP on `/mcp` (a `POST` of an `initialize` request to `/mcp` must answer 200). The backend's default MCP transport is SSE, so on a default install this orchestrator runs **9** suites and reports 1 skipped — that is expected, not a failure. |
 
 **Prerequisites:** Same as regression tests (backend running, database configured).
@@ -120,19 +121,23 @@ hand-run steps:
 5. runs L1–L4 in one `mvn -B clean install`, with `MEMSCOPE_*` pointed at that
    database.
 6. runs `python3 scripts/check-test-results.py --require-zero-skips
-   --min-tests 595 --require-layers --require-baseline`. The floor is a hard
-   **must-not-go-below** value (currently 595 executed tests); the baseline adds
+   --min-tests 601 --require-layers --require-baseline`. The floor is a hard
+   **must-not-go-below** value (currently 601 executed tests); the baseline adds
    a per-layer ratchet so no layer can quietly shrink.
 
 The gate fails when any test is skipped, when the total executed count drops
-below 595, when a layer executed no tests, or when any of L1–L4 executed fewer
+below 601, when a layer executed no tests, or when any of L1–L4 executed fewer
 tests than `scripts/test-baseline.json` records. Raise both the floor and the
 baseline deliberately (`--write-baseline`) only after adding tests.
 7. runs both documentation consistency checks: the checker self-test, then the
    published EN/ZH API references against the live server.
-8. runs the proxy E2E against that server and fails if `node --test` reported
+8. runs the migration safety gate (`scripts/check-migrations.py --self-test`,
+   then the real scan). Existing migrations are reported; a new migration with a
+   destructive operation, a narrowing type change, a non-concurrent index on a
+   pre-existing table, or no `-- rollback:` note fails.
+9. runs the proxy E2E against that server and fails if `node --test` reported
    any skipped test (this is the proxy-forwarding part of L3).
-9. verifies the committed viewer bundle is byte-identical to a fresh build of
+10. verifies the committed viewer bundle is byte-identical to a fresh build of
    `webui/src` (`scripts/check-viewer-bundle.sh`, built in a temp copy so the
    submodule is never modified), then drives that bundle in a real Chromium
    (Playwright): page rendering, `files_modified` on the card, `hasMore`
@@ -144,6 +149,24 @@ baseline deliberately (`--write-baseline`) only after adding tests.
    `scripts/viewer-build/node_modules` is missing the step prints `SKIP` and continues;
    `REQUIRE_BROWSER_E2E=1` turns that SKIP into a failure, and the dedicated CI
    job always requires the browser run.
+
+#### Repeating the suite for stability
+
+A single green run cannot distinguish a stable test from one that passed because
+of execution order. `scripts/repeat-tests.sh` packages once, migrates a seed
+database, then runs the suite `ROUNDS` times (default 3) against a fresh
+`CREATE DATABASE ... TEMPLATE seed` copy each round, with Surefire's random
+order. It compares every `(class, test)` outcome and exits 1 if a test is flaky
+(passes in one round, fails in another) or missing from a round. Raw reports and
+`stability.json` land under `LOG_DIR`.
+
+```bash
+PG_CONTAINER=cortexce-flaky-pg PG_PORT=15433 ./scripts/repeat-tests.sh
+ROUNDS=10 ./scripts/repeat-tests.sh   # more evidence for a suspicious change
+```
+
+The 2026-11-05 measurement was 601 tests × 3 rounds = 1,803 executions with 0
+flaky and 0 missing (`docs/archive/2026-11-05_test-stability-3-rounds.md`).
 
 Every step prints its name. On failure the script prints `STEP FAILED: <step>`,
 the command's own reason, and exits non-zero; it never falls through to a later
@@ -165,9 +188,9 @@ executed no tests at all, so deleting a layer cannot look green.
 
 | Layer | What it proves | Executed by | Single-layer re-run |
 |-------|----------------|-------------|---------------------|
-| **L1** unit + integration (488 tests) | Services, controllers, entities, repository contracts, and the model-dependent chains with offline doubles. | Every Surefire class outside `.layers.*` | `mvn -B test -Dtest='!L2HttpRegressionTest,!L3AcceptanceTest,!L4EndToEndTest'` |
-| **L2** HTTP regression (7 tests) | A real started application (`RANDOM_PORT`): every operation published in `/v3/api-docs` is called once; missing parameters → 400, legacy paths → 404, malformed UUIDs → 400, `limit`/`offset` clamping, `{items,hasMore}` envelopes. | `L2HttpRegressionTest` | `mvn -B test -Dtest=L2HttpRegressionTest` |
-| **L3** acceptance (6 tests) | Documented capabilities become assertions: hook lifecycle, the three ingest writes, retrieval branches, context inject, settings/modes fields, SSE events, the MCP tool catalog plus one call. Each assertion names its source (`docs/API.md`, `AGENTS.md`, `docs/ARCHITECTURE.md`) in the class javadoc. Proxy forwarding is exercised by step 8 of `verify-local.sh`. | `L3AcceptanceTest` + proxy `npm test` | `mvn -B test -Dtest=L3AcceptanceTest` (then `cd proxy && npm test`) |
+| **L1** unit + integration (565 tests) | Services, controllers, entities, repository contracts, and the model-dependent chains with offline doubles. | Every Surefire class outside `.layers.*` | `mvn -B test -Dtest='!L2HttpRegressionTest,!L3AcceptanceTest,!L4EndToEndTest'` |
+| **L2** HTTP regression (29 tests; 7 of them in `L2HttpRegressionTest`) | A real started application (`RANDOM_PORT`): every operation published in `/v3/api-docs` is called once; missing parameters → 400, legacy paths → 404, malformed UUIDs → 400, `limit`/`offset` clamping, `{items,hasMore}` envelopes. The rest of the layer pins metrics, the read-only 503, token auth, SSE event names, and the error envelope. | `L2*` classes | `mvn -B test -Dtest='L2*'` |
+| **L3** acceptance (6 tests) | Documented capabilities become assertions: hook lifecycle, the three ingest writes, retrieval branches, context inject, settings/modes fields, SSE events, the MCP tool catalog plus one call. Each assertion names its source (`docs/API.md`, `AGENTS.md`, `docs/ARCHITECTURE.md`) in the class javadoc. Proxy forwarding is exercised by step 9 of `verify-local.sh`. | `L3AcceptanceTest` + proxy `npm test` | `mvn -B test -Dtest=L3AcceptanceTest` (then `cd proxy && npm test`) |
 | **L4** end-to-end (1 test) | One full user path against a real server and the dedicated database: session start → prompt → tool-use → search → context inject → session end → summary, asserting the database terminal state and the SSE events. Waiting is condition-based polling, never `sleep`. | `L4EndToEndTest` | `mvn -B test -Dtest=L4EndToEndTest` |
 
 L2–L4 need the `MEMSCOPE_*` variables (see below); without them they skip
@@ -623,6 +646,7 @@ cd backend
 
 | Date | Change |
 |------|--------|
+| 2026-11-05 | **Guards that make the base safe to change.** `ArchitectureGuardTest` (4) fails on a controller importing a repository, a service importing a controller, a controller returning an entity, or a new package cycle; the six controller→repository imports and three `ViewerController` entity-returning methods that existed are a documented baseline that also fails once stale (`docs/ARCHITECTURE.md`). `ErrorCodeRegistryTest` (2) pins the `ErrorCode` enum as the single error-code registry (unique, snake_case, every HTTP status maps to a registered code), and `check-api-doc-surface.py` now parses that enum instead of a hard-coded list, which also fixed two codes missing from the old table. `scripts/check-migrations.py` is a read-only migration gate: 23 existing files are reported through `scripts/migration-baseline.json`, while a new migration with a destructive operation, a narrowing type change, a non-concurrent index on a pre-existing table, or no `-- rollback:` note fails; it runs as step 8 of `verify-local.sh`. `scripts/repeat-tests.sh` runs the suite `ROUNDS` times (default 3) against a fresh `TEMPLATE` copy with Surefire random order: **601 × 3 = 1,803 executions, 0 flaky, 0 missing, 0 failing in every round** (`docs/archive/2026-11-05_test-stability-3-rounds.md`). `cortexce_vector_indexes_valid` exports HNSW index validity (1.0 usable, 0.0 invalid, NaN unreadable). Suite 595 → **601** (L1 559 → 565), 0 skipped; `--min-tests` 595 → 601. EN+ZH in sync |
 | 2026-11-05 | **The 1M operational loop, the 3M layout, readable degraded modes, and the circuit metric.** `backup-restore-drill.sh` now rebuilds the HNSW index (`REBUILD_HNSW=1`, exit 11) and samples disk every 2 s; one run at 1,000,198 observations / 18 GB measured dump **526 s (4.74 GB)**, restore **2,448 s**, integrity 5.9 s (0 findings), HNSW rebuild **550 s (7.58 GB)**, **59.6 min end to end** and a **39.5 GB disk peak** (2.7× the live database); the restore is index-build time because `pg_restore` replays the DDL at the server's 64 MB `maintenance_work_mem` and spills after 898k tuples (`docs/archive/2026-11-05_ops-loop-1m.md`). `rebuild-vector-index.sh` plus `test-vector-index-rebuild.sh` make the bulk-backfill recipe re-runnable: 120k rows build in **48 s** (8,192 B/row), a rerun skips in **1 s**, a `pg_terminate_backend` interruption exits 3 and leaves no index, the next run recovers in **50 s**, and **918 writes during a concurrent build all succeeded** (p95 84 ms). `bench-vector-sharding.py` measures the 3M alternative: 8 × 375k graphs build in **90–107 s each (782 s total, 22.9 GiB, no spill)**, **261 µs/row** versus 550–802 µs for the single 1M graph, query p50 **78 ms** versus 84 ms (`docs/archive/2026-11-05_vector-sharding-3m.md`). Degraded modes are pinned: a read-only database (SQLSTATE 25006) now answers **503 service_unavailable** with a readable message instead of a generic 500 (`L2ReadOnlyDatabaseTest`), `fell_back` is true only when the embedding call failed, and the provider circuit state is exported as `cortexce_llm_circuit_state{state=closed|half_open|open}` with an assertion that flips it through the worker path (`L2MetricsEndpointTest`). Suite 593 → **595** (L2 27 → 29), 0 skipped; `--min-tests` 593 → 595. EN+ZH in sync |
 | 2026-11-05 | **Write path to a million rows, provider outage, and the untested config surface.** `ImportService` deduplicated titles by loading whole conversations (three vectors and four JSON columns per row) and died with `OutOfMemoryError` at ~195k rows on a 1 GB heap; it now uses a scalar `ImportDedupRow` projection plus two title-filtered queries, and `ImportServiceDatabaseTest` pins that dedup stays inside the owning conversation (suite 580 → 581). On the same heap the fill now reaches **1,000,570 rows at 914.6 rows/s**; batches of 1,000–2,000 run at 909–952 rows/s, four concurrent clients at 1,318 rows/s (eight fall back to 708), the stock 2 MiB body limit accepts only ~**184** vector rows per request, HNSW costs a flat **8,192 bytes per vector row** and **5.4×** at the stock 64 MB `maintenance_work_mem`, and inserts into a built million-node graph fall to **38–53 rows/s** (`docs/archive/2026-11-05_write-path-scale.md`). A provider answering 500 to every call used to hold a write for >200 s while embedding retried ten times and to reset the circuit whenever a transport error classified as `UNKNOWN`; `claudemem.embedding.*` now bounds retries (2 tries, 15 s read timeout) and `IOException` maps to `UNAVAILABLE`, so the same write answers 200 in **1.39 s**, search 200 in **1.09 s** on `tsvector`, and the fourth queued job makes **0** provider calls (`docs/archive/2026-11-05_provider-outage-behavior.md`, 8 `LlmServiceClassificationTest` cases). `WebConfigCorsTest` (4 cases) pins the CORS headers and preflight that no test covered, and the audit items deliberately left untested are recorded in `docs/archive/2026-11-05_audit-test-gaps.md`. Suite 580 → **593** (L1 546 → 559), 0 skipped; `--min-tests` 580 → 593. EN+ZH in sync |
 | 2026-11-05 | **Payload, not the query: vectors leave the wire.** `ObservationEntity` carried `embedding_768`/`embedding_1024`/`embedding_1536` behind `@JsonProperty`, so every observation endpoint serialised three float arrays per row: the sequential probe measured **125.2 KB** per body, **79.3%** of it vectors, and `/api/observations` p95 **293.9 ms**. The columns are now `@JsonIgnore`d. The rest of the observation shape and the hard contracts (`hasMore`, `updateFiles`, `CLAUDE_MEM_*`) are untouched, and `ImportService` still writes vectors through its own record, so imports keep their embeddings. `WebUiWireContractTest` gained a fifth case that populates all three vectors before serialising and then asserts both the row and the `GET /api/search` envelope are free of them, while `id`/`content_hash`/`platform_source`/`memory_scope_type` survive — a re-added `@JsonProperty` cannot pass on nulls. Before/after evidence: `docs/archive/2026-11-05_response-payload-before.md` and `…-after.md`; the same-hour A/B (56k–75k requests per run, seven runs) cut `/api/search` p50 by ~7% and p95 by ~10% while the vector-free `/api/context/inject` control stayed flat (`docs/archive/2026-11-05_retrieval-concurrent-read-after.md`). Suite 579 → **580** tests (L1 545 → 546), 0 skipped; `--min-tests` 579 → 580 (the published floor had drifted to 528). EN+ZH in sync |

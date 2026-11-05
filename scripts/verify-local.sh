@@ -44,7 +44,7 @@
 #   PG_CONTAINER=postgresql  PG_PORT=5432  PG_USER=postgres  PG_PASSWORD=123456
 #   TEST_DB=<existing-name>   # pin the database instead of generating a unique one
 #   VERIFY_KEEP_DB=1          # keep the database after the run (default: drop it)
-#   VERIFY_MIN_TESTS=595   VERIFY_APP_PORT=37888   VERIFY_E2E_PORT=37777
+#   VERIFY_MIN_TESTS=601   VERIFY_APP_PORT=37888   VERIFY_E2E_PORT=37777
 #   VERIFY_BROWSER_E2E_PORT=37778   REQUIRE_BROWSER_E2E=1
 #   VERIFY_LOG_DIR=/tmp/cortexce-verify
 
@@ -71,7 +71,7 @@ APP_PORT="${VERIFY_APP_PORT:-37888}"
 E2E_PORT="${VERIFY_E2E_PORT:-37777}"
 BROWSER_E2E_PORT="${VERIFY_BROWSER_E2E_PORT:-37778}"
 REQUIRE_BROWSER_E2E="${REQUIRE_BROWSER_E2E:-0}"
-MIN_TESTS="${VERIFY_MIN_TESTS:-595}"
+MIN_TESTS="${VERIFY_MIN_TESTS:-601}"
 LOG_BASE="${TMPDIR:-/tmp}"
 LOG_BASE="${LOG_BASE%/}"
 LOG_DIR="${VERIFY_LOG_DIR:-${LOG_BASE}/cortexce-verify-$$}"
@@ -155,7 +155,7 @@ wait_for_health() {
 # is usable is decided by pg_available_extensions, never by the image tag: a
 # postgres:16 image may or may not ship the extension.
 # --------------------------------------------------------------------------
-step "1/9 Locate a running PostgreSQL + pgvector container"
+step "1/10 Locate a running PostgreSQL + pgvector container"
 
 command -v docker >/dev/null 2>&1 \
   || fail "locate database" "docker is not installed or not on PATH."
@@ -241,7 +241,7 @@ note "container=$PG_CONTAINER host_port=$PG_PORT user=$PG_USER database=$TEST_DB
 # The tests truncate tables, so a business database must never be reused. The
 # DROP makes this block re-runnable from a clean state.
 # --------------------------------------------------------------------------
-step "2/9 Create the disposable test database $TEST_DB"
+step "2/10 Create the disposable test database $TEST_DB"
 
 docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d postgres -v ON_ERROR_STOP=1 \
   -c "DROP DATABASE IF EXISTS \"$TEST_DB\" WITH (FORCE)" >/dev/null \
@@ -251,7 +251,7 @@ docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d postgres -v ON_ERROR_STOP=1 \
   -c "CREATE DATABASE \"$TEST_DB\"" >/dev/null \
   || fail "recreate database" "could not create '$TEST_DB'."
 
-step "3/9 Enable and verify the vector extension"
+step "3/10 Enable and verify the vector extension"
 docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$TEST_DB" -v ON_ERROR_STOP=1 \
   -c "CREATE EXTENSION IF NOT EXISTS vector" >/dev/null \
   || fail "enable vector" "CREATE EXTENSION vector failed inside '$TEST_DB'."
@@ -269,7 +269,7 @@ note "vector extension enabled in $TEST_DB (version $EXT_VERSION)"
 # The version is compared with the newest file in db/migration, so a migration
 # that silently fails to apply is a failure here, not a surprise in the tests.
 # --------------------------------------------------------------------------
-step "4/9 Migrate to the latest version"
+step "4/10 Migrate to the latest version"
 
 EXPECTED_MIGRATION="$(ls "$ROOT/backend/src/main/resources/db/migration" 2>/dev/null \
   | sed -n 's/^V\([0-9][0-9]*\)__.*\.sql$/\1/p' | sort -n | tail -n1)"
@@ -328,7 +328,7 @@ note "flyway version=$APPLIED_VERSION (matches db/migration), failed migrations=
 # --------------------------------------------------------------------------
 # 5. full backend suite
 # --------------------------------------------------------------------------
-step "5/9 Full backend suite: L1 unit/integration + L2 regression + L3 acceptance + L4 end-to-end (MEMSCOPE_* pointed at $TEST_DB)"
+step "5/10 Full backend suite: L1 unit/integration + L2 regression + L3 acceptance + L4 end-to-end (MEMSCOPE_* pointed at $TEST_DB)"
 
 cd "$ROOT/backend"
 MEMSCOPE_TEST_DB_URL="jdbc:postgresql://127.0.0.1:${PG_PORT}/${TEST_DB}" \
@@ -351,7 +351,7 @@ mvn -B clean install > "$LOG_DIR/backend-tests.log" 2>&1 \
 # below" value; the baseline is a per-layer ratchet that you raise with
 # `python3 scripts/check-test-results.py --write-baseline` after adding tests.
 # --------------------------------------------------------------------------
-step "6/9 Layer gate (--require-zero-skips --min-tests $MIN_TESTS --require-layers --require-baseline)"
+step "6/10 Layer gate (--require-zero-skips --min-tests $MIN_TESTS --require-layers --require-baseline)"
 
 cd "$ROOT"
 GATE_OUTPUT="$(python3 scripts/check-test-results.py --require-zero-skips \
@@ -363,12 +363,12 @@ printf '%s\n' "$GATE_OUTPUT"
 # in step 5 proves the fixtures clear the current floor, and step 6 proves the suite
 # clears the baseline; this check proves neither file was edited downward to make a low
 # measurement or a removed test pass.
-step "6b/9 Gate monotonicity (scripts/check-eval-gates.py)"
+step "6b/10 Gate monotonicity (scripts/check-eval-gates.py)"
 GATE_FLOOR_OUTPUT="$(python3 scripts/check-eval-gates.py 2>&1)" \
   || fail "evaluation gate" "check-eval-gates.py rejected a lowered floor:" "$GATE_FLOOR_OUTPUT"
 printf '%s\n' "$GATE_FLOOR_OUTPUT"
 
-step "6c/9 Retrieval quality replay gate (scripts/check-retrieval-quality.py)"
+step "6c/10 Retrieval quality replay gate (scripts/check-retrieval-quality.py)"
 RETRIEVAL_OUTPUT="$(python3 scripts/check-retrieval-quality.py 2>&1)" \
   || fail "retrieval quality gate" "check-retrieval-quality.py rejected the recorded ranking:" "$RETRIEVAL_OUTPUT"
 printf '%s\n' "$RETRIEVAL_OUTPUT"
