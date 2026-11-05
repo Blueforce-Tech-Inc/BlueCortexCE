@@ -3,12 +3,11 @@ package com.ablueforce.cortexce.controller;
 import com.ablueforce.cortexce.common.ErrorResponses;
 import com.ablueforce.cortexce.dto.ApiResponses.*;
 import com.ablueforce.cortexce.entity.ObservationEntity;
-import com.ablueforce.cortexce.entity.SummaryEntity;
-import com.ablueforce.cortexce.repository.SummaryRepository;
 import com.ablueforce.cortexce.service.ClaudeMdService;
 import com.ablueforce.cortexce.service.ContextService;
 import com.ablueforce.cortexce.service.EmbeddingService;
 import com.ablueforce.cortexce.service.SearchService;
+import com.ablueforce.cortexce.service.SummaryQueryService;
 import com.ablueforce.cortexce.service.TimelineService;
 import com.ablueforce.cortexce.util.PathValidationUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,20 +50,20 @@ public class ContextController {
     private final ContextService contextService;
     private final ClaudeMdService claudeMdService;
     private final TimelineService timelineService;
-    private final SummaryRepository summaryRepository;
+    private final SummaryQueryService summaryQueryService;
     private final EmbeddingService embeddingService;
     private final SearchService searchService;
 
     public ContextController(ContextService contextService,
                              ClaudeMdService claudeMdService,
                              TimelineService timelineService,
-                             SummaryRepository summaryRepository,
+                             SummaryQueryService summaryQueryService,
                              EmbeddingService embeddingService,
                              SearchService searchService) {
         this.contextService = contextService;
         this.claudeMdService = claudeMdService;
         this.timelineService = timelineService;
-        this.summaryRepository = summaryRepository;
+        this.summaryQueryService = summaryQueryService;
         this.embeddingService = embeddingService;
         this.searchService = searchService;
     }
@@ -200,7 +199,8 @@ public class ContextController {
         int validatedLimit = Math.min(Math.max(1, limit), 20);
 
         // Get recent summaries for the project
-        List<SummaryEntity> summaries = summaryRepository.findByProjectLimited(projectName, validatedLimit);
+        List<SummaryQueryService.RecentSummary> summaries =
+            summaryQueryService.findRecent(projectName, validatedLimit);
 
         if (summaries.isEmpty()) {
             return ResponseEntity.ok(new RecentContextResponse(
@@ -215,21 +215,21 @@ public class ContextController {
         text.append("# Recent Session Context\n\n");
         text.append("Showing last ").append(summaries.size()).append(" session(s) for **").append(projectName).append("**:\n\n");
 
-        for (SummaryEntity summary : summaries) {
+        for (SummaryQueryService.RecentSummary summary : summaries) {
             text.append("---\n\n");
             text.append("**Summary**\n\n");
 
-            if (summary.getRequest() != null && !summary.getRequest().isBlank()) {
-                text.append("**Request:** ").append(summary.getRequest()).append("\n");
+            if (summary.request() != null && !summary.request().isBlank()) {
+                text.append("**Request:** ").append(summary.request()).append("\n");
             }
-            if (summary.getCompleted() != null && !summary.getCompleted().isBlank()) {
-                text.append("**Completed:** ").append(summary.getCompleted()).append("\n");
+            if (summary.completed() != null && !summary.completed().isBlank()) {
+                text.append("**Completed:** ").append(summary.completed()).append("\n");
             }
-            if (summary.getLearned() != null && !summary.getLearned().isBlank()) {
-                text.append("**Learned:** ").append(summary.getLearned()).append("\n");
+            if (summary.learned() != null && !summary.learned().isBlank()) {
+                text.append("**Learned:** ").append(summary.learned()).append("\n");
             }
-            if (summary.getNextSteps() != null && !summary.getNextSteps().isBlank()) {
-                text.append("**Next Steps:** ").append(summary.getNextSteps()).append("\n");
+            if (summary.nextSteps() != null && !summary.nextSteps().isBlank()) {
+                text.append("**Next Steps:** ").append(summary.nextSteps()).append("\n");
             }
             text.append("\n");
         }
