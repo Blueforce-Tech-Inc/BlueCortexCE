@@ -1196,6 +1196,27 @@ dump 文件，以及容器文件系统已用字节数；报告里保存各自峰
 
 恢复时间几乎全是建图时间：`pg_restore` 回放 `CREATE INDEX ... USING hnsw` 时用的是服务器当前的 `maintenance_work_mem`。默认 64 MB 时会打出 `hnsw graph no longer fits into maintenance_work_mem after 898,013 tuples`，41 分钟的恢复里约 40 分钟耗在这一条索引上；同样的建图在 4 GB 下只要 9.2 分钟。做法：恢复前先调大 `maintenance_work_mem`，或 dump 时不带向量索引、恢复后用 `REBUILD_HNSW=1` 一次性重建。完整报告见 `docs/archive/2026-11-05_ops-loop-1m.md`。
 
+**脚本不写死机器相关数值。** `RESTORE_WORK_MEM` 与 `RESTORE_WORKERS` 会在 `pg_restore` 之前用 `ALTER DATABASE ... SET` 设到临时库，恢复后重置；不设置就是「沿用服务器当前值」。`HNSW_WORK_MEM` / `HNSW_WORKERS` 对重建阶段同理。报告里记录的是**实际生效值**（`restore_guc`、`hnsw_rebuild`），这样耗时能归因到某个设置，而不是靠猜主机配置。
+
+```bash
+# 100 万向量的副本不溢写建图（约 9 分钟，而不是约 41 分钟）
+SOURCE_DB=claude_mem RESTORE_WORK_MEM=4GB RESTORE_WORKERS=2 \
+  REBUILD_HNSW=1 HNSW_WORK_MEM=4GB HNSW_WORKERS=2 \
+  ./scripts/backup-restore-drill.sh
+```
+
+保持默认值的代价是实测过的（同一批 1024 维聚类数据）：
+
+| 行数 | `maintenance_work_mem` / workers | HNSW 建图 | 相对默认 |
+|------|----------------------------------|-----------|----------|
+| 10 万 | 64 MB / 0（默认） | 561.6 s | — |
+| 10 万 | 1 GB / 2 | 95.5 s | **快 5.9×** |
+| 30 万 | 2 GB / 2 | 106.2 s | 能装下 2.3 GB 的图 |
+| 30 万 | 4 GB / 2 | 110.2 s | 装得下之后再加内存没有收益 |
+| 100 万 | 4 GB / 2 | 584.6 s | 能装下 7.8 GB 的图 |
+
+真正起决定作用的只有「图能不能装下」：`maintenance_work_mem` 一旦不小于索引体积，再加内存没有意义（30 万行：106 s 对 110 s）。不够时 pgvector 会溢写，建图变成 I/O 瓶颈——10 万行 64 MB 慢 5.9×；100 万行 64 MB 让恢复用了 2,448 s，而 4 GB 重建只要 550 s。取值按实测常数 **每向量行约 8,192 字节** 估算，不要按主机内存拍脑袋。
+
 #### 批量导入后的向量索引重建
 
 带向量的批量写入代价由 HNSW 图维护主导：pgvector 每写一行都要插入图，实测 100 万行时只有 **38–53 rows/s**（约 19–26 ms/行），而没有图时是 **900–1,300 rows/s**——同一批数据慢 20–30 倍。所以推荐的做法是：先灌数据，最后一次建图。

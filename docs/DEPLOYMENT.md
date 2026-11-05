@@ -1281,6 +1281,39 @@ same build at 4 GB took 9.2 min. Raise `maintenance_work_mem` before restoring,
 or dump without the vector index and rebuild once afterwards with
 `REBUILD_HNSW=1`. Full report: `docs/archive/2026-11-05_ops-loop-1m.md`.
 
+**The drill does not hard-code a host-specific value.** `RESTORE_WORK_MEM` and
+`RESTORE_WORKERS` are applied to the throwaway database with `ALTER DATABASE ...
+SET` immediately before `pg_restore`, then reset; both are unset by default,
+which means "use whatever the server currently has". `HNSW_WORK_MEM` and
+`HNSW_WORKERS` behave the same for the rebuild stage. Every report records the
+**effective** values under `restore_guc` and `hnsw_rebuild`, so a timing can be
+attributed to a setting instead of to a guess about the host.
+
+```bash
+# Restore a 1M-vector copy without spilling the graph (~9 min instead of ~41).
+SOURCE_DB=claude_mem RESTORE_WORK_MEM=4GB RESTORE_WORKERS=2 \
+  REBUILD_HNSW=1 HNSW_WORK_MEM=4GB HNSW_WORKERS=2 \
+  ./scripts/backup-restore-drill.sh
+```
+
+The cost of leaving the defaults in place is measured, on the same clustered
+1024-d data the rebuild benchmark uses:
+
+| Rows | `maintenance_work_mem` / workers | HNSW build | vs default |
+|------|----------------------------------|------------|------------|
+| 100,000 | 64 MB / 0 (stock) | 561.6 s | — |
+| 100,000 | 1 GB / 2 | 95.5 s | **5.9× faster** |
+| 300,000 | 2 GB / 2 | 106.2 s | fits the 2.3 GB graph |
+| 300,000 | 4 GB / 2 | 110.2 s | more memory does not help once it fits |
+| 1,000,000 | 4 GB / 2 | 584.6 s | fits the 7.8 GB graph |
+
+The only decision that matters is "does the graph fit": once
+`maintenance_work_mem` is at least the index size, extra memory buys nothing
+(300k: 106 s vs 110 s). Below it, pgvector spills and the build becomes I/O
+bound — 64 MB at 100k is 5.9× slower, and 64 MB at 1M made the restore take
+2,448 s where the 4 GB rebuild took 550 s. Size the value from the measured
+constant **≈8,192 bytes per vector row**, not from the machine's RAM.
+
 #### Vector Index Rebuild After a Bulk Backfill
 
 A bulk import with vectors present is dominated by graph maintenance: pgvector

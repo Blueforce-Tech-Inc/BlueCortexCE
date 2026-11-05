@@ -58,8 +58,17 @@
 #                      index bytes (default 0)
 #   HNSW_INDEX         index to rebuild (default idx_obs_embedding_1024)
 #   HNSW_COLUMN        indexed column (default embedding_1024)
-#   HNSW_WORK_MEM      maintenance_work_mem for the build (default 4GB)
-#   HNSW_WORKERS       max_parallel_maintenance_workers (default 2)
+#   HNSW_WORK_MEM      maintenance_work_mem for the build. Unset means "use the
+#                      server's current setting" (the stock value is 64MB, which
+#                      spills the graph and is an order of magnitude slower;
+#                      set it to at least the expected index size on large copies)
+#   HNSW_WORKERS       max_parallel_maintenance_workers for the build. Unset
+#                      means "use the server's current setting"
+#   RESTORE_WORK_MEM   maintenance_work_mem for pg_restore's index replay. Unset
+#                      means "use the server default"; a restore that replays a
+#                      large HNSW index is the slowest stage without this
+#   RESTORE_WORKERS    max_parallel_maintenance_workers for pg_restore. Unset
+#                      means "use the server default"
 #   DISK_SAMPLE_SECONDS  sampling interval of the disk peak recorder (default 2)
 #   KEEP=1             keep the restored database too (debugging)
 #
@@ -98,8 +107,10 @@ AUDIT_JSON="${AUDIT_JSON:-${REPORT_DIR}/integrity-drill-${STAMP}.json}"
 REBUILD_HNSW="${REBUILD_HNSW:-0}"
 HNSW_INDEX="${HNSW_INDEX:-idx_obs_embedding_1024}"
 HNSW_COLUMN="${HNSW_COLUMN:-embedding_1024}"
-HNSW_WORK_MEM="${HNSW_WORK_MEM:-4GB}"
-HNSW_WORKERS="${HNSW_WORKERS:-2}"
+HNSW_WORK_MEM="${HNSW_WORK_MEM:-}"
+HNSW_WORKERS="${HNSW_WORKERS:-}"
+RESTORE_WORK_MEM="${RESTORE_WORK_MEM:-}"
+RESTORE_WORKERS="${RESTORE_WORKERS:-}"
 DISK_SAMPLE_SECONDS="${DISK_SAMPLE_SECONDS:-2}"
 
 # Accumulated facts for the report; every value defaults so a failed run still
@@ -111,6 +122,8 @@ INTEGRITY_MS=0; INTEGRITY_STATE="skipped"; INTEGRITY_FINDINGS=""; INTEGRITY_JSON
 HNSW_MS=0; HNSW_STATE="skipped"; HNSW_INDEX_BYTES=""; HNSW_BUILD_VERSION=""
 SRC_SIZE=""; DST_SIZE=""
 SRC_HITS=""; DST_HITS=""; PROBE_ID=""; PROBE_TITLE=""
+RESTORE_WORK_MEM_EFFECTIVE=""; RESTORE_WORKERS_EFFECTIVE=""
+HNSW_WORK_MEM_EFFECTIVE=""; HNSW_WORKERS_EFFECTIVE=""
 FAIL_STAGE=""; FAIL_REASON=""
 TABLE_REPORT=""          # newline-separated "table src dst" triples
 VALIDATION_LOG=""
@@ -126,6 +139,35 @@ elapsed() { echo $(( $(ms_now) - $1 )); }
 
 psql_run() { # psql_run <database> <sql>
   docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$1" -v ON_ERROR_STOP=1 -t -A -c "$2"
+}
+
+# The effective GUCs are recorded in the report even when the caller left them
+# unset, so the restore/build time can be compared with the setting that
+# produced it instead of guessed from the host.
+server_guc() { # server_guc <database> <guc>
+  psql_run "$1" "SHOW $2;" 2>/dev/null | tr -d '[:space:]'
+}
+
+restore_guc_applied=0
+apply_restore_guc() {
+  [ -n "$RESTORE_WORK_MEM" ] || [ -n "$RESTORE_WORKERS" ] || return 0
+  local sql=""
+  if [ -n "$RESTORE_WORK_MEM" ]; then
+    sql="ALTER DATABASE \"${RESTORE_DB}\" SET maintenance_work_mem = '${RESTORE_WORK_MEM}';"
+  fi
+  if [ -n "$RESTORE_WORKERS" ]; then
+    sql="${sql} ALTER DATABASE \"${RESTORE_DB}\" SET max_parallel_maintenance_workers = ${RESTORE_WORKERS};"
+  fi
+  psql_run postgres "$sql" >/dev/null || return 1
+  restore_guc_applied=1
+  return 0
+}
+
+reset_restore_guc() {
+  [ "$restore_guc_applied" = "1" ] || return 0
+  psql_run postgres "ALTER DATABASE \"${RESTORE_DB}\" RESET maintenance_work_mem; \
+ALTER DATABASE \"${RESTORE_DB}\" RESET max_parallel_maintenance_workers;" >/dev/null 2>&1 || true
+  restore_guc_applied=0
 }
 
 start_disk_sampler() { # background recorder, killed in on_exit
@@ -171,6 +213,10 @@ write_report() { # write_report <exit-code>
   REPORT_COUNTS_MS="$COUNTS_MS" REPORT_RETRIEVAL_MS="$RETRIEVAL_MS" \
   REPORT_FLYWAY_MS="$FLYWAY_MS" REPORT_FLYWAY_STATE="$FLYWAY_STATE" \
   REPORT_FLYWAY_DETAIL="$FLYWAY_DETAIL" \
+  REPORT_RESTORE_WORK_MEM="$RESTORE_WORK_MEM_EFFECTIVE" \
+  REPORT_RESTORE_WORKERS="$RESTORE_WORKERS_EFFECTIVE" \
+  REPORT_HNSW_WORK_MEM="$HNSW_WORK_MEM_EFFECTIVE" \
+  REPORT_HNSW_WORKERS="$HNSW_WORKERS_EFFECTIVE" \
   REPORT_INTEGRITY_MS="$INTEGRITY_MS" REPORT_INTEGRITY_STATE="$INTEGRITY_STATE" \
   REPORT_INTEGRITY_FINDINGS="$INTEGRITY_FINDINGS" REPORT_INTEGRITY_JSON="$INTEGRITY_JSON" \
   REPORT_HNSW_MS="$HNSW_MS" REPORT_HNSW_STATE="$HNSW_STATE" \
@@ -243,6 +289,12 @@ report = {
         "source": os.environ.get("REPORT_SRC_SIZE", ""),
         "restore": os.environ.get("REPORT_DST_SIZE", ""),
     },
+    # Effective settings, not the requested ones: "unset" in the environment
+    # means the server's current value produced this timing.
+    "restore_guc": {
+        "maintenance_work_mem": os.environ.get("REPORT_RESTORE_WORK_MEM", ""),
+        "max_parallel_maintenance_workers": os.environ.get("REPORT_RESTORE_WORKERS", ""),
+    },
     "stages": {
         "dump_ms": num("REPORT_DUMP_MS"),
         "checksum_ms": num("REPORT_CHECKSUM_MS"),
@@ -265,6 +317,8 @@ report = {
             "ms": num("REPORT_HNSW_MS"),
             "index_bytes": num("REPORT_HNSW_INDEX_BYTES"),
             "version": os.environ.get("REPORT_HNSW_VERSION", ""),
+            "maintenance_work_mem": os.environ.get("REPORT_HNSW_WORK_MEM", ""),
+            "max_parallel_maintenance_workers": os.environ.get("REPORT_HNSW_WORKERS", ""),
         },
     },
     "disk_peak": disk_peak,
@@ -314,6 +368,7 @@ on_exit() {
     FAIL_REASON="unhandled failure (see log above)"
   fi
   write_report "$code"
+  reset_restore_guc
   if [ "$KEEP" != "1" ]; then
     psql_run postgres "DROP DATABASE IF EXISTS \"${RESTORE_DB}\";" >/dev/null 2>&1 || true
   else
@@ -367,7 +422,20 @@ if [ "$VALIDATE_FLYWAY" = "1" ]; then
 fi
 psql_run postgres "DROP DATABASE IF EXISTS \"${RESTORE_DB}\";" >/dev/null
 psql_run postgres "CREATE DATABASE \"${RESTORE_DB}\";" >/dev/null
+RESTORE_WORK_MEM_EFFECTIVE="${RESTORE_WORK_MEM:-$(server_guc postgres maintenance_work_mem)}"
+RESTORE_WORKERS_EFFECTIVE="${RESTORE_WORKERS:-$(server_guc postgres max_parallel_maintenance_workers)}"
+if ! apply_restore_guc; then
+  fail 5 restore "could not apply RESTORE_WORK_MEM/RESTORE_WORKERS to ${RESTORE_DB}"
+fi
 log "created empty target database ${RESTORE_DB}"
+log "restore GUCs: maintenance_work_mem=${RESTORE_WORK_MEM_EFFECTIVE:-unknown} \
+max_parallel_maintenance_workers=${RESTORE_WORKERS_EFFECTIVE:-unknown}"
+if [ -n "$RESTORE_WORK_MEM" ]; then
+  log "RESTORE_WORK_MEM was set explicitly; pg_restore will replay indexes with it"
+else
+  log "using the server's maintenance_work_mem; set RESTORE_WORK_MEM when replaying"
+  log "a large HNSW index (64MB spills the graph and dominates the restore time)"
+fi
 start_disk_sampler
 log "disk sampler every ${DISK_SAMPLE_SECONDS}s -> ${DISK_SAMPLE_FILE}"
 
@@ -408,7 +476,9 @@ if ! docker exec -i "$CONTAINER" pg_restore -U "$DB_USER" -d "$RESTORE_DB" \
   fail 5 restore "pg_restore failed; the dump is readable but the copy could not be rebuilt"
 fi
 RESTORE_MS=$(elapsed "$RESTORE_START")
-log "pg_restore completed in ${RESTORE_MS} ms"
+reset_restore_guc
+log "pg_restore completed in ${RESTORE_MS} ms \
+(maintenance_work_mem=${RESTORE_WORK_MEM_EFFECTIVE:-unknown})"
 
 # ---------------------------------------------------------------------------
 # 4. Row-count parity                                                exit 6
@@ -564,19 +634,31 @@ WHERE schemaname='public' AND indexname='${HNSW_INDEX}';") \
     || fail 11 hnsw "could not inspect ${HNSW_INDEX} on the restored copy"
   HNSW_BUILD_VERSION=$(psql_run "$RESTORE_DB" \
     "SELECT extversion FROM pg_extension WHERE extname='vector';" || echo "")
+  # Unset means "do not override the server". The effective value is still
+  # recorded so the build time is attributable to a setting rather than to an
+  # assumption about the host.
+  HNSW_WORK_MEM_EFFECTIVE="${HNSW_WORK_MEM:-$(server_guc "$RESTORE_DB" maintenance_work_mem)}"
+  HNSW_WORKERS_EFFECTIVE="${HNSW_WORKERS:-$(server_guc "$RESTORE_DB" max_parallel_maintenance_workers)}"
+  HNSW_SQL=""
+  if [ -n "$HNSW_WORK_MEM" ]; then
+    HNSW_SQL="SET maintenance_work_mem = '${HNSW_WORK_MEM}';"
+  fi
+  if [ -n "$HNSW_WORKERS" ]; then
+    HNSW_SQL="${HNSW_SQL}
+SET max_parallel_maintenance_workers = ${HNSW_WORKERS};"
+  fi
   HNSW_START=$(ms_now)
   psql_run "$RESTORE_DB" "DROP INDEX IF EXISTS ${HNSW_INDEX};" >/dev/null \
     || fail 11 hnsw "could not drop ${HNSW_INDEX} on the restored copy"
   if ! docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$RESTORE_DB" \
        -v ON_ERROR_STOP=1 -t -A <<SQL
-SET maintenance_work_mem = '${HNSW_WORK_MEM}';
-SET max_parallel_maintenance_workers = ${HNSW_WORKERS};
+${HNSW_SQL}
 CREATE INDEX ${HNSW_INDEX} ON mem_observations USING hnsw (${HNSW_COLUMN} vector_cosine_ops)
   WITH (m = 16, ef_construction = 64);
 SQL
   then
     fail 11 hnsw "CREATE INDEX ${HNSW_INDEX} failed \
-(maintenance_work_mem=${HNSW_WORK_MEM}, workers=${HNSW_WORKERS})"
+(maintenance_work_mem=${HNSW_WORK_MEM_EFFECTIVE}, workers=${HNSW_WORKERS_EFFECTIVE})"
   fi
   HNSW_MS=$(elapsed "$HNSW_START")
   HNSW_VALID=$(psql_run "$RESTORE_DB" "SELECT i.indisvalid FROM pg_index i \
@@ -587,7 +669,9 @@ JOIN pg_class c ON c.oid = i.indexrelid WHERE c.relname = '${HNSW_INDEX}';") \
     "SELECT pg_relation_size('${HNSW_INDEX}'::regclass);")
   HNSW_STATE="pass"
   log "HNSW rebuild ${HNSW_INDEX}: ${HNSW_MS} ms, ${HNSW_INDEX_BYTES} bytes, \
-vector ${HNSW_BUILD_VERSION:-unknown}, dropped_existing=${HNSW_EXISTED}"
+vector ${HNSW_BUILD_VERSION:-unknown}, dropped_existing=${HNSW_EXISTED}, \
+maintenance_work_mem=${HNSW_WORK_MEM_EFFECTIVE:-unknown}, \
+workers=${HNSW_WORKERS_EFFECTIVE:-unknown}"
 fi
 
 # ---------------------------------------------------------------------------
