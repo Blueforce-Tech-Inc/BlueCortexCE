@@ -101,6 +101,8 @@ class L2MetricsEndpointTest extends HttpLayerTestSupport {
                 "stale queue gauge is missing");
         assertTrue(body.contains("cortexce_embedding_backlog"),
                 "embedding backlog gauge is missing");
+        assertEquals(1.0, sample(body, "cortexce_vector_indexes_valid", null),
+                "the HNSW validity gauge must report 1 when every index is usable");
 
         assertTrue(body.contains("cortexce_worker_processing_seconds_count{provider=\"openai\"}"),
                 "worker duration histogram is missing its provider-labelled count");

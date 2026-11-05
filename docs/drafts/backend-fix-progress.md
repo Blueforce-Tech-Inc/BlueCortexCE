@@ -4,6 +4,17 @@
 > **Updated by**: 定时项目维护任务。
 > **Update rule**: 新修复追加到顶部；超过文档增长阈值时保留未完成项并将已完成历史归档。
 
+## 2026-11-05 | 开发体验防线：恢复 GUC / 稳定性 / 架构守卫 / 错误码 / 迁移门槛
+
+**本批 6 项**（每项独立提交）：
+
+1. **恢复路径 GUC**：`scripts/backup-restore-drill.sh` 新增 `RESTORE_WORK_MEM` / `RESTORE_WORKERS` / `HNSW_WORK_MEM` / `HNSW_WORKERS`，默认**空 = 沿用服务器当前值**，不写死主机数值；显式值经 `ALTER DATABASE ... SET` 对 `pg_restore` 的新连接生效，恢复后重置，报告 JSON 记 `restore_guc` 的 effective 值。1M 实测（`RESTORE_WORK_MEM=1GB RESTORE_WORKERS=2`）：dump 12.3 s / 100.2 MB、恢复 83.3 s、检索 1.0 s（1,000,000 命中）、总计 99.8 s；对比上一轮默认 64 MB 恢复 2,447.9 s、HNSW 重建 550 s。`DEPLOYMENT*.md` 补「默认值代价」表（10 万 64MB/0w 561.6 s vs 1GB/2w 95.5 s，5.9×）。
+2. **测试稳定性**：新增 `scripts/repeat-tests.sh`（打包一次 → 迁移 seed 库 → 每轮 `CREATE DATABASE ... TEMPLATE seed` + Surefire 随机顺序 → 按 `(class, test)` 比对），`ROUNDS=3` 实测 **601 × 3 = 1,803 次执行，0 flaky / 0 missing / 0 failed-all**，报告 `docs/archive/2026-11-05_test-stability-3-rounds.md`（含 JSON）。前值只有单轮全绿，未测重复性，故 flaky 率从「未知」变为 0%。
+3. **架构守卫**：`ArchitectureGuardTest` 4 条规则（controller→repository 导入、service→controller 导入、controller 返回 entity、包依赖 SCC）。首次运行抓出真实违规：6 个 controller 直接导入 repository、`ViewerController` 三个方法返回 `PagedResponse<ObservationEntity>`。选择**基线白名单**而非重构：前者是只读查询的既有写法（改造成 service 层需动 WebUI 硬契约的分页行为），后者实体已排除向量列；基线在 `ARCHITECTURE*.md` 逐条写明理由，新增违规或基线过期都失败。
+4. **错误码注册表**：`ErrorCode` 枚举成为唯一来源（9 个 code），`ErrorResponses` 常量改读枚举，controller 全量替换；`ErrorCodeRegistryTest` 固定唯一性/snake_case/状态映射；`check-api-doc-surface.py` 改为**解析枚举**（不再硬编码），顺带修好旧表缺 `payload_too_large` / `service_unavailable` 的漂移。
+5. **迁移门槛**：`scripts/check-migrations.py` 只读静态分析（剥注释、同文件建表豁免非并发索引、`-- rollback:` 说明），存量 23 个文件进 `migration-baseline.json` 只报告，新迁移违规退出 1，接入 `verify-local.sh` 第 8 步。
+6. **剩余审计复核**：把上一轮「不做」的 HNSW 索引有效性改为**做**——它确实是运维必须看见的状态，而此前只有重建脚本的日志；新增 `cortexce.vector.indexes.valid` gauge（抓取期一次 `pg_index` 查询），`L2MetricsEndpointTest` 断言为 1.0，`API*.md` 指标表补行。其余 5 类（备份演练、dump 保留、队列 gauge、纯文档项、71 条 ⏸）复核后理由仍成立，见 `docs/archive/2026-11-05_audit-rescan-monitoring.md`——**该归档报告仍把 HNSW 有效性列为「不做」，以本条为准**（归档只读，不回改）。
+
 ## 2026-11-05 | 300 万行可行路径：按 scope 分片 vs 单库单图
 
 **改了什么**：新增 `scripts/bench-vector-sharding.py`（把 N 行拆到 N 张 `vec_p*` 表、每表一张本地 HNSW，服务端 `clock_timestamp()` 计时，并与 `cortexce_ops_1m` 单库 1M 图对比）。

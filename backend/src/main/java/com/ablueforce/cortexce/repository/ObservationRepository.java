@@ -429,6 +429,23 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
                                     @Param("model") String model);
 
     /**
+     * HNSW indexes the planner cannot use because a build left them invalid.
+     *
+     * <p>An interrupted non-concurrent `CREATE INDEX` leaves `indisvalid = false`;
+     * the table still answers queries, but vector search silently degrades to a
+     * sequential scan. The scraped gauge turns that into an alert instead of a
+     * latency mystery.
+     */
+    @Query(value = """
+        SELECT count(*)
+        FROM pg_index i
+        JOIN pg_class c ON c.oid = i.indexrelid
+        JOIN pg_am a ON a.oid = c.relam
+        WHERE a.amname = 'hnsw' AND NOT i.indisvalid
+        """, nativeQuery = true)
+    long countInvalidHnswIndexes();
+
+    /**
      * Record a terminal-for-now outcome without touching the observation body.
      *
      * <p>Only {@code embedding_state}/{@code embedding_error} change, and only while the row

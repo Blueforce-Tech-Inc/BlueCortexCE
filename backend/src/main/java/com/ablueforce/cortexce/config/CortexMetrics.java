@@ -50,6 +50,7 @@ public class CortexMetrics implements MeterBinder {
     static final String SEARCH_REQUESTS = "cortexce.search.requests";
     static final String SEARCH_TIMER = "cortexce.search.duration";
     static final String CIRCUIT_STATE = "cortexce.llm.circuit.state";
+    static final String VECTOR_INDEXES_VALID = "cortexce.vector.indexes.valid";
 
     /** Circuit states, one gauge each, so a scrape at idle names every state. */
     private static final List<String> CIRCUIT_STATES = List.of("closed", "half_open", "open");
@@ -116,6 +117,11 @@ public class CortexMetrics implements MeterBinder {
                 .strongReference(true)
                 .register(registry);
         }
+        Gauge.builder(VECTOR_INDEXES_VALID, this::vectorIndexesValid)
+            .description("1 when every HNSW index is valid, 0 when a build left one invalid, "
+                + "NaN when the catalog cannot be read")
+            .strongReference(true)
+            .register(registry);
 
         workerTimer = Timer.builder(WORKER_TIMER)
             .tag("provider", provider)
@@ -239,6 +245,21 @@ public class CortexMetrics implements MeterBinder {
             .minusSeconds(Math.max(1, staleThresholdMinutes) * 60L)
             .toEpochMilli();
         return pendingMessageRepository.countStale(threshold);
+    }
+
+    /**
+     * 1.0 when no HNSW index is invalid, 0.0 when at least one is.
+     *
+     * <p>The catalog query is one small read per scrape (15s by default), not
+     * per request. A failed read is NaN so Prometheus distinguishes "unknown"
+     * from "invalid".
+     */
+    private double vectorIndexesValid() {
+        try {
+            return observationRepository.countInvalidHnswIndexes() == 0 ? 1.0 : 0.0;
+        } catch (RuntimeException e) {
+            return Double.NaN;
+        }
     }
 
     /** 1.0 when the breaker is in the named state, 0.0 otherwise. */
